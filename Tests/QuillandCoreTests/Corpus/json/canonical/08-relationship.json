@@ -1,0 +1,13 @@
+{
+  "characters": [
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3303",
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3309"
+  ],
+  "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3307",
+  "kind": "sisters",
+  "links": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3302": "Mira refuses to open the door.",
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3306": "They stop speaking."
+  },
+  "notes": []
+}

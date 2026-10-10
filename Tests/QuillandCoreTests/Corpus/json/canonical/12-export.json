@@ -1,0 +1,51 @@
+{
+  "format": 1,
+  "last_profile": "Publisher DOCX",
+  "profiles": [
+    {
+      "cover": false,
+      "filters": {
+        "statuses": [
+          "revised",
+          "done"
+        ],
+        "tags": []
+      },
+      "footnotes": "page",
+      "format": "docx",
+      "headings": {
+        "chapter": {
+          "new_page": true,
+          "print": "number_and_title",
+          "template": "Chapter {number}. {title}",
+          "x_font": "serif"
+        },
+        "part": {
+          "new_page": true,
+          "print": "title"
+        },
+        "scene": {
+          "print": "none"
+        }
+      },
+      "name": "Publisher DOCX",
+      "scene_break": "mark",
+      "title_page": "manual",
+      "toc": true,
+      "x_layout": {
+        "margins": [
+          25,
+          25,
+          25,
+          25
+        ],
+        "paper": "A4"
+      }
+    },
+    {
+      "format": "pdf",
+      "name": "Reading copy",
+      "toc": false
+    }
+  ]
+}

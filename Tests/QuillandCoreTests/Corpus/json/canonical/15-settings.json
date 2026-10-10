@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "library": {
+    "known_books": [
+      {
+        "name": "Моя книга",
+        "path": "/Users/x/MyNovel"
+      }
+    ],
+    "last_opened": "/Users/x/MyNovel"
+  },
+  "llm": {
+    "base_url": "http://localhost:1234/v1",
+    "chat_model": "local-model",
+    "context_length": 32768,
+    "embedding_model": "nomic-embed-text-v1.5"
+  },
+  "roots": {
+    "library": "/Users/x/Research"
+  },
+  "storage": {
+    "default_folder": "/Users/x/Documents/Quilland-Library"
+  }
+}

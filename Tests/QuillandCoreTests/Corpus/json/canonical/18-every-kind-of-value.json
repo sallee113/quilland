@@ -1,0 +1,44 @@
+{
+  "a_null": null,
+  "b_true": true,
+  "c_false": false,
+  "d_int": 42,
+  "e_neg": -7,
+  "f_dec": 0.2,
+  "g_exp": 100000.0,
+  "h_empty_array": [],
+  "i_empty_object": {},
+  "j_nested": [
+    [
+      1,
+      [
+        2,
+        [
+          3,
+          []
+        ]
+      ]
+    ],
+    {
+      "k": {
+        "l": {
+          "m": []
+        }
+      }
+    }
+  ],
+  "k_mixed": [
+    1,
+    "a",
+    null,
+    true,
+    {
+      "x": 1
+    },
+    [
+      2
+    ]
+  ],
+  "l_string_empty": "",
+  "m_unicode_key_ёжик": "значение"
+}

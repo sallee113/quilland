@@ -1,0 +1,38 @@
+{
+  "entries": [
+    {
+      "end": 550,
+      "event": "3f2504e0-4f89-41d3-9a0c-0305e82c3306",
+      "label": "several years",
+      "lane": "3f2504e0-4f89-41d3-9a0c-0305e82c3320",
+      "start": 100,
+      "x_pinned": true
+    },
+    {
+      "event": "3f2504e0-4f89-41d3-9a0c-0305e82c330b",
+      "lane": "3f2504e0-4f89-41d3-9a0c-0305e82c3321",
+      "start": 300
+    },
+    {
+      "end": 800,
+      "event": "3f2504e0-4f89-41d3-9a0c-0305e82c330c",
+      "lane": "3f2504e0-4f89-41d3-9a0c-0305e82c3321",
+      "start": 300,
+      "x_future": {
+        "a": null
+      }
+    }
+  ],
+  "lanes": [
+    {
+      "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3320",
+      "name": "Earth",
+      "world": "3f2504e0-4f89-41d3-9a0c-0305e82c332a"
+    },
+    {
+      "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3321",
+      "name": "Flora 9",
+      "world": "3f2504e0-4f89-41d3-9a0c-0305e82c3304"
+    }
+  ]
+}

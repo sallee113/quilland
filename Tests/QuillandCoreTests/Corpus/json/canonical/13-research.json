@@ -1,0 +1,15 @@
+{
+  "file": {
+    "hash": "sha256:9f2c1d",
+    "path": "rivers/transport.pdf",
+    "root": "library",
+    "size": 4821033
+  },
+  "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3347",
+  "links": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3302": "How the river crossing worked",
+    "3f2504e0-4f89-41d3-9a0c-0305e82c333e": ""
+  },
+  "notes": "Chapters 3 and 4 are the useful ones.",
+  "title": "Notes on medieval river transport"
+}

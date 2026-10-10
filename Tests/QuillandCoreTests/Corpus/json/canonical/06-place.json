@@ -1,0 +1,18 @@
+{
+  "aliases": [
+    "Аврора",
+    "станция"
+  ],
+  "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3305",
+  "images": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3316.png": "Plan of the station"
+  },
+  "links": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3302": "Anna's first night here."
+  },
+  "name": "Станция Аврора",
+  "notes": [],
+  "parent": "3f2504e0-4f89-41d3-9a0c-0305e82c3308",
+  "type": "place",
+  "world": "3f2504e0-4f89-41d3-9a0c-0305e82c3304"
+}

@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "prompts": {
+    "continue_writing": "Write the next paragraph.",
+    "grammar.ru": "Fix the grammar of the Russian text below."
+  },
+  "temperatures": {
+    "chat": 0.7,
+    "continue_writing": 0.8,
+    "grammar.ru": 0.2
+  }
+}

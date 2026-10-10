@@ -1,0 +1,21 @@
+{
+  "annotations": [
+    {
+      "after": " said Anna.",
+      "before": "“Not now,”",
+      "fragment": "3f2504e0-4f89-41d3-9a0c-0305e82c3333",
+      "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3334",
+      "note": "Check the date of the letter.",
+      "quote": "the letter",
+      "start": 1432
+    },
+    {
+      "after": "",
+      "before": "",
+      "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3335",
+      "note": "Заметка без привязки",
+      "quote": "слово",
+      "start": -1
+    }
+  ]
+}

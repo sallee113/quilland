@@ -1,0 +1,31 @@
+{
+  "aliases": [
+    "Аня",
+    "доктор"
+  ],
+  "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3303",
+  "images": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3315.png": "Portrait"
+  },
+  "links": {
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3302": "Refuses help even when hurt.",
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3306": "Discusses a new car with friends.",
+    "3f2504e0-4f89-41d3-9a0c-0305e82c330a": ""
+  },
+  "main": true,
+  "name": "Анна Петровна",
+  "notes": [
+    "Wears her mother's ring."
+  ],
+  "pov_scenes": [
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3302"
+  ],
+  "worlds": [
+    "3f2504e0-4f89-41d3-9a0c-0305e82c3304"
+  ],
+  "x_future": [
+    1,
+    2.5,
+    "три"
+  ]
+}

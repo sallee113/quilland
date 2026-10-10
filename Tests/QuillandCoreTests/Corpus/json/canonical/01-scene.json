@@ -1,0 +1,30 @@
+{
+  "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3302",
+  "note": "Check the lighting against chapter 1.",
+  "status": "draft",
+  "synopsis": "Anna finds the letter and decides to hide it.",
+  "tags": [
+    "flashback",
+    "night"
+  ],
+  "target_characters": 7200,
+  "title": "In the attic",
+  "x_future": {
+    "a": [
+      1,
+      2,
+      {
+        "b": null
+      }
+    ],
+    "z": {
+      "deep": {
+        "deeper": [
+          true,
+          false
+        ]
+      }
+    }
+  },
+  "x_future_color": "red"
+}
