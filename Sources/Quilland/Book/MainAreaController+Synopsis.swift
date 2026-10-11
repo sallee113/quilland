@@ -50,6 +50,8 @@ extension MainAreaController {
             guard children.contains(where: { !$0.synopsis.isEmpty }) else { onAIStatus?(L("Nothing to write from: its scenes have no synopses yet.")); return }
             userText = SynopsisPrompt.userForSection(kind: kind, title: node.title, children: children)
         }
+        // Tab and Esc go to the field that holds the suggestion, so the field takes the keyboard (a click on the button left it elsewhere).
+        field.window?.makeFirstResponder(field)
         let existing = field.string
         field.ghost.replacesAll = !existing.isEmpty
         var finished = false
