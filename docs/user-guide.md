@@ -1,5 +1,7 @@
 # Quilland user guide
 
+English · [Français](user-guide.fr.md)
+
 Quilland is a writing workspace for macOS. A book is a folder of plain files on your disk: the text in Markdown, everything else in JSON. Nothing is sent anywhere. The optional AI helpers use a model that runs on your own computer, through [LM Studio](https://lmstudio.ai).
 
 Contents
@@ -92,7 +94,7 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 
 ## 4. Structure: parts, chapters, scenes
 
-A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure.
+A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure. The arrow beside the "+" under the tree closes every part and chapter, or opens them all again.
 
 The **Section** menu does the work:
 

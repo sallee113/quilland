@@ -20,7 +20,7 @@ The application has no third-party dependencies, only Apple's frameworks.
 
 ## Documentation
 
-See the [user guide](docs/user-guide.md).
+See the [user guide](docs/user-guide.md) ([en français](docs/user-guide.fr.md)).
 
 ## License
 
