@@ -18,6 +18,10 @@ swift test               # the unit tests
 
 The application has no third-party dependencies, only Apple's frameworks.
 
+## Documentation
+
+See the [user guide](docs/user-guide.md).
+
 ## License
 
 Quilland is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You are welcome to read it, run it, change it and fork it for any noncommercial purpose. You may not sell it or its modified versions, or use it in a commercial product or service, without the author's permission. It is not open source in the sense of the Open Source Initiative, because commercial use is not allowed.

@@ -109,6 +109,17 @@ final class AppSelfTest {
             guard let sceneID = book.main.session.structure.scenes.first?.id, let doc = book.main.session.document(sceneID) else { check(false, "a scene to proofread"); return 1 }
             app.modeBook(); spin(0.4)
             let tv = book.main.controllers.first?.currentSheet?.textView
+            if let tv, let w = tv.window {
+                tv.setSelectedRange(NSRange(location: 5, length: 4))
+                let ev = NSEvent.mouseEvent(with: .rightMouseDown, location: tv.convert(NSPoint(x: 20, y: 20), to: nil), modifierFlags: [], timestamp: 0, windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+                if let m = tv.menu(for: ev) {
+                    let extra = NSMenuItem(title: "Translate", action: Selector(("_translate:")), keyEquivalent: ""); m.insertItem(extra, at: 0); m.insertItem(.separator(), at: 1)
+                    tv.willOpenMenu(m, with: ev)
+                    let acts = m.items.compactMap { $0.action.map { NSStringFromSelector($0) } }
+                    check(acts.contains("cut:") && acts.contains("copy:") && acts.contains("paste:") && !m.items.contains { $0.title == "Font" || $0.title == "Substitutions" || $0.title == "Speech" || $0.title == "Translate" || $0.title == "Layout Orientation" }, "the editor's right-click menu keeps editing and drops fonts, substitutions, speech and the like", "\(m.items.map(\.title))")
+                    check(m.items.contains { $0.title == "Spelling and Grammar" } && m.items.first?.isSeparatorItem == false && m.items.last?.isSeparatorItem == false, "and keeps the spelling, with no separator at the ends", "\(m.items.map(\.title))")
+                }
+            }
             let original = tv?.string ?? doc.storage.string, cursor = tv?.selectedRange() ?? NSRange(location: 0, length: 0)
             tv?.string = original + "\nОн жил в доме - и ждал...\n- Привет!\nПрчина странная.\n"
             doc.textDidChange(); spin(0.2)

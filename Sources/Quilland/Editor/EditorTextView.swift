@@ -54,10 +54,20 @@ final class EditorTextView: NSTextView {
 
     /// The usual menu, and under it what the model can do here.
     override func menu(for event: NSEvent) -> NSMenu? {
+        // A Control-click comes here without passing the mouse handlers, and the system would show its own menu: ours is shown instead.
+        if event.type == .leftMouseDown {
+            DispatchQueue.main.async { [weak self] in self?.showOwnMenu(event) }
+            return nil
+        }
+        return makeMenu(for: event)
+    }
+
+    private func makeMenu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
         guard AIService.shared.isEnabled, let delegate = NSApp.delegate as? AppDelegate else { return menu }
         menu.addItem(.separator())
         let ai = NSMenuItem(title: L("AI"), action: nil, keyEquivalent: "")
+        ai.identifier = Self.aiMenuItem
         let sub = NSMenu(title: L("AI"))
         let ready = AIService.shared.isReady
         let hasSelection = selectedRange().length > 0
@@ -74,8 +84,58 @@ final class EditorTextView: NSTextView {
         return menu
     }
 
+    static let aiMenuItem = NSUserInterfaceItemIdentifier("quilland.ai")
+
+    /// What stays of the system's menu: editing, the spelling (its suggestions and its submenu) and our own AI. Fonts, substitutions, speech,
+    /// layout, translation, sharing, web search, services and the like have no use in a book (the text's look comes from Markdown).
+    static func keeps(_ item: NSMenuItem) -> Bool {
+        if item.isSeparatorItem || item.identifier == aiMenuItem { return true }
+        if item.submenu?.items.first?.identifier?.rawValue == "__NSTextViewContextSubmenuIdentifierSpellingAndGrammar" || item.identifier?.rawValue == "__NSTextViewContextSubmenuIdentifierSpellingAndGrammar" { return true }
+        guard let action = item.action else { return false }
+        let name = NSStringFromSelector(action)
+        return ["cut:", "copy:", "paste:", "pasteAsPlainText:"].contains(name) || name.localizedCaseInsensitiveContains("spelling") || name.localizedCaseInsensitiveContains("spellcheck")
+    }
+
+    static func trim(_ menu: NSMenu) {
+        for item in menu.items.reversed() where !keeps(item) { menu.removeItem(item) }
+        // No separator at the ends or two in a row.
+        var previousSeparator = true
+        for item in menu.items { if item.isSeparatorItem { if previousSeparator { menu.removeItem(item) } else { previousSeparator = true } } else { previousSeparator = false } }
+        if let last = menu.items.last, last.isSeparatorItem { menu.removeItem(last) }
+    }
+
+    /// The system adds some of its items (AutoFill, Services) after the menu is handed over, so the menu is trimmed again as it opens.
+    private final class MenuTrimmer: NSObject, NSMenuDelegate {
+        func menuWillOpen(_ menu: NSMenu) {
+            EditorTextView.trim(menu)
+            DispatchQueue.main.async { EditorTextView.trim(menu) }
+        }
+    }
+    private static let trimmer = MenuTrimmer()
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        Self.trim(menu)
+        menu.delegate = Self.trimmer
+    }
+
+    /// The menu is opened here, from our own trimmed menu: the system's way of opening a text view's menu adds AutoFill and Services itself, after anything we can do.
+    override func rightMouseDown(with event: NSEvent) {
+        guard window != nil else { super.rightMouseDown(with: event); return }
+        showOwnMenu(event)
+    }
+
+    private func showOwnMenu(_ event: NSEvent) {
+        guard window != nil, let menu = makeMenu(for: event) else { return }
+        Self.trim(menu)
+        guard !menu.items.isEmpty else { return }
+        menu.popUp(positioning: nil, at: convert(event.locationInWindow, from: nil), in: self)
+    }
+
     override func mouseDown(with event: NSEvent) {
         if hasGhost { discardGhost() }
+        // Control-click is a right click.
+        if event.modifierFlags.contains(.control), !event.modifierFlags.contains(.command) { rightMouseDown(with: event); return }
         super.mouseDown(with: event)
     }
 

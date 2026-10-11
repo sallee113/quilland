@@ -1,0 +1,295 @@
+# Quilland user guide
+
+Quilland is a writing workspace for macOS. A book is a folder of plain files on your disk: the text in Markdown, everything else in JSON. Nothing is sent anywhere. The optional AI helpers use a model that runs on your own computer, through [LM Studio](https://lmstudio.ai).
+
+Contents
+
+1. [Getting started](#1-getting-started)
+2. [The window](#2-the-window)
+3. [Writing](#3-writing)
+4. [Structure: parts, chapters, scenes](#4-structure-parts-chapters-scenes)
+5. [Characters, World, Events and relationships](#5-characters-world-events-and-relationships)
+6. [The Plan](#6-the-plan)
+7. [Search, Replace, Proofreading, Loose Ends](#7-search-replace-proofreading-loose-ends)
+8. [AI helpers](#8-ai-helpers)
+9. [Snapshots](#9-snapshots)
+10. [Import and export](#10-import-and-export)
+11. [Settings](#11-settings)
+12. [Keyboard shortcuts](#12-keyboard-shortcuts)
+13. [Your files](#13-your-files)
+14. [Troubleshooting](#14-troubleshooting)
+
+---
+
+## 1. Getting started
+
+**Build and open the app.** See the [README](../README.md): `./make-app.sh` makes `Quilland.app`, which you open like any Mac app.
+
+**A new book.** *File ▸ New Book…* asks for a name and a folder. You can start with the text or with the plan. The book appears as a folder; you can put it under Git, copy it, or open it again later with *File ▸ Open Book…* (⌘O) or *Open Recent*.
+
+**An existing manuscript.** *File ▸ Import…* (⇧⌘I) reads a Markdown, plain text or HTML file and offers to split it into chapters and scenes. See [Import and export](#10-import-and-export). Keep your original file: the import makes a copy.
+
+**Back up first.** Quilland is under construction. Besides the automatic [snapshots](#9-snapshots), keep your own copy of anything you care about.
+
+## 2. The window
+
+The View menu (⌘1–⌘8) chooses what the main area shows.
+
+**Writing views**
+
+| View | Key | What it is |
+| --- | --- | --- |
+| Panels | ⌘1 | The classic layout: the structure tree on the left, one scene in the middle, a tabbed panel on the right. |
+| Book | ⌘2 | The scenes one after another in a single scroll, like the manuscript. A thin header between scenes shows the title, the status and the count. Each scene is still its own file. |
+| Compare | ⌘3 | Two Book views side by side, both editable. You can open the same scene in both: it is one text with one undo history. |
+
+**Full-window views**
+
+| View | Key | What it is |
+| --- | --- | --- |
+| Outline | ⌘4 | The structure on the left, the details of the chosen section (synopsis, note, status) on the right. |
+| Plan | ⌘5 | A canvas of cards on plot lines. |
+| Characters | ⌘6 | Cards of characters and the relationships between them. |
+| World | ⌘7 | Worlds and places as a tree. |
+| Events | ⌘8 | Events of the story. |
+
+**Around the text**
+
+- **The right panel** has the tabs *Section*, *Characters*, *World*, *Events* and *Chat*. It follows the cursor after a short delay; tick *Pin* to hold it on one thing. Show or hide it with ⌥⌘R.
+- **The bottom panel** has *Search*, *Replace*, *Proofreading*, *Loose Ends* and *Suggestions*. It opens from the commands that use it.
+- **The status bar** shows the count of the scene where the cursor is, the count of the book and today's change, the input language, and "Saved".
+- **Focus Mode** (⌃⌘↩, in Book view) hides everything but the text and keeps the line you are typing in the middle of the screen.
+- **Typewriter Scrolling** (⌥⌘T) does the same in the ordinary views.
+- **Jump to Scene…** (⌘J) finds a scene by name.
+
+Dragging the borders between panels changes their sizes; Quilland remembers them.
+
+## 3. Writing
+
+The editor shows your text as it will look. The file is Markdown, but you do not type Markdown symbols: headings, bold, italic and set-off blocks are shown as formatted text.
+
+There is no formatting toolbar. Use the keyboard or the **Format** menu:
+
+| What | Key |
+| --- | --- |
+| Bold | ⌘B |
+| Italic | ⌘I |
+| Heading 1, 2, 3 | ⌥⌘1, ⌥⌘2, ⌥⌘3 |
+| Body text | ⌥⌘0 |
+| Set-off block (a quotation, a letter) | ⌘' |
+| Scene break | ⇧⌘↩ |
+| Footnote… | ⌃⌘N |
+
+**Typing corrections.** For Russian and English, Quilland can replace typed characters as you write: quotes, dashes in dialogue, and so on. The ellipsis is left as three dots. You can switch each correction in *Settings ▸ Writing*.
+
+**Spelling.** The system spell checker underlines mistakes. Right-click a word to see the corrections. *Add to Dictionary* in the proofreading panel teaches a word to the book only.
+
+**The right-click menu** is short: Cut, Copy, Paste, Paste and Match Style, Spelling and Grammar, and the AI submenu. The rest of the system's text menu (fonts, substitutions, speech and so on) is left out on purpose.
+
+**Book text size.** *View ▸ Larger Book Text / Smaller Book Text / Usual Book Text Size* (⌥⌘+, ⌥⌘−, ⌥⌘0) change the text size of the book. The font, line spacing and reading width are in *Settings ▸ Appearance*. These settings change only the book's text, not the labels of the application.
+
+**Undo and redo** (⌘Z, ⇧⌘Z) work in the text. Structure changes (moving or deleting sections) have their own undo, shown in a banner above the tree.
+
+## 4. Structure: parts, chapters, scenes
+
+A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure.
+
+The **Section** menu does the work:
+
+- *New Scene* (⌘N), *New Scene Before*, *New Chapter* (⇧⌘N), *New Part* (⌥⇧⌘N)
+- *Rename*, and *Status* (for example draft, done); the coloured dot in the tree shows the status
+- *Move Up / Move Down* (⌥⌘↑, ⌥⌘↓), or drag in the tree
+- *Split Scene Here* (⌥⌘↩) splits at the cursor; *Merge with Next / Previous Scene*; *Merge Chosen Scenes* joins the scenes you selected
+- *Group into a New Part…* and *Ungroup Part…*
+- *Delete…* always asks first
+
+Each section also has a **synopsis** and a **note**, edited in the *Section* tab of the right panel or in the Outline. The synopsis can be written by the AI (see below).
+
+## 5. Characters, World, Events and relationships
+
+These views keep cards: a name, aliases, a description, notes and fields of the kind. Quilland knows the names and aliases, so the right panel shows which characters and places appear in the scene you are writing.
+
+- **Characters** (⌘6): the list on the left, the card on the right. A character has a list of scenes where they appear and a list of relationships.
+- **Relationships** link two characters (for example "sister", "enemy") and can be opened as their own card.
+- **World** (⌘7): worlds and places as a tree, with a card for each.
+- **Events** (⌘8): things that happen in the story, with the scenes and characters they belong to.
+
+Names are matched by rules that handle Russian endings (an "Анне" is found as "Анна"), so an alias list is usually enough.
+
+## 6. The Plan
+
+The Plan (⌘5) is a canvas. A **card** is an idea for something that will happen. Cards stand on **plot lines**, the horizontal lanes with a name and a colour. Drag a card along or between lines. Events that are already written appear on the same canvas in grey, so you can see what is done and what is still planned.
+
+- Double-click a line's title to edit it, or right-click it for *Edit…*, colour, move and delete.
+- *Show from* limits the plan to part of the book.
+- ⌘+ and ⌘− zoom the canvas, ⌘0 fits it to the window.
+
+## 7. Search, Replace, Proofreading, Loose Ends
+
+All four live in the bottom panel.
+
+**Search** (⌘F) finds text as you type, in the scenes and, if you choose, in notes and synopses. ⌘G and ⇧⌘G go to the next and previous match.
+
+**Replace** (⌥⌘F) is deliberately careful. You choose each time what to search in. The results are unticked until you tick them. Return never replaces. Every replace shows a warning with *Cancel* as the default, takes a snapshot first, and can be undone. An empty replacement deletes the matches, and the button says so.
+
+**Proofreading** (⌥⌘P) lists problems in a scene, a chapter or the book:
+
+- *Rules*: typography, such as dashes, spaces and quotes
+- *Spelling*, using the system dictionary and your book's own dictionary (character names are not flagged)
+- *Check Grammar* uses the AI to propose corrections as a before/after pair
+
+Choose a finding to see what the rule does. *Accept* changes the text (⌘Z takes it back), *Dismiss* hides the finding for good, *Add to Dictionary* teaches a word, and *Accept All in this Scene* applies the whole list of that scene. *Show Dismissed Again* brings hidden findings back. Return never accepts a finding.
+
+**Loose Ends** (⌥⌘L) lists problems in the book itself: damaged or missing files and records that point at nothing, so you can see them and decide what to do.
+
+## 8. AI helpers
+
+The AI is optional. Everything else works without it. It uses a model that runs on your computer; nothing leaves it.
+
+**Set up**
+
+1. Install [LM Studio](https://lmstudio.ai) and load a model. Quilland was tuned with `qwen3-14b`; others may work worse.
+2. Start LM Studio's local server (the default address is `http://localhost:1234`).
+3. In Quilland, open *Settings ▸ AI* and press the connection check. It names the model and how many tokens it reads at once.
+
+The AI menu shows the connection status at the top. Anything the model proposes is a **suggestion**. Nothing is stored until you accept it.
+
+**What it can do**
+
+| Action | Where | What it does |
+| --- | --- | --- |
+| Continue Writing | AI menu, ⌃⌘G; right-click ▸ AI | Writes the next paragraph as faint text. **Tab** accepts it, **Esc** drops it. *…with a Direction* (⇧⌃⌘G) lets you say where it should go. |
+| Write Synopsis | AI menu, ⌃⌘Y; the *Write with AI* button in the Section tab | Writes a short summary of the scene into an empty synopsis. |
+| Collect from the Book… | AI menu, ⌥⌘K | Reads the scenes and proposes characters, places, events and relationships with the quotes they come from. Scenes already analysed are skipped next time. |
+| Check Consistency… | AI menu, ⌥⌘Y; right-click ▸ AI | Looks for contradictions between scenes (eye colour, age, who knows what). Each finding quotes both places. |
+| Check Grammar | AI menu, ⌥⇧⌘G; the Proofreading panel | Proposes corrections of grammar. |
+| Chat | the *Chat* tab of the right panel | Ask questions about your book. Attach the scene, characters, places or the plan with **@**. The model only answers; it changes nothing. |
+| Actions | AI menu ▸ Actions | Your own saved prompts. |
+
+All proposals go to the **Suggestions** tab of the bottom panel (⌥⇧⌘J). Tick what you want and accept it. Quotes are checked against the text, so a quote the model invented is dropped.
+
+**Your own prompts.** In the Chat tab, a prompt can be saved with *Save Prompt as Action…*. Saved actions appear in the AI menu and in *Settings ▸ AI Prompts* next to the built-in ones. The built-in prompts are marked "System"; yours are unmarked and can be renamed, edited and deleted. You can also change the wording of the built-in prompts there. The placeholder `{language}` is replaced by the book's language.
+
+A long job (collecting from the whole book, a consistency check) shows a progress bar and can be stopped.
+
+## 9. Snapshots
+
+A snapshot is a copy of the whole book at a moment. Quilland takes one automatically every 15 minutes while you write (change the interval in *Settings ▸ General*) and before risky operations such as Replace.
+
+- *File ▸ Save Snapshot* (⌘S) and *Save Named Snapshot…* (⌥⌘S) make your own.
+- *File ▸ Snapshots…* (⇧⌘S) lists them and restores one.
+- Snapshots are cheap: they share unchanged files on disk, and old ones are thinned out.
+
+## 10. Import and export
+
+**Import** (*File ▸ Import…*, ⇧⌘I) reads one Markdown, plain text or HTML file. Choose the encoding if the text looks wrong, and check the preview of the tree before you confirm. You can import into a new book or at the end of the open one. The import can be undone.
+
+Not built yet: importing a whole folder of Markdown files, and importing into the middle of a book.
+
+**Export** (*File ▸ Export…*, ⌘E) writes DOCX, PDF, FB2, EPUB, HTML or plain text (always UTF-8). The window has profiles, a list of the sections to include and a preview where Quilland draws the file itself. The DOCX files have been checked in Pages, not in Microsoft Word.
+
+## 11. Settings
+
+*Quilland ▸ Settings…* (⌘,) has these sections: General, Appearance, Writing, Panels, AI, AI Prompts and Shortcuts. The search field at the top finds a setting by its name.
+
+- **General:** interface language (English and Russian), the folder for books, the recent list, what opens at start, the snapshot interval.
+- **Appearance:** font, text size, line spacing, reading width of a sheet, light or dark.
+- **Writing:** typing corrections and spelling.
+- **Panels:** the right panel's tabs and how fast it follows the cursor.
+- **AI:** the address of LM Studio, the model, and the connection check.
+- **AI Prompts:** the prompts of each helper and your saved actions.
+- **Shortcuts:** change the key of any command. Select a row and press the new key.
+
+*Book ▸ Book Settings…* (⇧⌘,) holds what belongs to one book: its language, its title and cover, and its own dictionary.
+
+## 12. Keyboard shortcuts
+
+These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
+
+**Files**
+
+| Key | Command |
+| --- | --- |
+| ⌘N | New Book (only while no book is open; with a book open, ⌘N is New Scene) |
+| ⌘O | Open Book |
+| ⌘S | Save Snapshot |
+| ⌥⌘S | Save Named Snapshot |
+| ⇧⌘S | Snapshots |
+| ⇧⌘I | Import |
+| ⌘E | Export |
+
+**Views**
+
+| Key | Command |
+| --- | --- |
+| ⌘1 ⌘2 ⌘3 | Panels, Book, Compare |
+| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 | Outline, Plan, Characters, World, Events |
+| ⌘J | Jump to Scene |
+| ⌥⌘R | Show or hide the right panel |
+| ⌃⌘↩ | Focus Mode |
+| ⌥⌘T | Typewriter Scrolling |
+| ⌘+ ⌘− ⌘0 | Zoom the Plan or the Lab |
+| ⌥⌘+ ⌥⌘− ⌥⌘0 | Larger, smaller, usual book text size |
+
+**Finding and checking**
+
+| Key | Command |
+| --- | --- |
+| ⌘F, ⌥⌘F | Find, Replace |
+| ⌘G, ⇧⌘G | Find Next, Previous |
+| ⌥⌘P | Proofread |
+| ⌥⌘L | Loose Ends |
+
+**Writing**
+
+| Key | Command |
+| --- | --- |
+| ⌘B, ⌘I | Bold, italic |
+| ⌥⌘1 ⌥⌘2 ⌥⌘3 ⌥⌘0 | Headings 1–3, body text |
+| ⌘' | Set-off block |
+| ⇧⌘↩ | Scene break |
+| ⌃⌘N | Footnote |
+| ⌘N, ⇧⌘N, ⌥⇧⌘N | New scene (with a book open), chapter, part |
+| ⌥⌘↩ | Split scene here |
+| ⌥⌘↑, ⌥⌘↓ | Move section up, down |
+
+**AI**
+
+| Key | Command |
+| --- | --- |
+| ⌃⌘G | Continue Writing (Tab accepts, Esc drops) |
+| ⇧⌃⌘G | Continue Writing with a Direction |
+| ⌃⌘Y | Write Synopsis |
+| ⌥⌘K | Collect from the Book |
+| ⌥⇧⌘G | Check Grammar |
+| ⌥⌘Y | Check Consistency |
+| ⌥⇧⌘J | Show Suggestions |
+
+## 13. Your files
+
+A book is a folder. You can open it in Finder, put it under Git, and copy it. In outline:
+
+- `book.json`: the book's title, language and settings.
+- `manuscript/`: the structure. Each scene is a `.md` file (the text) with a `.json` file beside it (status, synopsis, note); chapters and parts are folders.
+- Folders for characters, world, events, relationships and the plan hold one JSON file per card.
+- Snapshots and the search cache are kept beside the book and are safe to delete; Quilland rebuilds the cache.
+
+Quilland's own settings live in your user folder: preferences, `prompts.json` (changed prompts) and `actions.json` (saved actions). You can back them up or copy them to another Mac.
+
+Edit the files outside Quilland only when the app is closed, and keep a copy. If a file is damaged, *Loose Ends* names it.
+
+## 14. Troubleshooting
+
+**The AI menu is greyed out.** The status line at the top of the AI menu says why: usually LM Studio is not running, its server is off, or no model is loaded. Fix that, then use the connection check in *Settings ▸ AI*.
+
+**A long AI job seems stuck.** Look for the progress bar and the orange status line. A local model can take minutes on a long book. The *Stop* button ends the job and keeps what was found.
+
+**The model's answers are poor or in the wrong language.** Try a larger model. Check the book's language in *Book Settings*, and read the prompt in *Settings ▸ AI Prompts*.
+
+**A name is not found in a scene.** Add the form as an alias on the card.
+
+**Something changed that should not have.** Open *File ▸ Snapshots…* and restore the book from before the change.
+
+**The app behaves strangely after an update.** Quit it fully (⌘Q), then open it again.
+
+If you find a problem, please report it with the steps that cause it.
