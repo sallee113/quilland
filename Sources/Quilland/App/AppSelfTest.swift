@@ -571,6 +571,32 @@ final class AppSelfTest {
 
         // The right panel.
         main.setRightPanel(true); spin(0.5)
+        // The Plan's cards and line headers react to the pointer.
+        do {
+            func look(_ v: NSView) -> Data? {
+                guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return nil }
+                v.cacheDisplay(in: v.bounds, to: rep)
+                return rep.representation(using: .tiff, properties: [:])
+            }
+            func enter(_ v: NSView, _ type: NSEvent.EventType) -> NSEvent? { NSEvent.enterExitEvent(with: type, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil) }
+            let card = PlanItemView(item: PlanItem(kind: .card, id: "x", title: "Приезд", text: "Анна приезжает.", colorName: "teal", lineIndex: 0, start: 0, floatingAt: nil), frame: NSRect(x: 0, y: 0, width: 150, height: 80))
+            let plain = look(card)
+            if let e = enter(card, .mouseEntered), let x = enter(card, .mouseExited) {
+                card.mouseEntered(with: e)
+                let lit = look(card)
+                card.mouseExited(with: x)
+                check(card.isHovered == false && plain != nil && plain != lit && look(card) == plain, "a Plan card is drawn differently with the pointer on it, and the same again after")
+                card.isTopLayer = false
+                card.mouseEntered(with: e)
+                check(!card.isHovered, "a card in the lower layer (which cannot be taken) does not react")
+                let header = PlanLineHeaderView(lineID: "l", name: "Линия", summary: nil, colorName: "teal", frame: NSRect(x: 0, y: 0, width: 150, height: 34))
+                let headerPlain = look(header)
+                header.mouseEntered(with: e)
+                let headerLit = look(header)
+                header.mouseExited(with: x)
+                check(headerPlain != nil && headerPlain != headerLit && look(header) == headerPlain, "and so is a line's header")
+            }
+        }
         // A tab strip lights the tab under the pointer.
         do {
             func strips(_ v: NSView) -> [NSSegmentedControl] { ((v as? NSSegmentedControl).map { [$0] } ?? []) + v.subviews.flatMap(strips) }

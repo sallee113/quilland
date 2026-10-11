@@ -43,6 +43,8 @@ final class PlanItemView: NSView {
     /// The upper layer casts a shadow on the one below, so that the offset between the two layers reads as depth.
     var isTopLayer = true { didSet { needsDisplay = true; layer?.shadowOpacity = isTopLayer ? 0.35 : 0 } }
     var isSelected = false { didSet { needsDisplay = true } }
+    /// The pointer is over it (only the upper layer reacts: it is the one that can be taken).
+    private(set) var isHovered = false { didSet { if isHovered != oldValue { needsDisplay = true } } }
     weak var delegate: PlanItemViewDelegate?
     private var dragOffset = NSPoint.zero
     private var didDrag = false
@@ -63,23 +65,38 @@ final class PlanItemView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
+    // MARK: The pointer
+
+    override func updateTrackingAreas() {
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+        super.updateTrackingAreas()
+    }
+    override func mouseEntered(with event: NSEvent) { isHovered = isTopLayer }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+    /// The hand that can take it.
+    override func resetCursorRects() { if isTopLayer { addCursorRect(bounds, cursor: .openHand) } }
+
     override func draw(_ dirtyRect: NSRect) {
         let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
         let accent = PlanColors.color(item.colorName)
+        let lit = isHovered && isTopLayer
         if item.kind == .card {
             (isTopLayer ? NSColor.controlBackgroundColor : NSColor.controlBackgroundColor.withAlphaComponent(0.55)).setFill()
             path.fill()
+            if lit { NSColor.labelColor.withAlphaComponent(0.09).setFill(); path.fill() }
             (isTopLayer ? accent : NSColor.tertiaryLabelColor).setStroke()
-            path.lineWidth = isSelected ? 2 : 1
+            path.lineWidth = isSelected || lit ? 2 : 1
             path.stroke()
             accent.withAlphaComponent(isTopLayer ? 1 : 0.4).setFill()
             NSRect(x: 0, y: 14, width: 4, height: bounds.height - 28).fill()
         } else {
             (isTopLayer ? NSColor.controlBackgroundColor : NSColor.windowBackgroundColor.withAlphaComponent(0.7)).setFill()
             path.fill()
-            NSColor.tertiaryLabelColor.setStroke()
-            path.lineWidth = isSelected ? 2 : 1
+            if lit { NSColor.labelColor.withAlphaComponent(0.09).setFill(); path.fill() }
+            (lit ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor).setStroke()
+            path.lineWidth = isSelected || lit ? 2 : 1
             path.stroke()
         }
         if isTopLayer {
@@ -166,6 +183,21 @@ final class PlanLineHeaderView: NSView {
 
     @objc private func checkClicked() { onToggle?() }
 
+    private(set) var isHovered = false { didSet { if isHovered != oldValue { needsDisplay = true } } }
+
+    override func updateTrackingAreas() {
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+        super.updateTrackingAreas()
+    }
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+    /// The hand that can take the header (sideways), and the pointing hand over the arrow that opens its menu.
+    override func resetCursorRects() {
+        addCursorRect(NSRect(x: 0, y: 0, width: max(0, bounds.width - 28), height: bounds.height), cursor: .openHand)
+        addCursorRect(NSRect(x: max(0, bounds.width - 28), y: 0, width: 28, height: bounds.height), cursor: .pointingHand)
+    }
+
     // The checkbox takes its own click; the rest of the header is this view's: a double click edits the line, the arrow opens the menu,
     // and dragging sideways moves the line to another place among the others.
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -216,7 +248,7 @@ final class PlanLineHeaderView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let c = PlanColors.color(colorName)
-        c.withAlphaComponent(0.18).setFill()
+        c.withAlphaComponent(isHovered ? 0.32 : 0.18).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
         NSAttributedString(string: "▾", attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: c]).draw(at: NSPoint(x: bounds.width - 16, y: (bounds.height - 14) / 2))
     }
