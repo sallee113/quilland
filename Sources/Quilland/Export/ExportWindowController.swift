@@ -49,7 +49,7 @@ final class ExportWindowController: NSObject, NSWindowDelegate, NSOutlineViewDat
     private let tagsField = NSTextField()
     private let outline = Hover.rows(NSOutlineView())
     private let summaryLabel = NSTextField(wrappingLabelWithString: "")
-    private let previewSwitch = NSSegmentedControl(labels: [L("Titles"), L("Page")], trackingMode: .selectOne, target: nil, action: nil)
+    private let previewSwitch = Hover.segments(NSSegmentedControl(labels: [L("Titles"), L("Page")], trackingMode: .selectOne, target: nil, action: nil))
     private let titlesView = NSTextView()
     private let titlesScroll = NSScrollView()
     private let webView = WKWebView(frame: .zero)

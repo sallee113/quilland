@@ -138,6 +138,92 @@ enum Hover {
         @objc(cursorUpdate:) func cursorUpdate(with event: NSEvent) { if enabled { NSCursor.pointingHand.set() } }
     }
 
+    // MARK: Tab strips
+
+    /// A strip of segments (tabs) lights the segment under the pointer, unless it is the chosen one or is off.
+    @discardableResult
+    static func segments<T: NSSegmentedControl>(_ control: T) -> T {
+        objc_setAssociatedObject(control, &key, SegmentHover(control), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return control
+    }
+
+    /// Where each segment is, in the control's own coordinates. The control gives no frames, but it is made of accessibility elements that know theirs; failing that,
+    /// the segments with no width of their own share what is left.
+    static func segmentFrames(of control: NSSegmentedControl) -> [NSRect] {
+        let count = control.segmentCount
+        guard count > 0, control.bounds.width > 0 else { return [] }
+        // The control's one accessibility child is its cell, and the cell's children are the segments, each knowing its frame (on the screen).
+        if let window = control.window, let cell = control.accessibilityChildren()?.first as? NSObject,
+           let children = cell.value(forKey: "accessibilityChildren") as? [NSObject] {
+            let frames = children.compactMap { child -> NSRect? in
+                guard let screen = (child.value(forKey: "accessibilityFrame") as? NSValue)?.rectValue else { return nil }
+                return control.convert(window.convertFromScreen(screen), from: nil)
+            }.sorted { $0.minX < $1.minX }
+            if frames.count == count { return frames }
+        }
+        let fixed = (0..<count).reduce(CGFloat(0)) { $0 + control.width(forSegment: $1) }
+        let flexible = (0..<count).filter { control.width(forSegment: $0) == 0 }.count
+        let share = flexible > 0 ? max(0, control.bounds.width - fixed) / CGFloat(flexible) : 0
+        var x: CGFloat = 0
+        return (0..<count).map { i in
+            let w = control.width(forSegment: i) == 0 ? share : control.width(forSegment: i)
+            defer { x += w }
+            return NSRect(x: x, y: 0, width: w, height: control.bounds.height)
+        }
+    }
+
+    /// For the automatic checks: lights a segment as if the pointer were over it (-1: none).
+    static func setHoveredSegment(_ control: NSSegmentedControl, _ index: Int) { (objc_getAssociatedObject(control, &key) as? SegmentHover)?.set(index) }
+
+    private final class SegmentOverlay: NSView {
+        var rect: NSRect?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func draw(_ dirtyRect: NSRect) {
+            guard let rect else { return }
+            NSColor.labelColor.withAlphaComponent(0.16).setFill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: 2, dy: 2), xRadius: 5, yRadius: 5).fill()
+        }
+    }
+
+    private final class SegmentHover: NSObject {
+        weak var control: NSSegmentedControl?
+        private let overlay = SegmentOverlay()
+        private var hovered = -1
+
+        init(_ control: NSSegmentedControl) {
+            self.control = control
+            super.init()
+            overlay.frame = control.bounds
+            overlay.autoresizingMask = [.width, .height]
+            overlay.isHidden = true
+            control.addSubview(overlay)
+            control.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+        }
+
+        func set(_ index: Int) {
+            guard let control else { return }
+            var index = index
+            let frames = Hover.segmentFrames(of: control)
+            if index < 0 || index >= frames.count || index == control.selectedSegment || !control.isEnabled || !control.isEnabled(forSegment: index) { index = -1 }
+            hovered = index
+            overlay.frame = control.bounds
+            overlay.rect = index >= 0 ? frames[index] : nil
+            overlay.isHidden = index < 0
+            overlay.needsDisplay = true
+        }
+
+        private func segment(at event: NSEvent) -> Int {
+            guard let control else { return -1 }
+            let point = control.convert(event.locationInWindow, from: nil)
+            return Hover.segmentFrames(of: control).firstIndex { $0.contains(point) } ?? -1
+        }
+
+        @objc(mouseMoved:) func mouseMoved(with event: NSEvent) { set(segment(at: event)) }
+        @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { set(segment(at: event)) }
+        @objc(mouseExited:) func mouseExited(with event: NSEvent) { set(-1) }
+        @objc(cursorUpdate:) func cursorUpdate(with event: NSEvent) { if control?.isEnabled == true { NSCursor.pointingHand.set() } }
+    }
+
     // MARK: Every button
 
     nonisolated(unsafe) private static var installed = false

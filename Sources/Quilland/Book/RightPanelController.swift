@@ -41,7 +41,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private(set) var pinned = false
     private var followTimer: Timer?
 
-    private let tabs = NSSegmentedControl(labels: [L("Section"), L("Characters")], trackingMode: .selectOne, target: nil, action: nil)
+    private let tabs = Hover.segments(NSSegmentedControl(labels: [L("Section"), L("Characters")], trackingMode: .selectOne, target: nil, action: nil))
     /// The tabs shown (Settings ▸ Panels lets the author hide the ones not used), and the one that is open.
     private(set) var visibleTabs: [Tab] = [.section, .characters]
     private var shownTab = Tab.section

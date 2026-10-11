@@ -202,7 +202,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     var onChange: (() -> Void)?
     /// Over the canvas: the mode, + Line, + Card and the zoom (the Plan view of the application; the Lab has its own).
     var showsControls = false
-    private let modeControl = NSSegmentedControl(labels: [L("Plan"), L("Events")], trackingMode: .selectOne, target: nil, action: nil)
+    private let modeControl = Hover.segments(NSSegmentedControl(labels: [L("Plan"), L("Events")], trackingMode: .selectOne, target: nil, action: nil))
     private var undoStack: [(label: String, state: PlanStore.State)] = []
     private var redoStack: [(label: String, state: PlanStore.State)] = []
     private let banner = NSVisualEffectView()

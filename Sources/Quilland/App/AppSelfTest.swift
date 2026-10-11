@@ -571,6 +571,28 @@ final class AppSelfTest {
 
         // The right panel.
         main.setRightPanel(true); spin(0.5)
+        // A tab strip lights the tab under the pointer.
+        do {
+            func strips(_ v: NSView) -> [NSSegmentedControl] { ((v as? NSSegmentedControl).map { [$0] } ?? []) + v.subviews.flatMap(strips) }
+            let found = again.window.contentView.map(strips)?.filter { $0.segmentCount >= 2 && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor } ?? []
+            if let strip = found.first {
+                let frames = Hover.segmentFrames(of: strip)
+                let ordered = zip(frames, frames.dropFirst()).allSatisfy { $0.maxX <= $1.minX + 1 }
+                let equal = frames.dropFirst().allSatisfy { abs($0.width - frames[0].width) < 0.5 }
+                check(frames.count == strip.segmentCount && ordered && frames.allSatisfy { $0.width > 10 } && !equal && frames[0].minX < 6 && frames.last!.maxX > strip.bounds.width - 6, "the frames of the tabs are their real ones (each as wide as its label needs), one after another", "\(frames)")
+                func look() -> Data? {
+                    guard let rep = strip.bitmapImageRepForCachingDisplay(in: strip.bounds) else { return nil }
+                    strip.cacheDisplay(in: strip.bounds, to: rep)
+                    return rep.representation(using: .tiff, properties: [:])
+                }
+                let other = (0..<strip.segmentCount).first { $0 != strip.selectedSegment } ?? 0
+                let plain = look()
+                Hover.setHoveredSegment(strip, other)
+                let shown = look()
+                Hover.setHoveredSegment(strip, -1)
+                check(plain != nil && plain != shown && look() == plain, "a tab under the pointer looks different, and the same again after")
+            } else { check(false, "there is a tab strip to light") }
+        }
         if let viewMenu = NSApp.mainMenu?.items.first(where: { $0.submenu?.title == L("View") })?.submenu {
             func ticked(_ title: String) -> Bool? { viewMenu.update(); return viewMenu.items.first { $0.title == L(title) }?.state == .on }
             check(ticked("Panels") == true && ticked("Book") == false && ticked("Right Panel") == true, "View ▸ Panels and Right Panel are ticked while they are in use")

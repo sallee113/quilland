@@ -16,7 +16,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
 
     let findField = NSSearchField()
     let replaceField = NSTextField()
-    private let modeControl = NSSegmentedControl(labels: [L("Search"), L("Replace"), L("Proofreading"), L("Loose Ends"), L("Suggestions")], trackingMode: .selectOne, target: nil, action: nil)
+    private let modeControl = Hover.segments(NSSegmentedControl(labels: [L("Search"), L("Replace"), L("Proofreading"), L("Loose Ends"), L("Suggestions")], trackingMode: .selectOne, target: nil, action: nil))
     private let scopePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private var optionBoxes: [NSButton] = []
     private var sourceBoxes: [SearchSource: NSButton] = [:]
