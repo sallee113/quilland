@@ -23,7 +23,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
     private let header = NSView()
     private let headerLabel = NSTextField(labelWithString: L("Replace — this changes your book"))
     private let summary = NSTextField(labelWithString: "")
-    private let outline = NSOutlineView()
+    private let outline = Hover.rows(NSOutlineView())
     private let checkAll = NSButton(title: L("Check All"), target: nil, action: nil)
     let replaceButton = NSButton(title: L("Replace 0 checked"), target: nil, action: nil)
     private let banner = NSTextField(labelWithString: "")
@@ -54,6 +54,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
         closeButton.isBordered = false
         closeButton.target = self; closeButton.action = #selector(close)
         closeButton.toolTip = L("Close (Esc)")
+        Hover.button(closeButton)
         for s in SearchScope.allCases { scopePopup.addItem(withTitle: s.title) }
         scopePopup.selectItem(at: SearchScope.book.rawValue)
         scopePopup.target = self; scopePopup.action = #selector(queryChanged)

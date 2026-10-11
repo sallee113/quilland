@@ -4,7 +4,7 @@ import QuillandCore
 /// What is shown when no book is open: New Book, Open Book, and the recent books.
 final class WelcomeWindowController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     let window: NSWindow
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private var books: [AppSettings.KnownBook] = []
     var onNewBook: (() -> Void)?
     var onOpenBook: (() -> Void)?

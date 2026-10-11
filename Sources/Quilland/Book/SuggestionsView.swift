@@ -8,7 +8,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     var onBusyChanged: ((Bool) -> Void)?
     private enum Row { case group(String, Int); case item(CollectedItem); case finding(ConsistencyFinding) }
     private var rows: [Row] = []
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let status = NSTextField(labelWithString: "")
     private let bar = NSProgressIndicator()
     private let collectButton = NSButton(title: L("Collect from the Book…"), target: nil, action: nil)

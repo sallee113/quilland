@@ -456,6 +456,70 @@ final class AppSelfTest {
         check(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).count == 1, "what was deleted is in the trash folder, not gone")
         check(BookStructure.problemsFree(folder), "the book on disk reads without problems")
         check(NSApp.mainMenu?.items.contains { $0.submenu?.title == "Debug" } == false, "there is no Debug menu")
+        // A list lights the row under the pointer, and only a row that can be chosen.
+        do {
+            func outlineIn(_ v: NSView) -> NSOutlineView? { (v as? NSOutlineView) ?? v.subviews.lazy.compactMap(outlineIn).first }
+            if let tree = main.tree?.view, let outline = outlineIn(tree), outline.numberOfRows > 1 {
+                Hover.setHoveredRow(outline, 1)
+                let lit = outline.rowView(atRow: 1, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
+                Hover.setHoveredRow(outline, 0)
+                let first = outline.rowView(atRow: 0, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0, second = outline.rowView(atRow: 1, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
+                Hover.setHoveredRow(outline, -1)
+                let after = outline.rowView(atRow: 0, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
+                check(lit > 0.01 && first > 0.01 && second < 0.01 && after < 0.01, "a row is lit while the pointer is over it, and only that one", "\(lit) \(first) \(second) \(after)")
+                // And it is drawn: the row looks different while it is lit.
+                func look(_ row: Int) -> Data? {
+                    guard let rv = outline.rowView(atRow: row, makeIfNecessary: false), let rep = rv.bitmapImageRepForCachingDisplay(in: rv.bounds) else { return nil }
+                    rv.cacheDisplay(in: rv.bounds, to: rep)
+                    return rep.representation(using: .tiff, properties: [:])
+                }
+                let plain = look(1)
+                Hover.setHoveredRow(outline, 1)
+                let shown = look(1)
+                Hover.setHoveredRow(outline, -1)
+                check(plain != nil && plain != shown, "and the lit row is drawn differently")
+            } else { check(false, "the tree has rows to light") }
+        }
+        do {
+            func buttons(_ v: NSView) -> [NSButton] { ((v as? NSButton).map { [$0] } ?? []) + v.subviews.flatMap(buttons) }
+            var missing: [String] = []
+            for w in NSApp.windows where !(w is NSPanel) { if let c = w.contentView { for b in buttons(c) where b.action != nil && !(b is NSPopUpButton) && !Hover.isAttached(b) && !(b.superview is NSSearchField) && !b.title.isEmpty { missing.append(b.title) } } }
+            check(missing.isEmpty, "every titled button in the windows reacts to the pointer", "\(missing)")
+        }
+        // A button that is off is faded, one that works is not.
+        do {
+            let probe = NSButton(title: "Probe", target: app, action: #selector(AppDelegate.findAction))
+            probe.bezelStyle = .inline
+            again.window.contentView?.addSubview(probe); spin(0.1)
+            let on = probe.alphaValue
+            probe.isEnabled = false; spin(0.1)
+            let off = probe.alphaValue
+            probe.isEnabled = true; spin(0.1)
+            let back = probe.alphaValue
+            // The look under the pointer, drawn: a corner-free spot at the edge of the button changes.
+            func picture(_ v: NSView) -> Data? {
+                guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return nil }
+                v.cacheDisplay(in: v.bounds, to: rep)
+                return rep.representation(using: .tiff, properties: [:])
+            }
+            probe.frame = NSRect(x: 0, y: 0, width: 90, height: 22); probe.layoutSubtreeIfNeeded()
+            let before = picture(probe)
+            Hover.simulateHover(probe, true)
+            let during = picture(probe)
+            Hover.simulateHover(probe, false)
+            let after = picture(probe)
+            check(before != during && before == after, "a button looks different with the pointer on it, and the same again after")
+            // The system sends mouseEntered: and mouseExited: to the owner of a tracking area: the owner must answer to exactly those names.
+            let owners = probe.trackingAreas.compactMap { $0.owner as? NSObject }
+            check(owners.contains { $0.responds(to: NSSelectorFromString("mouseEntered:")) && $0.responds(to: NSSelectorFromString("mouseExited:")) && $0.responds(to: NSSelectorFromString("cursorUpdate:")) }, "a button's pointer tracking answers to the messages the system sends")
+            func tablesIn(_ v: NSView) -> [NSTableView] { ((v as? NSTableView).map { [$0] } ?? []) + v.subviews.flatMap(tablesIn) }
+            if let table = again.window.contentView.map(tablesIn)?.first {
+                let rowOwners = table.trackingAreas.compactMap { $0.owner as? NSObject }
+                check(rowOwners.contains { $0.responds(to: NSSelectorFromString("mouseMoved:")) && $0.responds(to: NSSelectorFromString("mouseExited:")) }, "and so does a list's")
+            }
+            probe.removeFromSuperview()
+            check(on == 1 && off < 0.6 && back == 1, "a button that is switched off is faded, and a button that works is not", "\(on) \(off) \(back)")
+        }
         // The Section menu offers only what can be done.
         do {
             again.window.makeKeyAndOrderFront(nil); spin(0.2)

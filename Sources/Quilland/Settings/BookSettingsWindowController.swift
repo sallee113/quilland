@@ -18,7 +18,7 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
     private let languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     let targetField = NSTextField()
     private let coverLabel = NSTextField(labelWithString: "")
-    private let wordTable = NSTableView()
+    private let wordTable = Hover.rows(NSTableView())
     let addWordField = NSTextField()
     private let countLabel = NSTextField(labelWithString: "")
     private static let languages = [("ru", L("Russian")), ("en", L("English")), ("uk", L("Ukrainian")), ("de", L("German")), ("fr", L("French")), ("es", L("Spanish")), ("it", L("Italian")), ("pl", L("Polish"))]

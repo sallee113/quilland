@@ -4,7 +4,7 @@ import QuillandCore
 /// A list with a card under it, the shape of the World and Events tabs of the right panel: the things found in the scene (or all of them), and the chosen one.
 class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextViewDelegate, NSTextFieldDelegate {
     let allBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    let table = NSTableView()
+    let table = Hover.rows(NSTableView())
     let openButton = NSButton(title: "", target: nil, action: nil)
     let heading = NSTextField(labelWithString: "")
     let detail = NSTextField(wrappingLabelWithString: "")

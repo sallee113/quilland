@@ -34,7 +34,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         var id: String { node.id }
     }
 
-    private let outline = TreeOutlineView()
+    private let outline = Hover.rows(TreeOutlineView())
     private let scroll = NSScrollView()
     private var roots: [Item] = []
     private var byID: [String: Item] = [:]
@@ -139,6 +139,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         addButton.setAccessibilityLabel(L("Add a section"))
         addButton.toolTip = L("Add a scene, a chapter or a part (⌘N adds a scene)")
         addButton.translatesAutoresizingMaskIntoConstraints = false
+        Hover.button(addButton)
         footer.addSubview(addButton)
         NSLayoutConstraint.activate([
             addButton.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: 8), addButton.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
@@ -148,6 +149,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         foldButton.imagePosition = .imageOnly
         foldButton.target = self
         foldButton.action = #selector(foldAll)
+        Hover.button(foldButton)
         foldButton.translatesAutoresizingMaskIntoConstraints = false
         footer.addSubview(foldButton)
         NSLayoutConstraint.activate([

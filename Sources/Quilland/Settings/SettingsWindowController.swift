@@ -24,7 +24,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     var onClose: (() -> Void)?
     private var shown: [Section] = Section.allCases
     private(set) var current = Section.general
-    private let list = NSTableView()
+    private let list = Hover.rows(NSTableView())
     private let search = NSSearchField()
     private let host = NSView()
     private var pages: [Section: NSView] = [:]

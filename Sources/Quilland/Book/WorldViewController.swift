@@ -27,7 +27,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
 
     let filterField = NSSearchField()
     let addField = NSTextField()
-    private let outline = NSOutlineView()
+    private let outline = Hover.rows(NSOutlineView())
     private let newWorldButton = NSButton(title: L("New World"), target: nil, action: nil)
     private let emptyLabel = NSTextField(labelWithString: "")
 
@@ -41,7 +41,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     let descriptionView = NSTextView()
     let notesView = NSTextView()
     private let scenesCaption = NSTextField(labelWithString: "")
-    private let sceneTable = NSTableView()
+    private let sceneTable = Hover.rows(NSTableView())
     private var sceneScroll = NSScrollView()
     private let countLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton(title: L("Delete…"), target: nil, action: nil)

@@ -23,6 +23,7 @@ final class UndoBannerView: NSView {
         closeButton.isBordered = false
         closeButton.target = self; closeButton.action = #selector(close)
         closeButton.setAccessibilityLabel(L("Close"))
+        Hover.button(closeButton)
         for v in [label, undoButton, closeButton] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12), label.centerYAnchor.constraint(equalTo: centerYAnchor),

@@ -115,7 +115,7 @@ final class ProofreadingView: NSView, NSTableViewDataSource, NSTableViewDelegate
     private var dismissals = ProofreadingDismissals()
     private let scopePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let summary = NSTextField(labelWithString: "")
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let acceptButton = NSButton(title: L("Accept"), target: nil, action: nil)
     private let dismissButton = NSButton(title: L("Dismiss"), target: nil, action: nil)
     private let acceptAllButton = NSButton(title: L("Accept All in This Scene"), target: nil, action: nil)

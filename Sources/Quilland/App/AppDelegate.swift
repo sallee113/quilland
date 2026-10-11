@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         applyAppearance()
+        Hover.installForAllButtons()
         buildMenu()
         AIService.shared.onChange = { [weak self] in self?.updateAIStatusItem(); self?.settingsWindow?.refreshAll() }
         // Ask LM Studio once at the start, so that the actions know whether they can run (the checks do not).

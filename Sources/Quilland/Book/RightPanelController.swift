@@ -68,7 +68,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     // Characters tab
     private let allBox = NSButton(checkboxWithTitle: L("All characters"), target: nil, action: nil)
     private let addButton = NSButton(title: L("New Character"), target: nil, action: nil)
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let nameField = NSTextField()
     private let aliasField = NSTextField()
     private let mainBox = NSButton(checkboxWithTitle: L("Main character"), target: nil, action: nil)

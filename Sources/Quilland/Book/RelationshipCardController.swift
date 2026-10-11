@@ -16,10 +16,10 @@ final class RelationshipCardController: NSViewController, NSTableViewDataSource,
     private(set) var members: [String] = []
     private(set) var sceneRows: [CharacterSceneRow] = []
     let kindField = NSTextField()
-    private let membersTable = NSTableView()
+    private let membersTable = Hover.rows(NSTableView())
     private let addPopup = NSPopUpButton(frame: .zero, pullsDown: true)
     let notes = NSTextView()
-    private let sceneTable = NSTableView()
+    private let sceneTable = Hover.rows(NSTableView())
     private let deleteButton = NSButton(title: L("Delete Relationship…"), target: nil, action: nil)
     private var notesDirty = false
     private var saveTimer: Timer?

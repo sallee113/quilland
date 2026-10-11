@@ -31,7 +31,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     let filterField = NSSearchField()
     let addField = NSTextField()
-    private let list = NSTableView()
+    private let list = Hover.rows(NSTableView())
     private let emptyLabel = NSTextField(labelWithString: L("Add your first event"))
 
     private let cardScroll = NSScrollView()
@@ -41,7 +41,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     let dateField = NSTextField()
     let descriptionView = NSTextView()
     let notesView = NSTextView()
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let addButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let removeButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
     private let planLabel = NSTextField(labelWithString: "")

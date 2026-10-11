@@ -17,6 +17,7 @@ final class JumpBarView: NSView {
             button.isBordered = false
             button.toolTip = tip
             button.setAccessibilityLabel(tip)
+            Hover.button(button)
         }
         path.bezelStyle = .texturedRounded
         path.isBordered = false
@@ -24,6 +25,7 @@ final class JumpBarView: NSView {
         path.lineBreakMode = .byTruncatingMiddle
         path.font = .systemFont(ofSize: 12)
         path.toolTip = L("Jump to a scene (⌘J)")
+        Hover.button(path)
         for v in [previous, path, next] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         NSLayoutConstraint.activate([
             previous.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10), previous.centerYAnchor.constraint(equalTo: centerYAnchor),

@@ -19,6 +19,8 @@ if CommandLine.arguments.contains("--selftest-app") {
 }
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
+// Before the first window is made: a button reacts to the pointer from the start.
+Hover.installForAllButtons()
 let delegate = AppDelegate()
 app.delegate = delegate
 if CommandLine.arguments.contains("--selftest-lab") {

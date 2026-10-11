@@ -6,7 +6,7 @@ final class LooseEndsView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     weak var main: MainAreaController?
     private(set) var ends: [LooseEnd] = []
     private let summary = NSTextField(labelWithString: "")
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let explanation = NSTextField(wrappingLabelWithString: "")
     private let repointButton = NSButton(title: L("Point to…"), target: nil, action: nil)
     private let removeButton = NSButton(title: L("Remove"), target: nil, action: nil)

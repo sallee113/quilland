@@ -17,7 +17,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     let relCard = RelationshipCardController()
     private(set) var selectedRelationship: String?
     private var shownRelationships: [RelationshipRecord] = []
-    private let relList = NSTableView()
+    private let relList = Hover.rows(NSTableView())
     private let addRelationshipButton = NSButton(title: L("New Relationship…"), target: nil, action: nil)
     private let relationshipsLabel = NSTextField(wrappingLabelWithString: "")
     /// The scenes of the book in order, with their titles and where they sit.
@@ -35,7 +35,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     // List
     let filterField = NSSearchField()
     let addField = NSTextField()
-    private let list = NSTableView()
+    private let list = Hover.rows(NSTableView())
     private let emptyLabel = NSTextField(labelWithString: L("Add your first character"))
 
     // Card
@@ -46,7 +46,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     let mainBox = NSButton(checkboxWithTitle: L("Main character"), target: nil, action: nil)
     let profile = NSTextView()
     let notes = NSTextView()
-    private let sceneTable = NSTableView()
+    private let sceneTable = Hover.rows(NSTableView())
     private let deleteButton = NSButton(title: L("Delete Character…"), target: nil, action: nil)
     private let nothing = NSTextField(labelWithString: "")
     private var dirty: Set<String> = []

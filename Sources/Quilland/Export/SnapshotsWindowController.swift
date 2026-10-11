@@ -36,8 +36,8 @@ final class SnapshotsWindowController: NSObject, NSWindowDelegate, NSTableViewDa
     private(set) var filter = Filter.all
 
     private let filterPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let snapshotTable = NSTableView()
-    private let changeTable = NSTableView()
+    private let snapshotTable = Hover.rows(NSTableView())
+    private let changeTable = Hover.rows(NSTableView())
     private let compareView = NSTextView()
     private let headerLabel = NSTextField(labelWithString: "")
     private let restoreButton = NSButton(title: L("Restore This…"), target: nil, action: nil)

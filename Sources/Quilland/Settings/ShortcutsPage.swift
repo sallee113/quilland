@@ -83,7 +83,7 @@ final class ShortcutRecorderView: NSView {
 /// The Shortcuts section of Settings: every action of the menus with its shortcut; Change…, Clear and Default for the chosen one.
 final class ShortcutsPage: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     let view = NSView()
-    private let table = NSTableView()
+    private let table = Hover.rows(NSTableView())
     private let changeButton = NSButton(title: L("Change…"), target: nil, action: nil)
     private let clearButton = NSButton(title: L("Clear"), target: nil, action: nil)
     private let defaultButton = NSButton(title: L("Default"), target: nil, action: nil)

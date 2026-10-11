@@ -47,7 +47,7 @@ final class ExportWindowController: NSObject, NSWindowDelegate, NSOutlineViewDat
     private var headingNewPage: [String: NSButton] = [:]
     private var statusBoxes: [String: NSButton] = [:]
     private let tagsField = NSTextField()
-    private let outline = NSOutlineView()
+    private let outline = Hover.rows(NSOutlineView())
     private let summaryLabel = NSTextField(wrappingLabelWithString: "")
     private let previewSwitch = NSSegmentedControl(labels: [L("Titles"), L("Page")], trackingMode: .selectOne, target: nil, action: nil)
     private let titlesView = NSTextView()
