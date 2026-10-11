@@ -78,6 +78,8 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     var onRename: ((String, String) -> Void)?
     /// A command from the context menu or a key: its name and the section it is about.
     var onCommand: ((Command, String) -> Void)?
+    /// Can the command be done now? (A command that cannot is shown grey in the context menu.)
+    var canDo: ((Command) -> Bool)?
 
     enum Command { case newSceneAfter, newSceneBefore, newChapter, newPart, moveUp, moveDown, delete, status(String), mergeNext, mergePrevious, group, ungroup }
 
@@ -383,11 +385,16 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        menu.autoenablesItems = false
         guard !choosesOnClick else { return }
         let clicked = outline.clickedRow
         if clicked >= 0 { outline.selectRowIndexes(IndexSet(integer: clicked), byExtendingSelection: false) }
         guard let id = selectedID, let item = byID[id] else { return }
-        func add(_ title: String, _ command: Command) { menu.addItem(ClosureMenuItem(title: title) { [weak self] in self?.onCommand?(command, id) }) }
+        func add(_ title: String, _ command: Command) {
+            let entry = ClosureMenuItem(title: title) { [weak self] in self?.onCommand?(command, id) }
+            entry.isEnabled = canDo?(command) ?? true
+            menu.addItem(entry)
+        }
         add(L("New Scene After"), .newSceneAfter)
         add(L("New Scene Before"), .newSceneBefore)
         add(L("New Chapter"), .newChapter)

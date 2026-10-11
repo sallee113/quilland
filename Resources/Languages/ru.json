@@ -431,7 +431,6 @@
     "Choose an event": "Выберите событие",
     "Choose one or more chapters that are not in a part.": "Выберите одну или несколько глав, которые не входят в часть.",
     "Choose two characters and say what they are to each other. More can be added on the card.": "Выберите двух персонажей и скажите, кем они приходятся друг другу. Остальных можно добавить на карточке.",
-    "Choose two or more scenes that follow one another.": "Выберите две или больше сцен, идущих подряд.",
     "Choose…": "Выбрать…",
     "Clean Up Now": "Очистить сейчас",
     "Clear": "Убрать",
@@ -966,8 +965,6 @@
     "The text, snapshot against now": "Текст: снимок и сейчас",
     "The title of the part:": "Название части:",
     "The whole book": "Вся книга",
-    "There is no scene after this one.": "После этой сцены нет другой.",
-    "There is no scene before this one.": "Перед этой сценой нет другой.",
     "This folder is not a Quilland book": "Эта папка не является книгой Quilland",
     "This kind of item cannot be copied.": "Этот вид элемента копировать нельзя.",
     "This scene has too little text for a synopsis.": "В этой сцене слишком мало текста для синопсиса.",
@@ -1128,6 +1125,14 @@
     "Learn Spelling": "Запомнить слово",
     "Ignore Spelling": "Игнорировать слово",
     "Collapse All Sections": "Свернуть все разделы",
-    "Expand All Sections": "Развернуть все разделы"
+    "Expand All Sections": "Развернуть все разделы",
+    "Only scenes of one chapter can be merged.": "Объединять можно только сцены одной главы.",
+    "There is no scene after this one in the chapter.": "В этой главе нет сцены после этой.",
+    "There is no scene before this one in the chapter.": "В этой главе нет сцены перед этой.",
+    "Choose two or more scenes that follow one another in one chapter.": "Выберите две или больше сцен одной главы, идущих подряд.",
+    "Merge “{second}” into “{first}”?": "Объединить «{second}» с «{first}»?",
+    "Merge the chosen scenes into “{first}”?": "Объединить выбранные сцены с «{first}»?",
+    "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Текст, синопсис, заметка и теги другой сцены добавляются после тех, что есть у первой, ссылки на неё указывают на первую, а сама она попадает в папку корзины книги (.quilland/trash). Это можно отменить.",
+    "Merge": "Объединить"
   }
 }

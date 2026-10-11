@@ -12,7 +12,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate, NSTableViewData
     var onImport: (() -> Void)?
 
     override init() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 420), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 460), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         super.init()
         window.title = L("Quilland")
         window.isReleasedWhenClosed = false
@@ -24,10 +24,10 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate, NSTableViewData
         let subtitle = NSTextField(labelWithString: L("A local-first workspace for writers"))
         subtitle.textColor = .secondaryLabelColor
         func button(_ title: String, _ action: Selector) -> NSButton { let b = NSButton(title: title, target: self, action: action); b.bezelStyle = .rounded; b.controlSize = .large; return b }
-        let newButton = button("New Book…", #selector(newBook))
+        let newButton = button(L("New Book…"), #selector(newBook))
         newButton.keyEquivalent = "\r"
         let importButton = button(L("Import a Text…"), #selector(importText))
-        let buttons = NSStackView(views: [newButton, button("Open Book…", #selector(openBook)), importButton])
+        let buttons = NSStackView(views: [newButton, button(L("Open Book…"), #selector(openBook)), importButton])
         buttons.spacing = 10
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("book"))
@@ -46,11 +46,25 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate, NSTableViewData
         let recents = NSTextField(labelWithString: L("Recent books"))
         recents.textColor = .secondaryLabelColor
 
-        let stack = NSStackView(views: [title, subtitle, buttons, recents, scroll])
+        // The application's icon beside the name.
+        let icon = NSImageView(image: NSImage(named: "AppIcon") ?? NSApp.applicationIconImage)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.setAccessibilityLabel(L("Quilland"))
+        NSLayoutConstraint.activate([icon.widthAnchor.constraint(equalToConstant: 96), icon.heightAnchor.constraint(equalToConstant: 96)])
+        let names = NSStackView(views: [title, subtitle])
+        names.orientation = .vertical
+        names.alignment = .leading
+        names.spacing = 4
+        let header = NSStackView(views: [icon, names])
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 16
+
+        let stack = NSStackView(views: [header, buttons, recents, scroll])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
-        stack.setCustomSpacing(20, after: subtitle)
         stack.setCustomSpacing(24, after: buttons)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let content = NSView()

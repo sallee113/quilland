@@ -437,10 +437,65 @@ final class AppSelfTest {
         check(main.session.structure.roots.count == 1 && main.session.structure.scenes.count == 2 && main.currentSceneID != nil, "Delete removes the chapter, and the cursor stays in a scene that is left")
         check(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).count == 1, "what was deleted is in the trash folder, not gone")
         check(BookStructure.problemsFree(folder), "the book on disk reads without problems")
+        check(NSApp.mainMenu?.items.contains { $0.submenu?.title == "Debug" } == false, "there is no Debug menu")
+        // The Section menu offers only what can be done.
+        do {
+            again.window.makeKeyAndOrderFront(nil); spin(0.2)
+            func on(_ action: Selector, status: String? = nil) -> Bool {
+                let item = NSMenuItem(title: "x", action: action, keyEquivalent: "")
+                item.representedObject = status
+                return app.validateMenuItem(item)
+            }
+            let ids = main.session.structure.scenes.map(\.id)
+            main.tree?.select(ids[0]); spin(0.2)
+            check(!on(#selector(AppDelegate.moveSectionUp)) && on(#selector(AppDelegate.moveSectionDown)) && !on(#selector(AppDelegate.mergePreviousScene)) && on(#selector(AppDelegate.mergeNextScene)), "the first scene cannot move up or merge with a previous one")
+            check(on(#selector(AppDelegate.setSectionStatus(_:)), status: "draft") && !on(#selector(AppDelegate.ungroupPart)) && !on(#selector(AppDelegate.mergeChosenScenes)), "a scene has a status, is not a part, and has no chosen scenes to merge")
+            // The real menu shows it: the items are dimmed.
+            if let section = NSApp.mainMenu?.items.first(where: { $0.submenu?.title == L("Section") })?.submenu {
+                main.tree?.select(ids[0]); spin(0.2)
+                section.update()
+                func enabled(_ action: Selector) -> Bool? { section.items.first { $0.action == action }?.isEnabled }
+                check(enabled(#selector(AppDelegate.moveSectionUp)) == false && enabled(#selector(AppDelegate.moveSectionDown)) == true && enabled(#selector(AppDelegate.mergePreviousScene)) == false, "in the Section menu the items that cannot be done are dimmed", "\(String(describing: enabled(#selector(AppDelegate.moveSectionUp)))) \(String(describing: enabled(#selector(AppDelegate.moveSectionDown))))")
+            } else { check(false, "the Section menu is there") }
+            main.tree?.select(ids[1]); spin(0.2)
+            check(on(#selector(AppDelegate.moveSectionUp)) && !on(#selector(AppDelegate.moveSectionDown)) && on(#selector(AppDelegate.mergePreviousScene)) && !on(#selector(AppDelegate.mergeNextScene)), "the last scene cannot move down or merge with a next one")
+            let chapterID = main.session.structure.roots[0].id
+            // Two chapters: the last scene of the first does not merge with the first scene of the second, and the menu says so.
+            main.add(.chapter); spin(0.5)
+            let all = main.session.structure.scenes.map(\.id)
+            let lastOfFirst = main.session.structure.roots[0].children.last!.id, firstOfSecond = main.session.structure.roots[1].children[0].id
+            check(all.firstIndex(of: firstOfSecond) == all.firstIndex(of: lastOfFirst)! + 1, "the new chapter's scene follows the first chapter's last scene in the book")
+            main.tree?.select(lastOfFirst); spin(0.2)
+            check(!on(#selector(AppDelegate.mergeNextScene)) && on(#selector(AppDelegate.mergePreviousScene)), "the last scene of a chapter cannot merge with the next chapter's scene")
+            main.tree?.select(firstOfSecond); spin(0.2)
+            check(!on(#selector(AppDelegate.mergePreviousScene)), "nor the first scene of a chapter with the previous chapter's")
+            let before = main.session.structure.scenes.count
+            main.merge(lastOfFirst, direction: 1); spin(0.3)
+            check(main.session.structure.scenes.count == before, "and Merge does nothing across chapters even if it is asked to")
+            // A scene at the edge of its chapter moves into the next one.
+            main.tree?.select(lastOfFirst); spin(0.2)
+            check(on(#selector(AppDelegate.moveSectionDown)), "the last scene of a chapter can move down into the next chapter")
+            main.move(lastOfFirst, by: 1); spin(0.6)
+            check(main.session.structure.roots[1].children.first?.id == lastOfFirst && main.session.structure.roots[1].children.count == 2, "Move Down puts it first in the next chapter")
+            main.move(lastOfFirst, by: -1); spin(0.6)
+            check(main.session.structure.roots[0].children.last?.id == lastOfFirst, "and Move Up brings it back to the end of the first")
+            main.delete(main.session.structure.roots[1].id, confirm: false); spin(0.5)
+            main.tree?.select(chapterID); spin(0.2)
+            check(!on(#selector(AppDelegate.setSectionStatus(_:)), status: "draft") && !on(#selector(AppDelegate.mergeNextScene)) && !on(#selector(AppDelegate.moveSectionUp)) && on(#selector(AppDelegate.groupIntoPart)) && on(#selector(AppDelegate.renameSection)) && on(#selector(AppDelegate.deleteSection)), "a lone chapter has no status and cannot move, but can be grouped, renamed and deleted")
+            main.tree?.select(ids[1]); spin(0.2)
+            check(on(#selector(AppDelegate.newScene)) && on(#selector(AppDelegate.newChapter)) && on(#selector(AppDelegate.newPart)), "new scene, chapter and part are always offered")
+        }
         again.save()
 
         // The right panel.
         main.setRightPanel(true); spin(0.5)
+        if let viewMenu = NSApp.mainMenu?.items.first(where: { $0.submenu?.title == L("View") })?.submenu {
+            func ticked(_ title: String) -> Bool? { viewMenu.update(); return viewMenu.items.first { $0.title == L(title) }?.state == .on }
+            check(ticked("Panels") == true && ticked("Book") == false && ticked("Right Panel") == true, "View ▸ Panels and Right Panel are ticked while they are in use")
+            main.setRightPanel(false); main.setMode(.book); spin(0.4)
+            check(ticked("Panels") == false && ticked("Book") == true && ticked("Right Panel") == false, "and the ticks move with the view and the panel")
+            main.setMode(.panels); main.setRightPanel(true); spin(0.4)
+        } else { check(false, "the View menu is there") }
         let panel = main.rightPanel
         again.window.contentView?.layoutSubtreeIfNeeded()
         panel.followDelay = 0.3
@@ -934,7 +989,7 @@ final class AppSelfTest {
         sc2 = scenesNow()
         let anna2 = try! m2.characters.add(name: "Анна")
         try! m2.characters.update(anna2) { $0.links = [sc2[1].id: "приходит"] }
-        m2.merge(sc2[0].id, direction: 1); spin(0.6)
+        m2.merge(sc2[0].id, direction: 1, confirm: false); spin(0.6)
         sc2 = scenesNow()
         let mergedText = (try? String(contentsOf: m2.session.structure.markdownURL(for: m2.session.structure.scenes[0].node), encoding: .utf8)) ?? ""
         check(sc2.count == 1 && mergedText.contains("Первый абзац.") && mergedText.contains("Третий абзац."), "Merge with Next joins two scenes into the first")
@@ -1271,7 +1326,7 @@ final class AppSelfTest {
 
         // Book Settings.
         app.showBookSettings(); spin(0.3)
-        check(app.bookSettingsWindowCount == 1, "Book ▸ Book Settings… opens the window for the book")
+        check(app.bookSettingsWindowCount == 1, "File ▸ Book Settings… opens the window for the book")
         if let bs = app.bookSettingsController(for: stFolder) {
             bs.apply { $0.title = "Новое имя" }
             spin(0.2)

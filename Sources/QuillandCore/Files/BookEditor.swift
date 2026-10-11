@@ -186,6 +186,30 @@ public struct BookEditor {
         return true
     }
 
+    /// The chapters in book order (those in parts too).
+    public var chaptersInOrder: [BookStructure.Node] {
+        structure.roots.flatMap { $0.kind == .part ? $0.children.filter { $0.kind == .chapter } : ($0.kind == .chapter ? [$0] : []) }
+    }
+
+    /// Can the section be moved one place up (-1) or down (1)? A scene at the edge of its chapter can cross into the neighbouring chapter.
+    public func canMove(_ id: String, by step: Int) -> Bool {
+        guard let here = locate(id), let index = here.siblings.firstIndex(where: { $0.id == id }) else { return false }
+        if here.siblings.indices.contains(index + step) { return true }
+        guard here.node.kind == .scene, let parent = here.parent, let at = chaptersInOrder.firstIndex(where: { $0.id == parent.id }) else { return false }
+        return chaptersInOrder.indices.contains(at + step)
+    }
+
+    /// Like `move(_:by:)`, but a scene at the edge of its chapter goes into the neighbouring chapter: to the end of the one before, or the start of the one after.
+    @discardableResult
+    public func moveAcrossChapters(_ id: String, by step: Int) throws -> Bool {
+        guard let here = locate(id), let index = here.siblings.firstIndex(where: { $0.id == id }) else { throw Failure(description: L("No such section.")) }
+        if here.siblings.indices.contains(index + step) || here.node.kind != .scene { return try move(id, by: step) }
+        let chapters = chaptersInOrder
+        guard let parent = here.parent, let at = chapters.firstIndex(where: { $0.id == parent.id }), chapters.indices.contains(at + step) else { return false }
+        let target = chapters[at + step]
+        return try move(id, toParent: target.id, at: step > 0 ? 0 : target.children.count)
+    }
+
     /// Moves a section under another parent (a chapter for a scene, a part or the book for a chapter, the book for a part) at `index`
     /// among the parent's children as they are now (the index of a drop, before the section is taken out). One journalled change.
     /// Returns false when the section would stay where it is.
@@ -259,6 +283,7 @@ public struct BookEditor {
         guard let a = locate(firstID), let b = locate(secondID), a.node.kind == .scene, b.node.kind == .scene, firstID != secondID else {
             throw Failure(description: L("Two scenes are needed."))
         }
+        guard a.parent?.id == b.parent?.id else { throw Failure(description: L("Only scenes of one chapter can be merged.")) }
         let first = MarkdownParser.parse((try? String(contentsOf: structure.markdownURL(for: a.node), encoding: .utf8)) ?? "")
         let second = MarkdownParser.parse((try? String(contentsOf: structure.markdownURL(for: b.node), encoding: .utf8)) ?? "")
         let merged = MarkdownWriter.write(Document(first.blocks + second.blocks))

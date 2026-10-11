@@ -1,7 +1,7 @@
 import AppKit
 import QuillandCore
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
     let settings: AppSettings
     let welcome = WelcomeWindowController()
     private(set) var bookWindows: [BookWindowController] = []
@@ -326,7 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         func add(_ menu: NSMenu, _ title: String, _ action: Selector?, _ key: String = "", _ modifiers: NSEvent.ModifierFlags = [.command], target: AnyObject? = nil) {
             var key = key, modifiers = modifiers
             // An action of the app (not a standard command of the responder chain) can be given another shortcut, or none.
-            if target === self, let action, menu.title != "Debug" {
+            if target === self, let action {
                 let id = NSStringFromSelector(action)
                 let defaults = Shortcut(keyEquivalent: key, modifiers: modifiers)
                 shortcutCatalog.append((id, menu.title + " ▸ " + title.replacingOccurrences(of: "…", with: ""), defaults))
@@ -368,6 +368,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(file, L("Import…"), #selector(showImport), "i", [.command, .shift], target: self)
         add(file, L("Export…"), #selector(showExport), "e", target: self)
         file.addItem(.separator())
+        add(file, L("Book Settings…"), #selector(showBookSettings), ",", [.command, .shift], target: self)
+        file.addItem(.separator())
         add(file, L("Close"), #selector(NSWindow.performClose(_:)), "w")
 
         let edit = submenu(L("Edit"))
@@ -400,7 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(view, L("Right Panel"), #selector(toggleRightPanel), "r", [.command, .option], target: self)
         add(view, L("Focus Mode"), #selector(toggleFocusMode), "\r", [.command, .control], target: self)
         add(view, L("Typewriter Scrolling"), #selector(toggleTypewriter), "t", [.command, .option], target: self)
-        // These zoom the Plan's canvas or the Lab.
+        // These zoom the Plan's canvas.
         add(view, L("Zoom In"), #selector(zoomIn), "+", [.command], target: self)
         add(view, L("Zoom Out"), #selector(zoomOut), "-", [.command], target: self)
         add(view, L("Fit"), #selector(zoomFit), "0", [.command], target: self)
@@ -408,9 +410,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(view, L("Larger Book Text"), #selector(appLarger), "+", [.command, .option], target: self)
         add(view, L("Smaller Book Text"), #selector(appSmaller), "-", [.command, .option], target: self)
         add(view, L("Usual Book Text Size"), #selector(appUsualSize), "0", [.command, .option], target: self)
-
-        let bookMenu = submenu(L("Book"))
-        add(bookMenu, L("Book Settings…"), #selector(showBookSettings), ",", [.command, .shift], target: self)
 
         let format = submenu(L("Format"))
         add(format, L("Bold"), Selector(("toggleBold:")), "b")
@@ -455,13 +454,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(section, L("Ungroup Part…"), #selector(ungroupPart), "", target: self)
         section.addItem(.separator())
         add(section, L("Delete…"), #selector(deleteSection), "", target: self)
-
-        let debug = submenu("Debug")
-        add(debug, "Lab Window", #selector(showLab), "l", [.command, .option, .shift], target: self)
-        add(debug, "Open Lab Sample Book", #selector(labSample), "1", [.command, .option], target: self)
-        add(debug, "Generate a 100-Scene Book", #selector(labBig), "2", [.command, .option], target: self)
-        add(debug, "Generate a Full Demo Book", #selector(demoBook), "4", [.command, .option], target: self)
-        add(debug, "Generate a Demo Plan", #selector(labPlan), "3", [.command, .option], target: self)
 
         // The AI actions arrive here; for now its settings and whether the model answers.
         let aiMenu = submenu(L("AI"))
@@ -551,7 +543,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func toggleFocusMode() { if let m = keyBook?.main { m.setFocusMode(!m.focusMode) } }
 
     /// Focus Mode is for Book mode only; its item shows whether it is on.
+    static let sectionActions: Set<Selector> = [#selector(newScene), #selector(newSceneBefore), #selector(newChapter), #selector(newPart), #selector(renameSection), #selector(setSectionStatus(_:)),
+                                                #selector(moveSectionUp), #selector(moveSectionDown), #selector(splitScene), #selector(mergeNextScene), #selector(mergePreviousScene),
+                                                #selector(mergeChosenScenes), #selector(groupIntoPart), #selector(ungroupPart), #selector(deleteSection)]
+
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(showBookSettings) { return keyBook != nil }
+        // The view in use and the right panel are ticked.
+        let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeCompare), .compare), (#selector(modeOutline), .outline),
+                                                            (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events)]
+        if let action = item.action, let view = views.first(where: { $0.0 == action }) {
+            item.state = keyBook?.main.mode == view.1 ? .on : .off
+            return keyBook != nil
+        }
+        if item.action == #selector(toggleRightPanel) {
+            item.state = keyBook?.main.showsRightPanel == true ? .on : .off
+            return keyBook != nil
+        }
+        if item.action == #selector(zoomIn) || item.action == #selector(zoomOut) || item.action == #selector(zoomFit) { return keyBook?.main.planController != nil }
         if item.action == #selector(synopsisAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(continueAction) || item.action == #selector(continueDirectionAction) {
             let main = keyBook?.main
@@ -561,6 +570,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if item.action == #selector(consistencyAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(collectAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(showSuggestionsAction) { return keyBook != nil }
+        // The Section menu follows what is chosen: nothing that cannot be done is offered.
+        if let action = item.action, Self.sectionActions.contains(action) {
+            guard let main = keyBook?.main else { return false }
+            let state = main.sectionState()
+            switch action {
+            case #selector(renameSection), #selector(deleteSection): return state.hasSection
+            case #selector(moveSectionUp): return state.canMoveUp
+            case #selector(moveSectionDown): return state.canMoveDown
+            case #selector(mergeNextScene): return state.hasNextScene
+            case #selector(mergePreviousScene): return state.hasPreviousScene
+            case #selector(mergeChosenScenes): return state.canMergeChosen
+            case #selector(groupIntoPart): return state.canGroup
+            case #selector(ungroupPart): return state.isPart
+            case #selector(splitScene): return state.canSplit
+            case #selector(setSectionStatus(_:)):
+                item.state = state.isScene && (item.representedObject as? String) == state.status ? .on : .off
+                return state.isScene
+            default: return true
+            }
+        }
         if item.action == #selector(toggleFocusMode) {
             let main = keyBook?.main
             item.state = main?.focusMode == true ? .on : .off
@@ -572,9 +601,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         return true
     }
-    @objc private func zoomIn() { if let plan = keyBook?.main.planController { plan.zoomIn() } else { lab.zoomIn() } }
-    @objc private func zoomOut() { if let plan = keyBook?.main.planController { plan.zoomOut() } else { lab.zoomOut() } }
-    @objc private func zoomFit() { if let plan = keyBook?.main.planController { plan.zoomToFit() } else { lab.zoomFit() } }
+    @objc private func zoomIn() { if let plan = keyBook?.main.planController { plan.zoomIn() } }
+    @objc private func zoomOut() { if let plan = keyBook?.main.planController { plan.zoomOut() } }
+    @objc private func zoomFit() { if let plan = keyBook?.main.planController { plan.zoomToFit() } }
 
     /// One step bigger or smaller: the book's text by a point.
     @objc func appLarger() { stepAppSize(1) }
@@ -587,30 +616,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // The Lab: the harness the design's riskiest parts were tried in (kept for the automatic checks).
-    @objc private func showLab() { lab.show() }
-    @objc private func labSample() {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("QuillandLab/SampleBook")
-        try? FileManager.default.removeItem(at: folder)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? SampleBook.write(into: folder)
-        lab.show(); lab.load(folder: folder)
-    }
-    @objc private func labBig() {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("QuillandLab/Big")
-        try? FileManager.default.removeItem(at: folder)
-        try? LabBookGenerator.generate(into: folder)
-        lab.show(); lab.load(folder: folder)
-    }
-    /// A big book with everything in it, written into Documents (a name already taken gets a number) and opened.
-    @objc private func demoBook() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        var folder = documents.appendingPathComponent("Quilland Demo Book"), n = 2
-        while FileManager.default.fileExists(atPath: folder.path) { folder = documents.appendingPathComponent("Quilland Demo Book \(n)"); n += 1 }
-        do { try DemoBook.write(into: folder) } catch { NSApp.presentError(error); return }
-        _ = openBook(at: folder)
-    }
-    @objc private func labPlan() { lab.show(); lab.regeneratePlan() }
 
     var labController: LabWindowController { lab }
 }

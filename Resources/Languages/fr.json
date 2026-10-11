@@ -141,7 +141,6 @@
     "Choose an event": "Choisir un événement",
     "Choose one or more chapters that are not in a part.": "Choisissez un ou plusieurs chapitres qui ne sont pas dans une partie.",
     "Choose two characters and say what they are to each other. More can be added on the card.": "Choisissez deux personnages et dites ce qu’ils sont l’un pour l’autre. D’autres peuvent être ajoutés sur la fiche.",
-    "Choose two or more scenes that follow one another.": "Choisissez deux scènes ou plus qui se suivent.",
     "Choose…": "Choisir…",
     "Clean Up Now": "Nettoyer maintenant",
     "Clear": "Effacer",
@@ -678,8 +677,6 @@
     "The text, snapshot against now": "Le texte, instantané comparé à maintenant",
     "The title of the part:": "Le titre de la partie :",
     "The whole book": "Tout le livre",
-    "There is no scene after this one.": "Il n’y a pas de scène après celle-ci.",
-    "There is no scene before this one.": "Il n’y a pas de scène avant celle-ci.",
     "This folder is not a Quilland book": "Ce dossier n’est pas un livre Quilland",
     "This kind of item cannot be copied.": "Ce type d’élément ne peut pas être copié.",
     "This scene has too little text for a synopsis.": "Cette scène a trop peu de texte pour un synopsis.",
@@ -838,7 +835,15 @@
     "Learn Spelling": "Apprendre l’orthographe",
     "Ignore Spelling": "Ignorer l’orthographe",
     "Collapse All Sections": "Replier toutes les sections",
-    "Expand All Sections": "Déplier toutes les sections"
+    "Expand All Sections": "Déplier toutes les sections",
+    "Only scenes of one chapter can be merged.": "Seules les scènes d’un même chapitre peuvent être fusionnées.",
+    "There is no scene after this one in the chapter.": "Il n’y a pas de scène après celle-ci dans le chapitre.",
+    "There is no scene before this one in the chapter.": "Il n’y a pas de scène avant celle-ci dans le chapitre.",
+    "Choose two or more scenes that follow one another in one chapter.": "Choisissez deux scènes ou plus d’un même chapitre qui se suivent.",
+    "Merge “{second}” into “{first}”?": "Fusionner « {second} » dans « {first} » ?",
+    "Merge the chosen scenes into “{first}”?": "Fusionner les scènes choisies dans « {first} » ?",
+    "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Le texte, le synopsis, la note et les étiquettes de l’autre scène sont ajoutés après ceux de la première, les liens vers elle pointent vers la première, et l’autre scène va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
+    "Merge": "Fusionner"
   },
   "plurals": {
     "Accept {n} Checked": {

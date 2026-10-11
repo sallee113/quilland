@@ -217,6 +217,7 @@ final class MainAreaController: NSViewController {
             list.onEnterText = { [weak self] in self?.enterText() }
             list.onRename = { [weak self] id, title in self?.rename(id, to: title) }
             list.onCommand = { [weak self] command, id in self?.treeCommand(command, id) }
+            list.canDo = { [weak self] command in self?.treeCanDo(command) ?? true }
             list.onUndo = { [weak self] in self?.undoStructure() }
             list.canUndo = { [weak self] in self?.undoStack.isEmpty == false }
             list.onRedo = { [weak self] in self?.redoStructure() }
@@ -260,6 +261,7 @@ final class MainAreaController: NSViewController {
             list.onEscape = { [weak self] in self?.leaveOutline() }
             list.onRename = { [weak self] id, title in self?.rename(id, to: title) }
             list.onCommand = { [weak self] command, id in self?.treeCommand(command, id) }
+            list.canDo = { [weak self] command in self?.treeCanDo(command) ?? true }
             list.onUndo = { [weak self] in self?.undoStructure() }
             list.canUndo = { [weak self] in self?.undoStack.isEmpty == false }
             list.onRedo = { [weak self] in self?.redoStructure() }
@@ -571,7 +573,7 @@ final class MainAreaController: NSViewController {
     func move(_ id: String? = nil, by step: Int) {
         guard let id = id ?? selectedSectionID else { return }
         restructure(focusText: !treeHasFocus, undoName: L("Move")) { editor in
-            try editor.move(id, by: step)
+            try editor.moveAcrossChapters(id, by: step)
             return id
         }
     }
@@ -924,17 +926,23 @@ final class MainAreaController: NSViewController {
 
     // MARK: Splitting, merging, grouping
 
+    /// Where a scene would be cut with the cursor at `caret`: at the start of a paragraph, that paragraph begins the new scene; anywhere else in it, the new
+    /// scene begins after it. Nil when there is no text on one side of the cut.
+    static func splitCut(in text: NSString, caret: Int) -> Int? {
+        let place = min(max(0, caret), text.length)
+        let paragraph = text.paragraphRange(for: NSRange(location: place, length: 0))
+        let cut = place == paragraph.location ? paragraph.location : NSMaxRange(paragraph)
+        let rest = cut < text.length ? text.substring(from: cut).trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        guard cut > 0, !rest.isEmpty, !text.substring(to: cut).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return cut
+    }
+
     /// ⌥⌘↩: the scene is cut between two paragraphs; everything after the cut becomes a new scene next to it.
     func splitSceneHere() {
         guard let area = controllers.first(where: { $0.currentSceneID != nil }), let id = area.currentSceneID, let doc = session.document(id), let tv = area.currentSheet?.textView,
               let entry = session.structure.scenes.first(where: { $0.id == id }) else { return }
         let text = doc.storage.string as NSString
-        let place = min(tv.selectedRange().location, text.length)
-        let paragraph = text.paragraphRange(for: NSRange(location: place, length: 0))
-        // The cursor at the start of a paragraph: that paragraph begins the new scene. Anywhere else in it: the new scene begins after it.
-        let cut = place == paragraph.location ? paragraph.location : NSMaxRange(paragraph)
-        let rest = cut < text.length ? text.substring(from: cut).trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        guard cut > 0, !rest.isEmpty, !text.substring(to: cut).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let cut = Self.splitCut(in: text, caret: tv.selectedRange().location) else {
             let alert = NSAlert()
             alert.messageText = L("Put the cursor between two paragraphs")
             alert.informativeText = L("A scene is split where there is text on both sides of the cut.")
@@ -975,31 +983,45 @@ final class MainAreaController: NSViewController {
     }
 
     /// Merges a scene with the one after it (`direction` 1) or before it (-1). The first of the two survives.
-    func merge(_ id: String? = nil, direction: Int) {
+    func merge(_ id: String? = nil, direction: Int, confirm: Bool = true) {
         guard let id = id ?? selectedSectionID else { return }
-        let ids = session.structure.scenes.map(\.id)
+        // The scenes of its own chapter only: the neighbours in the same list.
+        let ids = siblingScenes(of: id)
         guard let i = ids.firstIndex(of: id), ids.indices.contains(i + direction) else {
-            banner.show(direction > 0 ? L("There is no scene after this one.") : L("There is no scene before this one."), undoable: false)
+            banner.show(direction > 0 ? L("There is no scene after this one in the chapter.") : L("There is no scene before this one in the chapter."), undoable: false)
             return
         }
         let first = direction > 0 ? id : ids[i + direction]
         let second = direction > 0 ? ids[i + direction] : id
-        mergeScenes(first: first, others: [second])
+        mergeScenes(first: first, others: [second], confirm: confirm)
     }
 
     /// Outline: the chosen scenes (which must follow one another) are merged into the first.
-    func mergeSelected() {
+    func mergeSelected(confirm: Bool = true) {
         let chosen = Set(tree?.selectedIDs ?? [])
-        let ids = session.structure.scenes.map(\.id)
-        let picked = ids.filter { chosen.contains($0) }
-        guard picked.count >= 2, let start = ids.firstIndex(of: picked[0]), Array(ids[start..<(start + picked.count)]) == picked else {
-            banner.show(L("Choose two or more scenes that follow one another."), undoable: false)
+        let picked = session.structure.scenes.map(\.id).filter { chosen.contains($0) }
+        let ids = picked.first.map { siblingScenes(of: $0) } ?? []
+        guard picked.count >= 2, let start = ids.firstIndex(of: picked[0]), start + picked.count <= ids.count, Array(ids[start..<(start + picked.count)]) == picked else {
+            banner.show(L("Choose two or more scenes that follow one another in one chapter."), undoable: false)
             return
         }
-        mergeScenes(first: picked[0], others: Array(picked.dropFirst()))
+        mergeScenes(first: picked[0], others: Array(picked.dropFirst()), confirm: confirm)
     }
 
-    private func mergeScenes(first: String, others: [String]) {
+    private func mergeScenes(first: String, others: [String], confirm: Bool) {
+        if confirm {
+            let name = { (id: String) in self.findNode(id)?.title ?? "" }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = others.count == 1 ? L("Merge “{second}” into “{first}”?", ["second": name(others[0]), "first": name(first)]) : L("Merge the chosen scenes into “{first}”?", ["first": name(first)])
+            alert.informativeText = L("The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.")
+            let cancel = alert.addButton(withTitle: L("Cancel"))
+            cancel.keyEquivalent = "\r"
+            let go = alert.addButton(withTitle: L("Merge"))
+            go.keyEquivalent = ""
+            go.hasDestructiveAction = true
+            guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
         restructure(focusText: !treeHasFocus, cursorScene: first, undoName: L("Merge scenes")) { [folder] _ in
             for other in others {
                 let fresh = try BookStructure.load(folder: folder)

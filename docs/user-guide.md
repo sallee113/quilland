@@ -96,12 +96,14 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 
 A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure. The arrow beside the "+" under the tree closes every part and chapter, or opens them all again.
 
-The **Section** menu does the work:
+The **Section** menu does the work. It offers only what can be done now: for example, *Move Up* is greyed for the first scene of the book, or the first chapter, *Merge with Next Scene* for the last scene, and *Status* when a chapter is chosen.
+
+
 
 - *New Scene* (⌘N), *New Scene Before*, *New Chapter* (⇧⌘N), *New Part* (⌥⇧⌘N)
 - *Rename*, and *Status* (for example draft, done); the coloured dot in the tree shows the status
-- *Move Up / Move Down* (⌥⌘↑, ⌥⌘↓), or drag in the tree
-- *Split Scene Here* (⌥⌘↩) splits at the cursor; *Merge with Next / Previous Scene*; *Merge Chosen Scenes* joins the scenes you selected
+- *Move Up / Move Down* (⌥⌘↑, ⌥⌘↓), or drag in the tree; a scene at the edge of its chapter moves into the neighbouring chapter (to the end of the previous one, or the start of the next)
+- *Split Scene Here* (⌥⌘↩) splits at the cursor; *Merge with Next / Previous Scene*; *Merge Chosen Scenes* joins the scenes you selected (merging always asks first, and works within one chapter: move a scene into the other chapter first if you need to)
 - *Group into a New Part…* and *Ungroup Part…*
 - *Delete…* always asks first
 
@@ -202,7 +204,7 @@ Not built yet: importing a whole folder of Markdown files, and importing into th
 - **AI Prompts:** the prompts of each helper and your saved actions.
 - **Shortcuts:** change the key of any command. Select a row and press the new key.
 
-*Book ▸ Book Settings…* (⇧⌘,) holds what belongs to one book: its language, its title and cover, and its own dictionary.
+*File ▸ Book Settings…* (⇧⌘,) holds what belongs to one book: its language, its title and cover, and its own dictionary.
 
 ## 12. Keyboard shortcuts
 
@@ -230,7 +232,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | ⌥⌘R | Show or hide the right panel |
 | ⌃⌘↩ | Focus Mode |
 | ⌥⌘T | Typewriter Scrolling |
-| ⌘+ ⌘− ⌘0 | Zoom the Plan or the Lab |
+| ⌘+ ⌘− ⌘0 | Zoom the Plan |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Larger, smaller, usual book text size |
 
 **Finding and checking**

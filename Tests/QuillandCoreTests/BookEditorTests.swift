@@ -253,6 +253,42 @@ struct MergeGroupTests {
         #expect(((try? FileManager.default.contentsOfDirectory(atPath: book.appendingPathComponent(".quilland/trash").path)) ?? []).count == 1)
     }
 
+    @Test("scenes of two chapters are not merged")
+    func mergeAcrossChapters() throws {
+        let (parent, book) = try BookEditorTests.book()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        var s = try BookStructure.load(folder: book)
+        let a = s.scenes[0].id
+        try BookEditor(structure: s).add(.chapter, relativeTo: a, title: "Вторая глава")
+        s = try BookStructure.load(folder: book)
+        #expect(s.scenes.count == 2 && s.roots.count == 2)
+        #expect(throws: (any Error).self) { try BookEditor(structure: s).merge(s.scenes[0].id, with: s.scenes[1].id) }
+        #expect(try BookStructure.load(folder: book).scenes.count == 2, "nothing was merged")
+    }
+
+    @Test("a scene at the edge of its chapter moves into the neighbouring chapter, and back")
+    func moveAcrossChapters() throws {
+        let (parent, book) = try BookEditorTests.book()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        var s = try BookStructure.load(folder: book)
+        let a = s.scenes[0].id
+        let b = try BookEditor(structure: s).add(.scene, relativeTo: a, title: "Вторая")
+        s = try BookStructure.load(folder: book)
+        try BookEditor(structure: s).add(.chapter, relativeTo: a, title: "Вторая глава")
+        s = try BookStructure.load(folder: book)
+        let editor = BookEditor(structure: s)
+        #expect(s.roots.count == 2 && s.roots[0].children.map(\.id) == [a, b])
+        #expect(!editor.canMove(a, by: -1) && editor.canMove(b, by: 1) && editor.canMove(a, by: 1))
+        #expect(try editor.moveAcrossChapters(b, by: 1))
+        s = try BookStructure.load(folder: book)
+        #expect(s.roots[0].children.map(\.id) == [a] && s.roots[1].children.first?.id == b, "the scene starts the next chapter")
+        #expect(try BookEditor(structure: s).moveAcrossChapters(b, by: -1))
+        s = try BookStructure.load(folder: book)
+        #expect(s.roots[0].children.map(\.id) == [a, b], "and goes back to the end of the first")
+        #expect(try BookEditor(structure: s).moveAcrossChapters(a, by: -1) == false, "the first scene of the book has nowhere to go")
+        #expect(try BookStructure.load(folder: book).problems.isEmpty)
+    }
+
     @Test("an empty scene merges without leaving a stray blank paragraph")
     func mergeEmpty() throws {
         let (parent, book) = try BookEditorTests.book()

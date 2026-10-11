@@ -98,12 +98,14 @@ Il n’y a pas de barre d’outils de mise en forme. Utilisez le clavier ou le m
 
 Un livre se compose de **parties** (facultatives), de **chapitres** et de **scènes**. La scène est l’unité dans laquelle on écrit : chaque scène est son propre fichier. L’arborescence à gauche (vue Panneaux) ou le Plan détaillé montre la structure. La flèche à côté du « + » sous l’arborescence replie toutes les parties et tous les chapitres, ou les déplie à nouveau.
 
-Le menu **Section** fait le travail :
+Le menu **Section** fait le travail. Il ne propose que ce qui est possible à ce moment : par exemple, *Monter* est grisé pour la première scène du livre ou le premier chapitre, *Fusionner avec la scène suivante* pour la dernière scène, et *Statut* quand un chapitre est choisi.
+
+
 
 - *Nouvelle scène* (⌘N), *Nouvelle scène avant*, *Nouveau chapitre* (⇧⌘N), *Nouvelle partie* (⌥⇧⌘N)
 - *Renommer*, et *Statut* (par exemple brouillon, terminé) ; le point coloré dans l’arborescence indique le statut
-- *Monter / Descendre* (⌥⌘↑, ⌥⌘↓), ou glisser-déposer dans l’arborescence
-- *Couper la scène ici* (⌥⌘↩) coupe à l’endroit du curseur ; *Fusionner avec la scène suivante / précédente* ; *Fusionner les scènes choisies* réunit les scènes sélectionnées
+- *Monter / Descendre* (⌥⌘↑, ⌥⌘↓), ou glisser-déposer dans l’arborescence ; une scène au bord de son chapitre passe dans le chapitre voisin (à la fin du précédent, ou au début du suivant)
+- *Couper la scène ici* (⌥⌘↩) coupe à l’endroit du curseur ; *Fusionner avec la scène suivante / précédente* ; *Fusionner les scènes choisies* réunit les scènes sélectionnées (la fusion demande toujours confirmation et ne se fait qu’au sein d’un chapitre : déplacez d’abord la scène dans l’autre chapitre si nécessaire)
 - *Regrouper dans une nouvelle partie…* et *Dégrouper la partie…*
 - *Supprimer…* demande toujours confirmation
 
@@ -204,7 +206,7 @@ Pas encore disponible : importer tout un dossier de fichiers Markdown, et import
 - **Prompts de l’IA :** les prompts de chaque assistant et vos actions enregistrées.
 - **Raccourcis :** changer la touche de n’importe quelle commande. Sélectionnez une ligne et appuyez sur la nouvelle touche.
 
-*Livre ▸ Réglages du livre…* (⇧⌘,) contient ce qui appartient à un seul livre : sa langue, son titre et sa couverture, et son propre dictionnaire.
+*Fichier ▸ Réglages du livre…* (⇧⌘,) contient ce qui appartient à un seul livre : sa langue, son titre et sa couverture, et son propre dictionnaire.
 
 ## 12. Raccourcis clavier
 
@@ -232,7 +234,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | ⌥⌘R | Afficher ou masquer le panneau de droite |
 | ⌃⌘↩ | Mode concentration |
 | ⌥⌘T | Défilement machine à écrire |
-| ⌘+ ⌘− ⌘0 | Zoom du Plan ou du Lab |
+| ⌘+ ⌘− ⌘0 | Zoom du Plan |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Texte du livre plus grand, plus petit, taille habituelle |
 
 **Recherche et vérification**
