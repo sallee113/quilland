@@ -6,7 +6,7 @@ public struct BookSettings: Equatable, Sendable {
     public var title = ""
     public var author = ""
     public var copyright = ""
-    public var language = "ru"
+    public var language = "en"
     /// The size the book should reach, in characters (nil: none).
     public var targetCharacters: Int?
     /// The file name of the cover in `assets/`.
@@ -20,7 +20,7 @@ public struct BookSettings: Equatable, Sendable {
         s.title = o.string("title") ?? ""
         s.author = o.string("author") ?? ""
         s.copyright = o.string("copyright") ?? ""
-        s.language = o.string("language") ?? "ru"
+        s.language = o.string("language") ?? "en"
         s.targetCharacters = o.int("target_characters")
         s.cover = o.string("cover")
         return s

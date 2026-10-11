@@ -96,8 +96,37 @@ final class EditorTextView: NSTextView {
         return ["cut:", "copy:", "paste:", "pasteAsPlainText:"].contains(name) || name.localizedCaseInsensitiveContains("spelling") || name.localizedCaseInsensitiveContains("spellcheck")
     }
 
+    /// The system writes its items in the system's language; the application's own language is used instead.
+    private static func title(forAction name: String) -> String? {
+        switch name {
+        case "cut:": return L("Cut")
+        case "copy:": return L("Copy")
+        case "paste:": return L("Paste")
+        case "pasteAsPlainText:": return L("Paste and Match Style")
+        case "showGuessPanel:": return L("Show Spelling and Grammar")
+        case "checkSpelling:": return L("Check Document Now")
+        case "toggleContinuousSpellChecking:": return L("Check Spelling While Typing")
+        case "toggleGrammarChecking:": return L("Check Grammar with Spelling")
+        case "toggleAutomaticSpellingCorrection:": return L("Correct Spelling Automatically")
+        case "learnSpelling:": return L("Learn Spelling")
+        case "ignoreSpelling:": return L("Ignore Spelling")
+        default: return nil
+        }
+    }
+
+    private static func localize(_ menu: NSMenu) {
+        for item in menu.items {
+            if let action = item.action, let title = title(forAction: NSStringFromSelector(action)) { item.title = title }
+            if item.identifier?.rawValue == "__NSTextViewContextSubmenuIdentifierSpellingAndGrammar" {
+                item.title = L("Spelling and Grammar")
+                if let sub = item.submenu { sub.title = item.title; localize(sub) }
+            }
+        }
+    }
+
     static func trim(_ menu: NSMenu) {
         for item in menu.items.reversed() where !keeps(item) { menu.removeItem(item) }
+        localize(menu)
         // No separator at the ends or two in a row.
         var previousSeparator = true
         for item in menu.items { if item.isSeparatorItem { if previousSeparator { menu.removeItem(item) } else { previousSeparator = true } } else { previousSeparator = false } }

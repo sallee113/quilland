@@ -184,7 +184,7 @@ private struct Fb2Builder {
         s += "</description>\n"
         s += "<body><title><p>\(XML.escape(book.title))</p></title>\(main)</body>\n"
         if !notes.isEmpty {
-            s += "<body name=\"notes\"><title><p>\(book.language.lowercased() == "ru" ? "Примечания" : "Notes")</p></title>"
+            s += "<body name=\"notes\"><title><p>\(BookWords.notes(book.language))</p></title>"
             for (i, note) in notes.enumerated() { s += "<section id=\"n\(i + 1)\"><title><p>\(i + 1)</p></title><p>\(note)</p></section>" }
             s += "</body>\n"
         }

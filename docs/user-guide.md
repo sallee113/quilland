@@ -25,7 +25,7 @@ Contents
 
 **Build and open the app.** See the [README](../README.md): `./make-app.sh` makes `Quilland.app`, which you open like any Mac app.
 
-**A new book.** *File ▸ New Book…* asks for a name and a folder. You can start with the text or with the plan. The book appears as a folder; you can put it under Git, copy it, or open it again later with *File ▸ Open Book…* (⌘O) or *Open Recent*.
+**A new book.** *File ▸ New Book…* asks for a title, an author, the language of the book (English by default, also Russian and French) and a folder. You can start with the text or with the plan. The book appears as a folder; you can put it under Git, copy it, or open it again later with *File ▸ Open Book…* (⌘O) or *Open Recent*.
 
 **An existing manuscript.** *File ▸ Import…* (⇧⌘I) reads a Markdown, plain text or HTML file and offers to split it into chapters and scenes. See [Import and export](#10-import-and-export). Keep your original file: the import makes a copy.
 
@@ -80,7 +80,7 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 | Scene break | ⇧⌘↩ |
 | Footnote… | ⌃⌘N |
 
-**Typing corrections.** For Russian and English, Quilland can replace typed characters as you write: quotes, dashes in dialogue, and so on. The ellipsis is left as three dots. You can switch each correction in *Settings ▸ Writing*.
+**Typing corrections.** For Russian, English and French (French books get « » quotes), Quilland can replace typed characters as you write: quotes, dashes in dialogue, and so on. The ellipsis is left as three dots. You can switch each correction in *Settings ▸ Writing*.
 
 **Spelling.** The system spell checker underlines mistakes. Right-click a word to see the corrections. *Add to Dictionary* in the proofreading panel teaches a word to the book only.
 
@@ -192,7 +192,7 @@ Not built yet: importing a whole folder of Markdown files, and importing into th
 
 *Quilland ▸ Settings…* (⌘,) has these sections: General, Appearance, Writing, Panels, AI, AI Prompts and Shortcuts. The search field at the top finds a setting by its name.
 
-- **General:** interface language (English and Russian), the folder for books, the recent list, what opens at start, the snapshot interval.
+- **General:** interface language (English, Russian and French; English is the default), the folder for books, the recent list, what opens at start, the snapshot interval.
 - **Appearance:** font, text size, line spacing, reading width of a sheet, light or dark.
 - **Writing:** typing corrections and spelling.
 - **Panels:** the right panel's tabs and how fast it follows the cursor.

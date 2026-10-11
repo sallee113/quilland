@@ -60,7 +60,7 @@ public enum Autocorrect {
 
     /// The quotes of a style: opening and closing.
     public static func quotes(style: String, language: String) -> (open: String, close: String) {
-        let resolved = style == "auto" ? (language.lowercased().hasPrefix("ru") ? "ru" : "en") : style
+        let resolved = style == "auto" ? (language.lowercased().hasPrefix("ru") || language.lowercased().hasPrefix("fr") ? "ru" : "en") : style
         return resolved == "ru" ? ("«", "»") : ("“", "”")
     }
 

@@ -46,7 +46,7 @@ public struct ImportOptions: Equatable, Sendable {
     public var joinWrappedLines = false
     /// The role chosen for a kind, by kind id; kinds not in it take their default.
     public var roles: [String: ImportRole] = [:]
-    public var language = "ru"
+    public var language = "en"
     public init() {}
 }
 
@@ -287,8 +287,7 @@ public enum TextImporter {
         let analysis = analyze(raw, source: source, joinWrappedLines: options.joinWrappedLines)
         var roles: [String: ImportRole] = [:]
         for k in analysis.kinds { roles[k.id] = options.roles[k.id] ?? k.defaultRole }
-        let ru = options.language == "ru"
-        let sceneWord = ru ? "Сцена" : "Scene"
+        let sceneWord = ["ru": "Сцена", "fr": "Scène"][options.language] ?? "Scene"
 
         var plan = ImportPlan()
         var part: (title: String, chapters: [ImportPlan.Chapter])?
@@ -301,7 +300,7 @@ public enum TextImporter {
         func closeScene() {
             let text = body.joined(separator: "\n\n")
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sceneTitle != nil {
-                if chapter == nil { chapter = (ru ? "Начало" : "Beginning", []) }
+                if chapter == nil { chapter = (BookWords.beginning(options.language), []) }
                 sceneNumber += 1
                 let markdown = normalize(text)
                 chapter?.scenes.append(.init(title: sceneTitle ?? "\(sceneWord) \(sceneNumber)", markdown: markdown, characters: TextStats.count(MarkdownParser.parse(markdown)).characters))
@@ -341,7 +340,7 @@ public enum TextImporter {
                 chapter = (p.text, [])
             case .scene:
                 closeScene()
-                if chapter == nil { chapter = (ru ? "Начало" : "Beginning", []) }
+                if chapter == nil { chapter = (BookWords.beginning(options.language), []) }
                 sceneTitle = p.text
             case .none:
                 if let h = p.heading { body.append(String(repeating: "#", count: h) + " " + p.text) } else { body.append(p.text) }

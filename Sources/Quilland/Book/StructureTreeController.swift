@@ -68,6 +68,9 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     var onNew: ((BookStructure.Kind, BookEditor.Place) -> Void)?
     private let footer = NSView()
     private let addButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    /// The arrow beside the +: closes every part and chapter, or opens them all again.
+    private let foldButton = NSButton()
+    private var hasLoaded = false
     var onUndo: (() -> Void)? { didSet { outline.onUndo = onUndo } }
     var canUndo: () -> Bool = { false } { didSet { outline.canUndo = canUndo } }
     var onRedo: (() -> Void)? { didSet { outline.onRedo = onRedo } }
@@ -129,6 +132,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
             addButton.menu?.addItem(ClosureMenuItem(title: title) { [weak self] in self?.requestNew(kind, place) })
         }
         addButton.isBordered = false
+        (addButton.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
         addButton.controlSize = .small
         addButton.setAccessibilityLabel(L("Add a section"))
         addButton.toolTip = L("Add a scene, a chapter or a part (⌘N adds a scene)")
@@ -136,9 +140,43 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         footer.addSubview(addButton)
         NSLayoutConstraint.activate([
             addButton.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: 8), addButton.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
-            addButton.widthAnchor.constraint(equalToConstant: 46),
+            addButton.widthAnchor.constraint(equalToConstant: 30),
         ])
+        foldButton.isBordered = false
+        foldButton.imagePosition = .imageOnly
+        foldButton.target = self
+        foldButton.action = #selector(foldAll)
+        foldButton.translatesAutoresizingMaskIntoConstraints = false
+        footer.addSubview(foldButton)
+        NSLayoutConstraint.activate([
+            foldButton.leadingAnchor.constraint(equalTo: addButton.trailingAnchor, constant: 4), foldButton.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
+            foldButton.widthAnchor.constraint(equalToConstant: 24),
+        ])
+        updateFoldButton()
     }
+
+    /// Is any part or chapter open?
+    private var anyOpen: Bool { byID.values.contains { $0.node.kind != .scene && outline.isItemExpanded($0) } }
+
+    private func updateFoldButton() {
+        let open = anyOpen
+        foldButton.image = NSImage(systemSymbolName: open ? "chevron.down" : "chevron.right", accessibilityDescription: nil)
+        let title = open ? L("Collapse All Sections") : L("Expand All Sections")
+        foldButton.toolTip = title
+        foldButton.setAccessibilityLabel(title)
+    }
+
+    /// Closes every part and chapter when any is open; else opens them all.
+    @objc func foldAll() {
+        reloading = true
+        if anyOpen { for root in roots { outline.collapseItem(root, collapseChildren: true) } }
+        else { for root in roots { outline.expandItem(root, expandChildren: true) } }
+        reloading = false
+        updateFoldButton()
+    }
+
+    func outlineViewItemDidExpand(_ notification: Notification) { updateFoldButton() }
+    func outlineViewItemDidCollapse(_ notification: Notification) { updateFoldButton() }
 
     /// What the + menu asks for.
     func requestNew(_ kind: BookStructure.Kind, _ place: BookEditor.Place) { onNew?(kind, place) }
@@ -169,9 +207,11 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         func index(_ item: Item) { byID[item.id] = item; item.children.forEach(index) }
         roots.forEach(index)
         outline.reloadData()
-        let firstTime = open.isEmpty || expandAll
+        let firstTime = !hasLoaded || expandAll
+        hasLoaded = true
         for item in byID.values where item.node.kind != .scene && (firstTime || open.contains(item.id)) { outline.expandItem(item) }
         reloading = false
+        updateFoldButton()
         if let keep { select(keep, notify: false) }
     }
 

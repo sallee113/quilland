@@ -60,7 +60,7 @@ public enum Typography {
             each("^[-\u{2013}\u{2014}][ \u{00A0}]?(?=[^\\s\\-\u{2013}\u{2014}*])", .anchorsMatchLines) { m in add(.dialogue, m.range, "\u{2014} ") }
         }
         if rules.contains(.quotes) {
-            let (open, close) = russian ? ("\u{00AB}", "\u{00BB}") : ("\u{201C}", "\u{201D}")
+            let (open, close) = russian || language.lowercased().hasPrefix("fr") ? ("\u{00AB}", "\u{00BB}") : ("\u{201C}", "\u{201D}")
             for paragraph in paragraphs(of: ns) {
                 var isOpen = false
                 var i = paragraph.location

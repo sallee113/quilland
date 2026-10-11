@@ -42,7 +42,8 @@ final class AppPreferences {
         if let user = userLanguagesDirectory { dirs.append(user) }
         Localizer.shared.directories = dirs
         let wanted = values.interfaceLanguage
-        let code: String? = wanted == "system" ? (ProcessInfo.processInfo.environment["QUILLAND_LANGUAGE"] ?? Localizer.shared.systemCode()) : wanted
+        // QUILLAND_FORCE_LANGUAGE: the pictures of the interface in a language (a development aid).
+        let code: String? = ProcessInfo.processInfo.environment["QUILLAND_FORCE_LANGUAGE"] ?? (wanted == "system" ? (ProcessInfo.processInfo.environment["QUILLAND_LANGUAGE"] ?? Localizer.shared.systemCode()) : wanted)
         Localizer.shared.use(code: code)
         // The system's own menu items (Dictation, Emoji, Window ▸ Zoom…) take the language from the next start on. The checks leave the author's alone.
         if ProcessInfo.processInfo.environment["QUILLAND_SETTINGS_DIR"] == nil {

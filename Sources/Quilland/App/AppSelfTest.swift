@@ -24,7 +24,7 @@ final class AppSelfTest {
         let dialog = NewBookWindowController(parentFolder: temp)
         dialog.titleField.stringValue = title
         dialog.authorField.stringValue = "Вадим Сульянов"
-        dialog.languagePopup.selectItem(at: 0)
+        dialog.languagePopup.selectItem(at: NewBookWindowController.languages.firstIndex { $0.0 == "ru" } ?? 0)
         dialog.onCreated = { [app] folder, startPlan in
             created = folder
             _ = app.openBook(at: folder, mode: startPlan ? .plan : .panels)
@@ -42,6 +42,7 @@ final class AppSelfTest {
 
         // A new book, then writing.
         let emptyTitle = NewBookWindowController(parentFolder: temp)
+        check(emptyTitle.languagePopup.titleOfSelectedItem == "English" && NewBookWindowController.languages.map(\.0) == ["en", "ru", "fr"], "the New Book dialog proposes English first")
         check(!emptyTitle.create(plan: false), "a book without a title is not made")
         guard let folder = create(title: "Дом на Сосновой", plan: false) else { check(false, "the book is created"); return 1 }
         spin(0.5)
@@ -407,6 +408,13 @@ final class AppSelfTest {
         check(firstTree.visibleTitles == ["Глава 1", "Сцена 1"] && firstTree.selectedID == firstID, "Panels shows the structure tree with the scene selected", "\(firstTree.visibleTitles) \(String(describing: firstTree.selectedID))")
         check(main.controllers.count == 1 && main.controllers[0].onlyScene == firstID && main.controllers[0].stack.sheets.count == 1, "and only that scene in the centre")
         check(firstTree.hasFooter && firstTree.newMenuTitles == ["New Scene", "New Scene Before", "New Chapter", "New Part"], "the tree has a + button with a menu of what can be added", "\(firstTree.newMenuTitles)")
+        let openTitles = firstTree.visibleTitles
+        firstTree.foldAll()
+        let folded = firstTree.visibleTitles
+        firstTree.reload(structure: main.session.structure, characters: { _ in 0 })
+        check(folded == ["Глава 1"] && firstTree.visibleTitles == ["Глава 1"], "the arrow beside + closes every chapter, and a reload keeps them closed", "\(folded) \(firstTree.visibleTitles)")
+        firstTree.foldAll()
+        check(firstTree.visibleTitles == openTitles, "and pressed again opens them all", "\(firstTree.visibleTitles)")
         firstTree.requestNew(.scene, .after); spin(0.5)
         var scenes = main.session.structure.scenes
         check(scenes.count == 2 && scenes[1].node.title == "Новая сцена" && main.currentSceneID == scenes[1].id, "New Scene adds a scene after the current one and goes into it", "\(scenes.map(\.node.title)) \(String(describing: main.currentSceneID))")
@@ -1042,6 +1050,7 @@ final class AppSelfTest {
         // Import.
         let md = "# Дом на Сосновой\n\n## Глава 1\n\nПервый абзац.\n\nВторой абзац.\n\n* * *\n\nТретий.\n\n## Глава 2\n\nТекст **жирный**.\n"
         let im = ImportWindowController()
+        im.language = "ru"
         im.openBookName = "Export Test"
         im.intoOpenBook = { exMain.performImport($0) }
         im.intoNewBook = { [app] plan, title, language in app.importIntoNewBook(plan, title: title, language: language) }
@@ -1424,7 +1433,7 @@ final class AppSelfTest {
         check(L("Cancel") == "Cancel" && (NSApp.mainMenu?.items.compactMap { $0.submenu?.title } ?? []).contains("File"), "English comes back")
         app.settingsWindow?.setChoice("language", "ru"); spin(0.3)
         app.settingsWindow?.reset(.general); spin(0.4)
-        check(L("Cancel") == "Cancel" && prefs.values.interfaceLanguage == "system", "Reset to Defaults goes back to the system's language (here English)")
+        check(L("Cancel") == "Cancel" && prefs.values.interfaceLanguage == "en", "Reset to Defaults goes back to English")
         app.settingsWindow?.window.close(); spin(0.2)
 
         // A move that was interrupted is finished when the book is opened.

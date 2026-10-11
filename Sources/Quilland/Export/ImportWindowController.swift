@@ -16,7 +16,7 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
     var openBookName: String?
     var intoOpenBook: ((ImportPlan) -> Bool)?
     var intoNewBook: ((ImportPlan, String, String) -> Bool)?
-    var language = "ru"
+    var language = "en"
     var onClose: (() -> Void)?
 
     private(set) var raw: String?

@@ -42,7 +42,7 @@ private struct DocxBuilder {
     var language: String {
         switch book.language.lowercased() { case "ru": return "ru-RU"; case "en": return "en-US"; case "": return "en-US"; default: return book.language }
     }
-    var contentsTitle: String { book.language.lowercased() == "ru" ? "Содержание" : "Contents" }
+    var contentsTitle: String { BookWords.contents(book.language) }
 
     // MARK: Runs
 

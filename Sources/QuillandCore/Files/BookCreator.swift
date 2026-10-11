@@ -4,11 +4,11 @@ import Foundation
 public struct NewBookRequest: Sendable {
     public var title: String
     public var author: String
-    /// `ru` or `en` (the language of the book: quotes, checkers, the names of what is created).
+    /// `en` (the default), `ru` or `fr` (the language of the book: quotes, checkers, the names of what is created).
     public var language: String
     /// The folder in which the book's folder is made.
     public var parentFolder: URL
-    public init(title: String, author: String = "", language: String = "ru", parentFolder: URL) {
+    public init(title: String, author: String = "", language: String = "en", parentFolder: URL) {
         self.title = title
         self.author = author
         self.language = language
@@ -29,6 +29,10 @@ public enum BookCreator {
             if language == "ru" {
                 return Words(chapter: "Глава 1", scene: "Сцена 1", world: "Мир", kindOne: "Вещь", kindMany: "Вещи",
                              kindDescription: "Вещи: предметы, которые люди носят, хранят или теряют.", owner: "Владелец", keptAt: "Хранится", seenAt: "Появляется")
+            }
+            if language == "fr" {
+                return Words(chapter: "Chapitre 1", scene: "Scène 1", world: "Monde", kindOne: "Objet", kindMany: "Objets",
+                             kindDescription: "Objets : choses que les gens portent, gardent ou perdent.", owner: "Propriétaire", keptAt: "Conservé à", seenAt: "Apparaît à")
             }
             return Words(chapter: "Chapter 1", scene: "Scene 1", world: "World", kindOne: "Belonging", kindMany: "Belongings",
                          kindDescription: "Belongings: things that people carry, keep or lose.", owner: "Owner", keptAt: "Kept at", seenAt: "Seen at")

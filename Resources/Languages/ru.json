@@ -1117,6 +1117,17 @@
     "“{wanted}” is not on the server; “{model}” will be used instead.": "«{wanted}» нет на сервере; будет использована «{model}».",
     "Larger Book Text": "Крупнее текст книги",
     "Smaller Book Text": "Мельче текст книги",
-    "Usual Book Text Size": "Обычный размер текста книги"
+    "Usual Book Text Size": "Обычный размер текста книги",
+    "Paste and Match Style": "Вставить и согласовать стиль",
+    "Spelling and Grammar": "Правописание и грамматика",
+    "Show Spelling and Grammar": "Показать правописание и грамматику",
+    "Check Document Now": "Проверить документ сейчас",
+    "Check Spelling While Typing": "Проверять правописание при вводе",
+    "Check Grammar with Spelling": "Проверять грамматику вместе с правописанием",
+    "Correct Spelling Automatically": "Исправлять правописание автоматически",
+    "Learn Spelling": "Запомнить слово",
+    "Ignore Spelling": "Игнорировать слово",
+    "Collapse All Sections": "Свернуть все разделы",
+    "Expand All Sections": "Развернуть все разделы"
   }
 }

@@ -297,7 +297,7 @@ public enum TxtExporter {
                     for c in p.chapters { addChapter(c, indent: "  ", &lines) }
                 }
             }
-            if !lines.isEmpty { out += (r.language.lowercased() == "ru" ? "Содержание" : "Contents") + "\n\n" + lines.joined(separator: "\n") + "\n\n\n" }
+            if !lines.isEmpty { out += (BookWords.contents(r.language)) + "\n\n" + lines.joined(separator: "\n") + "\n\n\n" }
         }
         for item in r.items {
             switch item {
@@ -328,7 +328,7 @@ public enum HtmlExporter {
         if let cover = r.cover { s += "<div class=\"cover\"><img alt=\"\" src=\"data:\(mime(of: cover));base64,\(cover.base64EncodedString())\"/></div>\n" }
         s += title
         if r.options.toc {
-            s += "<nav class=\"contents\">\n<h2>\(r.language.lowercased() == "ru" ? "Содержание" : "Contents")</h2>\n<ol>\n"
+            s += "<nav class=\"contents\">\n<h2>\(BookWords.contents(r.language))</h2>\n<ol>\n"
             for p in pages where !p.title.isEmpty {
                 s += "<li class=\"l\(p.level)\"><a href=\"#\(p.id)\">\(XML.escape(p.title))</a>"
                 if r.options.tocScenes, !p.scenes.isEmpty {
@@ -410,7 +410,7 @@ public enum EpubExporter {
             spine += "<itemref idref=\"\(p.id)\"/>\n"
         }
         // The contents document (always there: a reading system needs it; `toc` decides whether it is also a page of the book).
-        var nav = "<nav epub:type=\"toc\" id=\"toc\" class=\"contents\">\n<h2>\(r.language.lowercased() == "ru" ? "Содержание" : "Contents")</h2>\n<ol>\n"
+        var nav = "<nav epub:type=\"toc\" id=\"toc\" class=\"contents\">\n<h2>\(BookWords.contents(r.language))</h2>\n<ol>\n"
         for p in pages where !p.title.isEmpty {
             nav += "<li class=\"l\(p.level)\"><a href=\"\(p.id).xhtml\">\(XML.escape(p.title))</a>"
             if r.options.tocScenes, !p.scenes.isEmpty {
@@ -420,7 +420,7 @@ public enum EpubExporter {
         }
         if pages.allSatisfy({ $0.title.isEmpty }) { nav += "<li><a href=\"\(pages.first?.id ?? "title").xhtml\">\(XML.escape(r.title))</a></li>\n" }
         nav += "</ol>\n</nav>\n"
-        zip.add("OEBPS/nav.xhtml", Data(xhtml(r.language.lowercased() == "ru" ? "Содержание" : "Contents", nav).utf8))
+        zip.add("OEBPS/nav.xhtml", Data(xhtml(BookWords.contents(r.language), nav).utf8))
         if r.options.toc { spine += "<itemref idref=\"nav\" linear=\"no\"/>\n" }
         let creator = r.author.isEmpty ? "" : "<dc:creator>\(XML.escape(r.author))</dc:creator>\n"
         let rights = r.copyright.isEmpty ? "" : "<dc:rights>\(XML.escape(r.copyright))</dc:rights>\n"

@@ -48,7 +48,7 @@ final class BookWindowController: NSObject, NSWindowDelegate {
 
     /// The book's language code (`ru`, `en`…).
     var language: String {
-        ((try? JSONParser.parseObject(Data(contentsOf: folder.appendingPathComponent("book.json"))))?.string("language")) ?? "ru"
+        ((try? JSONParser.parseObject(Data(contentsOf: folder.appendingPathComponent("book.json"))))?.string("language")) ?? "en"
     }
 
     func show() { window.makeKeyAndOrderFront(nil) }

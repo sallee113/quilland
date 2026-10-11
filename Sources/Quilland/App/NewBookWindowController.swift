@@ -6,6 +6,8 @@ final class NewBookWindowController: NSObject {
     let window: NSWindow
     let titleField = NSTextField()
     let authorField = NSTextField()
+    /// English first: it is the default.
+    static let languages = [("en", "English"), ("ru", "Русский"), ("fr", "Français")]
     let languagePopup = NSPopUpButton()
     private let locationLabel = NSTextField(labelWithString: "")
     private(set) var parentFolder: URL
@@ -21,7 +23,8 @@ final class NewBookWindowController: NSObject {
         window.title = L("New Book")
         titleField.placeholderString = L("Title")
         authorField.placeholderString = L("Author (optional)")
-        languagePopup.addItems(withTitles: ["Русский", "English"])
+        languagePopup.addItems(withTitles: Self.languages.map(\.1))
+        languagePopup.selectItem(at: 0)
         updateLocation()
 
         func label(_ t: String) -> NSTextField { let l = NSTextField(labelWithString: t); l.alignment = .right; l.textColor = .secondaryLabelColor; return l }
@@ -91,7 +94,7 @@ final class NewBookWindowController: NSObject {
         guard !title.isEmpty else { window.makeFirstResponder(titleField); NSSound.beep(); return false }
         do {
             let folder = try BookCreator.create(NewBookRequest(title: title, author: authorField.stringValue.trimmingCharacters(in: .whitespaces),
-                                                              language: languagePopup.indexOfSelectedItem == 0 ? "ru" : "en", parentFolder: parentFolder))
+                                                              language: Self.languages[max(0, languagePopup.indexOfSelectedItem)].0, parentFolder: parentFolder))
             dismiss()
             onCreated?(folder, plan)
             return true

@@ -31,6 +31,7 @@ struct ImportTests {
         #expect(kinds.first { $0.id == "h1" }?.defaultRole == ImportRole.none && kinds.first { $0.id == "h2" }?.defaultRole == ImportRole.chapter)
         #expect(kinds.first { $0.id == "h2" }?.count == 2 && kinds.first { $0.id == "h2" }?.examples == ["Глава 1", "Глава 2"])
         var options = ImportOptions()
+        options.language = "ru"
         let plan = TextImporter.plan(Self.markdown, source: .markdown, options: options)
         #expect(plan.chapterCount == 2 && plan.sceneCount == 3 && plan.partCount == 0)
         guard case .chapter(let first) = plan.items[0], case .chapter(let second) = plan.items[1] else { Issue.record("two chapters"); return }

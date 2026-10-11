@@ -19,7 +19,7 @@ public struct BookEditor {
         self.structure = structure
         folder = structure.folder
         let info = (try? JSONParser.parseObject(Data(contentsOf: structure.folder.appendingPathComponent("book.json")))) ?? [:]
-        language = info.string("language") ?? "ru"
+        language = info.string("language") ?? "en"
     }
 
     private var journal: URL { folder.appendingPathComponent(".quilland/journal.json") }
@@ -84,11 +84,16 @@ public struct BookEditor {
     }
 
     private func defaultTitle(_ kind: BookStructure.Kind) -> String {
-        let ru = language == "ru"
-        switch kind {
-        case .scene: return ru ? "Новая сцена" : "New Scene"
-        case .chapter: return ru ? "Новая глава" : "New Chapter"
-        case .part: return ru ? "Новая часть" : "New Part"
+        switch (kind, language) {
+        case (.scene, "ru"): return "Новая сцена"
+        case (.chapter, "ru"): return "Новая глава"
+        case (.part, "ru"): return "Новая часть"
+        case (.scene, "fr"): return "Nouvelle scène"
+        case (.chapter, "fr"): return "Nouveau chapitre"
+        case (.part, "fr"): return "Nouvelle partie"
+        case (.scene, _): return "New Scene"
+        case (.chapter, _): return "New Chapter"
+        case (.part, _): return "New Part"
         }
     }
 

@@ -3,8 +3,8 @@ import Foundation
 /// The settings of the person that the Settings window changes (quilland-ui.md, "Settings"): kept in `settings.json` under `preferences`.
 public struct Preferences: Equatable, Sendable {
     // General
-    /// `system` (the language of the system when it is installed, else English), `en`, or the code of an installed language.
-    public var interfaceLanguage = "system"
+    /// `en` (the default), `system` (the language of the system when it is installed, else English), or the code of an installed language.
+    public var interfaceLanguage = "en"
     /// `panels`, `book` or `compare`: where a book with no remembered view starts.
     public var defaultMode = "panels"
     public var recentLimit = 10
@@ -52,7 +52,7 @@ public struct Preferences: Equatable, Sendable {
         p.lineSpacing = min(max(lineSpacing, Self.limits.lineSpacing.lowerBound), Self.limits.lineSpacing.upperBound)
         p.readingWidth = min(max(readingWidth, Self.limits.readingWidth.lowerBound), Self.limits.readingWidth.upperBound)
         p.followDelay = min(max(followDelay, Self.limits.followDelay.lowerBound), Self.limits.followDelay.upperBound)
-        if interfaceLanguage.isEmpty { p.interfaceLanguage = "system" }
+        if interfaceLanguage.isEmpty { p.interfaceLanguage = "en" }
         if !["panels", "book", "compare"].contains(defaultMode) { p.defaultMode = "panels" }
         if !["system", "light", "dark"].contains(appearance) { p.appearance = "system" }
         if p.panelTabs.isEmpty { p.panelTabs = ["section"] }

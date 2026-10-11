@@ -87,12 +87,12 @@ public struct SnapshotRecovery {
     }
 
     private func language() -> String {
-        ((try? JSONParser.parseObject(Data(contentsOf: url("book.json"))))?.string("language")) ?? "ru"
+        ((try? JSONParser.parseObject(Data(contentsOf: url("book.json"))))?.string("language")) ?? "en"
     }
 
     /// The chapter called "Recovered" at the top level: found, or made at the end of the book.
     private func recoveredChapterFolder() throws -> String {
-        let title = language() == "ru" ? "Восстановлено" : "Recovered"
+        let title = ["ru": "Восстановлено", "fr": "Récupéré"][language()] ?? "Recovered"
         let now = currentCatalog()
         if let found = now.items.first(where: { $0.group == .chapter && $0.title == title && $0.parentKey == nil }), let json = found.files["json"] { return directory(of: json) }
         var folder = ""
