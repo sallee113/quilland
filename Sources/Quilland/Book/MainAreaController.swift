@@ -121,6 +121,16 @@ final class MainAreaController: NSViewController {
     private var bottomItem: NSSplitViewItem?
     var isSearchOpen: Bool { bottomItem?.isCollapsed == false }
 
+    /// The bottom panel's height (the strip at its top edge and the checks use it).
+    var bottomPanelHeight: CGFloat { searchPanel.view.frame.height }
+
+    /// Gives the bottom panel this height, within its limits.
+    func setBottomPanelHeight(_ height: CGFloat) {
+        guard let split = bottomSplit?.splitView, bottomItem?.isCollapsed == false else { return }
+        let wanted = min(max(height, bottomItem?.minimumThickness ?? 0), bottomItem?.maximumThickness ?? height)
+        split.setPosition(split.bounds.height - wanted - split.dividerThickness, ofDividerAt: 0)
+    }
+
     /// ⌘F opens Search, ⌥⌘F Replace; the field is focused and takes the selected word. Focus Mode ends first.
     func showSearch(_ mode: SearchPanelController.Mode) {
         if focusMode { setFocusMode(false) }

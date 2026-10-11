@@ -125,6 +125,24 @@ final class AppSelfTest {
             tv?.string = original + "\nОн жил в доме - и ждал...\n- Привет!\nПрчина странная.\n"
             doc.textDidChange(); spin(0.2)
             book.main.showSearch(.proofread); spin(0.3)
+            do {
+                book.main.setBottomPanelHeight(330); spin(0.3)
+                let taller = book.main.bottomPanelHeight
+                book.main.setBottomPanelHeight(200); spin(0.3)
+                let shorter = book.main.bottomPanelHeight
+                check(abs(taller - 330) < 3 && abs(shorter - 200) < 3, "the bottom panel can be given a height", "\(taller) \(shorter)")
+                func handles(_ v: NSView) -> [PanelResizeHandle] { (v as? PanelResizeHandle).map { [$0] } ?? v.subviews.flatMap(handles) }
+                let handle = handles(book.main.searchPanel.view).first
+                handle?.onResize?(280); spin(0.3)
+                check(handle != nil && abs(book.main.bottomPanelHeight - 280) < 3, "and the strip along its top edge resizes it", "\(book.main.bottomPanelHeight)")
+                if let content = book.window.contentView, let panelView = Optional(book.main.searchPanel.view) {
+                    let inWindow = panelView.convert(NSPoint(x: panelView.bounds.midX, y: panelView.bounds.maxY - 3), to: nil)
+                    let hit = content.hitTest(content.superview?.convert(inWindow, from: nil) ?? inWindow)
+                    check(hit is PanelResizeHandle, "the strip is what a click at the top edge of the panel reaches", "\(String(describing: hit))")
+                }
+                handle?.onReset?(); spin(0.3)
+                check(abs(book.main.bottomPanelHeight - 260) < 3, "a double-click on the strip gives it the usual height", "\(book.main.bottomPanelHeight)")
+            }
             let panel = book.main.searchPanel.proofView
             panel.scope = .scene
             panel.refresh()

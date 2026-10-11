@@ -1133,6 +1133,7 @@
     "Merge “{second}” into “{first}”?": "Объединить «{second}» с «{first}»?",
     "Merge the chosen scenes into “{first}”?": "Объединить выбранные сцены с «{first}»?",
     "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Текст, синопсис, заметка и теги другой сцены добавляются после тех, что есть у первой, ссылки на неё указывают на первую, а сама она попадает в папку корзины книги (.quilland/trash). Это можно отменить.",
-    "Merge": "Объединить"
+    "Merge": "Объединить",
+    "Drag to resize the panel; double-click for the usual height": "Перетащите, чтобы изменить размер панели; двойной щелчок — обычная высота"
   }
 }

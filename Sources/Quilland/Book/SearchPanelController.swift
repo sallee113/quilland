@@ -139,6 +139,18 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
             looseView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), looseView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
             suggestView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), suggestView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
         ])
+        // The strip at the top edge that resizes the panel.
+        let handle = PanelResizeHandle()
+        handle.translatesAutoresizingMaskIntoConstraints = false
+        handle.toolTip = L("Drag to resize the panel; double-click for the usual height")
+        handle.onResize = { [weak self] height in self?.main?.setBottomPanelHeight(height) }
+        handle.currentHeight = { [weak self] in self?.view.frame.height ?? 0 }
+        handle.onReset = { [weak self] in self?.main?.setBottomPanelHeight(260) }
+        root.addSubview(handle)
+        NSLayoutConstraint.activate([
+            handle.topAnchor.constraint(equalTo: root.topAnchor), handle.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            handle.trailingAnchor.constraint(equalTo: root.trailingAnchor), handle.heightAnchor.constraint(equalToConstant: 8),
+        ])
         findField.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         replaceField.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         findField.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true

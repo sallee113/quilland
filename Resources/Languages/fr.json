@@ -843,7 +843,8 @@
     "Merge “{second}” into “{first}”?": "Fusionner « {second} » dans « {first} » ?",
     "Merge the chosen scenes into “{first}”?": "Fusionner les scènes choisies dans « {first} » ?",
     "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Le texte, le synopsis, la note et les étiquettes de l’autre scène sont ajoutés après ceux de la première, les liens vers elle pointent vers la première, et l’autre scène va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
-    "Merge": "Fusionner"
+    "Merge": "Fusionner",
+    "Drag to resize the panel; double-click for the usual height": "Faites glisser pour redimensionner le panneau ; double-clic pour la hauteur habituelle"
   },
   "plurals": {
     "Accept {n} Checked": {
