@@ -77,11 +77,14 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
         fileRow.spacing = 10
 
         // 2. The analysis and the preview.
-        for (id, title, width) in [("kind", L("Kind of line"), 190), ("count", L("Count"), 52), ("examples", L("Examples"), 230), ("role", L("Becomes"), 120)] as [(String, String, CGFloat)] {
+        // What the line becomes is the choice that matters, so it comes right after the kind; the examples, which can be cut, take what is left.
+        for (id, title, width, minWidth) in [("kind", L("Kind of line"), 160, 110), ("role", L("Becomes"), 118, 110), ("count", L("Count"), 46, 40), ("examples", L("Examples"), 150, 60)] as [(String, String, CGFloat, CGFloat)] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            c.title = title; c.width = width; c.minWidth = 40
+            c.title = title; c.width = width; c.minWidth = minWidth
+            c.resizingMask = id == "examples" ? .autoresizingMask : .userResizingMask
             kindsTable.addTableColumn(c)
         }
+        kindsTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         kindsTable.dataSource = self; kindsTable.delegate = self
         kindsTable.rowHeight = 26
         kindsTable.setAccessibilityLabel(L("Kinds of lines that could be titles"))

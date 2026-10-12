@@ -186,7 +186,7 @@ A snapshot is a copy of the whole book at a moment. Quilland takes one automatic
 
 ## 10. Import and export
 
-**Import** (*File ▸ Import…*, ⇧⌘I) reads one Markdown, plain text or HTML file. Choose the encoding if the text looks wrong, and check the preview of the tree before you confirm. You can import into a new book or at the end of the open one. The import can be undone.
+**Import** (*File ▸ Import…*, ⇧⌘I) reads one Markdown, plain text or HTML file. Choose the encoding if the text looks wrong. The window lists the kinds of title-like lines it found (headings of levels 1 to 6, "Chapter N", "Prologue", numbers, short capital lines…); for each one, *Becomes* says what it makes: a part, a chapter, a scene, or not a title. Check the preview of the tree before you confirm. You can import into a new book or at the end of the open one. The import can be undone.
 
 Not built yet: importing a whole folder of Markdown files, and importing into the middle of a book.
 

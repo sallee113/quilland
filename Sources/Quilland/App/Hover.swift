@@ -61,7 +61,11 @@ enum Hover {
 
         func hover(_ row: Int) { set(canChoose(row) ? row : -1) }
 
-        @objc(mouseMoved:) func mouseMoved(with event: NSEvent) {
+        // The system sends every message the tracking area's options ask for to the owner, and a message the owner does not answer is an exception (which ends a
+        // modal dialog that is open at the time): the owner answers all three.
+        @objc(mouseMoved:) func mouseMoved(with event: NSEvent) { track(event) }
+        @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { track(event) }
+        private func track(_ event: NSEvent) {
             guard let table else { return }
             let row = table.row(at: table.convert(event.locationInWindow, from: nil))
             set(canChoose(row) ? row : -1)

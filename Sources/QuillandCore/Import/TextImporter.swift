@@ -127,7 +127,7 @@ public enum TextImporter {
 
     struct Paragraph: Equatable {
         var text: String
-        /// 1...3 for a Markdown heading, nil otherwise.
+        /// 1...6 for a Markdown heading, nil otherwise.
         var heading: Int?
     }
 
@@ -182,7 +182,7 @@ public enum TextImporter {
             let t = line.trimmingCharacters(in: .whitespaces)
             if let m = t.range(of: "^#{1,6}\\s+", options: .regularExpression) {
                 flush()
-                let level = min(3, t[m].filter { $0 == "#" }.count)
+                let level = min(6, t[m].filter { $0 == "#" }.count)
                 out.append(Paragraph(text: String(t[m.upperBound...]).trimmingCharacters(in: CharacterSet(charactersIn: "# ")), heading: level))
             } else if isBreakLine(t) {
                 flush()
@@ -230,6 +230,9 @@ public enum TextImporter {
         case "h1": return "Heading 1 (#)"
         case "h2": return "Heading 2 (##)"
         case "h3": return "Heading 3 (###)"
+        case "h4": return "Heading 4 (####)"
+        case "h5": return "Heading 5 (#####)"
+        case "h6": return "Heading 6 (######)"
         case "break": return "Scene break (* * *)"
         case "caps": return "SHORT CAPITALS LINE"
         default: return kindPatterns.first { $0.id == id }?.label ?? id
@@ -248,7 +251,7 @@ public enum TextImporter {
             counts[k, default: 0] += 1
             if (examples[k]?.count ?? 0) < 3 { examples[k, default: []].append(p.text) }
         }
-        let wanted = ["h1", "h2", "h3", "part", "chapter", "special", "number", "numbered", "caps", "break"]
+        let wanted = ["h1", "h2", "h3", "h4", "h5", "h6", "part", "chapter", "special", "number", "numbered", "caps", "break"]
         let ids = wanted.filter { counts[$0] != nil }
         // Default roles.
         var roles: [String: ImportRole] = [:]
@@ -264,9 +267,11 @@ public enum TextImporter {
             else if heads == ["h2", "h3"] { headRoles = [.chapter, .scene] }
             else { headRoles = [.part, .chapter] }
         case 1: headRoles = [.chapter]
-        default: break
+        default:
+            // Four levels or more: the first three are part, chapter and scene; deeper ones stay in the text.
+            if heads.count > 3 { headRoles = [.part, .chapter, .scene] + Array(repeating: ImportRole.none, count: heads.count - 3) }
         }
-        for (i, h) in heads.enumerated() { roles[h] = headRoles[i] }
+        for (i, h) in heads.enumerated() where i < headRoles.count { roles[h] = headRoles[i] }
         if heads.contains("h1"), roles["h1"] == ImportRole.none { suggestedTitle = examples["h1"]?.first }
         roles["part"] = .part
         roles["chapter"] = .chapter
@@ -346,7 +351,8 @@ public enum TextImporter {
                 if chapter == nil { chapter = (BookWords.beginning(options.language), []) }
                 sceneTitle = p.text
             case .none:
-                if let h = p.heading { body.append(String(repeating: "#", count: h) + " " + p.text) } else { body.append(p.text) }
+                // A heading that stays in the text: the format has three levels.
+                if let h = p.heading { body.append(String(repeating: "#", count: min(3, h)) + " " + p.text) } else { body.append(p.text) }
             }
         }
         closePart()

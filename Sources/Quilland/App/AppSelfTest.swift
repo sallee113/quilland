@@ -486,6 +486,19 @@ final class AppSelfTest {
             for w in NSApp.windows where !(w is NSPanel) { if let c = w.contentView { for b in buttons(c) where b.action != nil && !(b is NSPopUpButton) && !Hover.isAttached(b) && !(b.superview is NSSearchField) && !b.title.isEmpty { missing.append(b.title) } } }
             check(missing.isEmpty, "every titled button in the windows reacts to the pointer", "\(missing)")
         }
+        // Every tracking area answers to the messages it asks for: an unanswered message is an exception, and one thrown while a dialog is open ends the dialog.
+        do {
+            func everyView(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(everyView) }
+            var unanswered: [String] = []
+            for w in NSApp.windows { for v in w.contentView.map(everyView) ?? [] { for area in v.trackingAreas {
+                guard let owner = area.owner as? NSObject else { continue }
+                func needs(_ option: NSTrackingArea.Options, _ names: [String]) { if area.options.contains(option) { for n in names where !owner.responds(to: NSSelectorFromString(n)) { unanswered.append("\(Swift.type(of: owner)) \(n)") } } }
+                needs(.mouseEnteredAndExited, ["mouseEntered:", "mouseExited:"])
+                needs(.mouseMoved, ["mouseMoved:"])
+                needs(.cursorUpdate, ["cursorUpdate:"])
+            } } }
+            check(unanswered.isEmpty, "every tracking area's owner answers all the messages it asks for", "\(Set(unanswered))")
+        }
         // A button that is off is faded, one that works is not.
         do {
             let probe = NSButton(title: "Probe", target: app, action: #selector(AppDelegate.findAction))
@@ -515,7 +528,7 @@ final class AppSelfTest {
             func tablesIn(_ v: NSView) -> [NSTableView] { ((v as? NSTableView).map { [$0] } ?? []) + v.subviews.flatMap(tablesIn) }
             if let table = again.window.contentView.map(tablesIn)?.first {
                 let rowOwners = table.trackingAreas.compactMap { $0.owner as? NSObject }
-                check(rowOwners.contains { $0.responds(to: NSSelectorFromString("mouseMoved:")) && $0.responds(to: NSSelectorFromString("mouseExited:")) }, "and so does a list's")
+                check(rowOwners.contains { $0.responds(to: NSSelectorFromString("mouseMoved:")) && $0.responds(to: NSSelectorFromString("mouseEntered:")) && $0.responds(to: NSSelectorFromString("mouseExited:")) }, "and so does a list's (every message its tracking asks for)")
             }
             probe.removeFromSuperview()
             check(on == 1 && off < 0.6 && back == 1, "a button that is switched off is faded, and a button that works is not", "\(on) \(off) \(back)")
@@ -561,7 +574,21 @@ final class AppSelfTest {
             check(main.session.structure.roots[1].children.first?.id == lastOfFirst && main.session.structure.roots[1].children.count == 2, "Move Down puts it first in the next chapter")
             main.move(lastOfFirst, by: -1); spin(0.6)
             check(main.session.structure.roots[0].children.last?.id == lastOfFirst, "and Move Up brings it back to the end of the first")
-            main.delete(main.session.structure.roots[1].id, confirm: false); spin(0.5)
+            // Delete… asks first: the warning appears, and its Delete button does the work.
+            var alertSeen = false, titles: [String] = []
+            let clicker = Timer(timeInterval: 0.3, repeats: true) { _ in
+                guard let w = NSApp.modalWindow else { return }
+                alertSeen = true
+                func found(_ v: NSView) -> [NSButton] { ((v as? NSButton).map { [$0] } ?? []) + v.subviews.flatMap(found) }
+                let all = w.contentView.map(found) ?? []
+                titles = all.map(\.title)
+                all.first { $0.title == L("Delete") }?.performClick(nil)
+            }
+            RunLoop.main.add(clicker, forMode: .common)
+            let chaptersBefore = main.session.structure.roots.count
+            main.delete(main.session.structure.roots[1].id)
+            clicker.invalidate(); spin(0.5)
+            check(alertSeen && main.session.structure.roots.count == chaptersBefore - 1, "Delete… shows its warning, and the Delete button removes the section", "alert \(alertSeen) \(titles) chapters \(main.session.structure.roots.count)")
             main.tree?.select(chapterID); spin(0.2)
             check(!on(#selector(AppDelegate.setSectionStatus(_:)), status: "draft") && !on(#selector(AppDelegate.mergeNextScene)) && !on(#selector(AppDelegate.moveSectionUp)) && on(#selector(AppDelegate.groupIntoPart)) && on(#selector(AppDelegate.renameSection)) && on(#selector(AppDelegate.deleteSection)), "a lone chapter has no status and cannot move, but can be grouped, renamed and deleted")
             main.tree?.select(ids[1]); spin(0.2)
@@ -1242,6 +1269,16 @@ final class AppSelfTest {
         im.applyDestinationChoices()
         im.show()
         im.loadText(md, source: .markdown); spin(0.2)
+        do {
+            // Every column of the kinds table, "Becomes" among them, is inside the table.
+            func tableIn(_ v: NSView) -> NSTableView? { (v as? NSTableView) ?? v.subviews.lazy.compactMap(tableIn).first }
+            im.window.contentView?.layoutSubtreeIfNeeded()
+            if let table = im.window.contentView.flatMap(tableIn), let scroll = table.enclosingScrollView {
+                let titles = table.tableColumns.map(\.title)
+                let lastRight = table.tableColumns.indices.map { table.rect(ofColumn: $0).maxX }.max() ?? 0
+                check(titles.contains("Becomes") && lastRight <= scroll.contentView.bounds.width + 1, "the Import window shows every column of the kinds table, with the choice of what a line becomes", "\(titles) right \(lastRight) of \(scroll.contentView.bounds.width)")
+            } else { check(false, "the kinds table is there") }
+        }
         check(im.kinds.map(\.id) == ["h1", "h2", "break"] && im.treeTitles == ["Глава 1", "  Сцена 1", "  Сцена 2", "Глава 2", "  Сцена 1"], "Import analyses the text and shows the tree that will be made", "\(im.kinds.map(\.id)) \(im.treeTitles)")
         check(im.summaryText.hasPrefix("0 parts, 2 chapters, 3 scenes"), "with the size of what will be made", im.summaryText)
         im.setOptions(split: false)

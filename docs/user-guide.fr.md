@@ -188,7 +188,7 @@ Un instantané est une copie de tout le livre à un moment donné. Quilland en p
 
 ## 10. Import et export
 
-**Importer** (*Fichier ▸ Importer…*, ⇧⌘I) lit un fichier Markdown, texte brut ou HTML. Choisissez l’encodage si le texte semble faux, et vérifiez l’aperçu de l’arborescence avant de confirmer. On peut importer dans un nouveau livre ou à la fin du livre ouvert. L’import peut être annulé.
+**Importer** (*Fichier ▸ Importer…*, ⇧⌘I) lit un fichier Markdown, texte brut ou HTML. Choisissez l’encodage si le texte semble faux. La fenêtre liste les sortes de lignes qui ressemblent à des titres (titres de niveau 1 à 6, « Chapitre N », « Prologue », nombres, courtes lignes en capitales…) ; pour chacune, *Devient* indique ce qu’elle produit : une partie, un chapitre, une scène ou « pas un titre ». Vérifiez l’aperçu de l’arborescence avant de confirmer. On peut importer dans un nouveau livre ou à la fin du livre ouvert. L’import peut être annulé.
 
 Pas encore disponible : importer tout un dossier de fichiers Markdown, et importer au milieu d’un livre.
 

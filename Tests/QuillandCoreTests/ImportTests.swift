@@ -129,4 +129,20 @@ struct ImportTests {
         let plan = TextImporter.plan("Просто текст.\n\nИ ещё.\n", source: .text, options: ImportOptions())
         #expect(plan.chapterCount == 1 && plan.sceneCount == 1)
     }
+
+    @Test("headings of four to six levels are kinds of their own, and the deeper ones stay in the text by default")
+    func deepHeadings() {
+        let text = "# Часть первая\n\n## Глава 1\n\n### Сцена\n\nТекст.\n\n#### Подзаголовок\n\nЕщё текст.\n\n###### Совсем мелкий\n\nКонец.\n"
+        let analysis = TextImporter.analyze(text, source: .markdown, joinWrappedLines: false)
+        #expect(analysis.kinds.map(\.id) == ["h1", "h2", "h3", "h4", "h6"])
+        #expect(analysis.kinds.map(\.defaultRole) == [.part, .chapter, .scene, .none, .none])
+        var options = ImportOptions()
+        options.language = "ru"
+        let plan = TextImporter.plan(text, source: .markdown, options: options)
+        #expect(plan.partCount == 1 && plan.chapterCount == 1 && plan.sceneCount == 1)
+        // Chosen as a scene, an H4 starts a scene of its own.
+        options.roles["h4"] = .scene
+        let more = TextImporter.plan(text, source: .markdown, options: options)
+        #expect(more.sceneCount == 2)
+    }
 }
