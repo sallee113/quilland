@@ -1259,6 +1259,30 @@ final class AppSelfTest {
         check(BookStructure.problemsFree(exFolder), "the book reads without problems after the import")
         exMain.undoStructure(confirm: false); spin(0.6)
         check(exMain.session.structure.scenes.count == scenesBefore, "Undo takes the import back")
+        // A real file from the disk (a Russian name, as the file chooser gives it).
+        do {
+            let file = temp.appendingPathComponent("Моя книга.md")
+            try? Data(md.utf8).write(to: file)
+            let fromDisk = ImportWindowController()
+            fromDisk.language = "ru"
+            fromDisk.loadFile(file); spin(0.3)
+            check(fromDisk.kinds.map(\.id) == ["h1", "h2", "break"] && fromDisk.treeTitles.count == 5 && fromDisk.summaryText.hasPrefix("0 parts, 2 chapters, 3 scenes"), "a Markdown file from the disk is read, analysed and shown", "\(fromDisk.kinds.map(\.id)) \(fromDisk.treeTitles) \(fromDisk.summaryText)")
+            fromDisk.window.close()
+        }
+        // A long book is read in the background, and the window stays alive meanwhile.
+        do {
+            var big = "# Большая книга\n\n"
+            for c in 1...30 { big += "## Глава \(c)\n\n"; for s in 1...6 { if s > 1 { big += "* * *\n\n" }; for _ in 1...20 { big += "Это абзац, в котором достаточно слов, чтобы текст стал длинным и заметным для проверки. Анна пошла дальше по дороге.\n\n" } } }
+            let file = temp.appendingPathComponent("Большая.md")
+            try? Data(big.utf8).write(to: file)
+            let slow = ImportWindowController()
+            slow.language = "ru"
+            slow.loadFile(file)
+            let readingAtOnce = slow.summaryText
+            for _ in 0..<80 where slow.summaryText == readingAtOnce { spin(0.1) }
+            check(big.utf8.count > 300_000 && readingAtOnce == "Reading…" && slow.treeTitles.count == 30 + 180 && slow.summaryText.hasPrefix("0 parts, 30 chapters, 180 scenes"), "a long file is read in the background, and the tree arrives", "\(big.utf8.count) \(readingAtOnce) | \(slow.treeTitles.count) \(slow.summaryText)")
+            slow.window.close()
+        }
         let im2 = ImportWindowController()
         im2.intoNewBook = { [app] plan, title, language in app.importIntoNewBook(plan, title: title, language: language) }
         im2.applyDestinationChoices()

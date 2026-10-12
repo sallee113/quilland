@@ -126,10 +126,17 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
         let destination = NSStackView(views: [openRadio, newRadio, titleField, NSView(), resultLabel, importButton])
         destination.spacing = 10
 
-        let root = NSStackView(views: [caption(L("1. The file")), fileRow, noteLabel, caption(L("2. The analysis")), middle, caption(L("3. Where it goes")), destination])
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isIndeterminate = true
+        spinner.isDisplayedWhenStopped = false
+        spinner.isHidden = true
+        let noteRow = NSStackView(views: [spinner, noteLabel])
+        noteRow.spacing = 6
+        let root = NSStackView(views: [caption(L("1. The file")), fileRow, noteRow, caption(L("2. The analysis")), middle, caption(L("3. Where it goes")), destination])
         root.orientation = .vertical; root.alignment = .leading; root.spacing = 8
         root.edgeInsets = NSEdgeInsets(top: 16, left: 18, bottom: 16, right: 18)
-        root.setCustomSpacing(14, after: noteLabel)
+        root.setCustomSpacing(14, after: noteRow)
         root.setCustomSpacing(14, after: middle)
         let content = NSView()
         root.translatesAutoresizingMaskIntoConstraints = false
@@ -163,16 +170,30 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
     // MARK: Reading the file
 
     @objc private func chooseFile() {
+        // A sheet on the window, and no filter by type: the Open button of a filtered dialog did nothing for some files (a double click worked). A file that is not text
+        // is told about when it is read.
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = ["md", "markdown", "txt", "text", "html", "htm"].compactMap { .init(filenameExtension: $0) }
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        loadFile(url)
+        panel.allowsMultipleSelection = false
+        panel.beginSheetModal(for: window) { [weak self, weak panel] response in
+            guard response == .OK, let url = panel?.url else { return }
+            self?.loadFile(url)
+        }
     }
 
     func loadFile(_ url: URL) {
-        guard let bytes = try? Data(contentsOf: url) else { noteLabel.stringValue = L("The file could not be read."); return }
+        let bytes: Data
+        do { bytes = try Data(contentsOf: url) } catch {
+            // Said loudly: a small grey note is easy to miss.
+            noteLabel.stringValue = L("The file could not be read.")
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = L("The file could not be read.")
+            alert.informativeText = (error as NSError).localizedDescription
+            alert.beginSheetModal(for: window)
+            return
+        }
         data = bytes
         pathLabel.stringValue = url.path
         source = ImportSource.guess(extension: url.pathExtension)
@@ -210,24 +231,64 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
 
     // MARK: Analysis
 
+    /// A text longer than this is read in the background, with the window saying so, instead of freezing it.
+    private static let backgroundSize = 300_000
+    private var generation = 0
+    private let spinner = NSProgressIndicator()
+
+    private func setBusy(_ busy: Bool) {
+        if busy { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
+        spinner.isHidden = !busy
+        if busy { importButton.isEnabled = false }
+    }
+
     private func reanalyze() {
         guard let raw else { return }
         options.splitAtSceneBreaks = splitBox.state == .on
         options.joinWrappedLines = joinBox.state == .on
         options.language = language
+        if raw.utf8.count > Self.backgroundSize { reanalyzeInBackground(raw); return }
         let analysis = TextImporter.analyze(raw, source: source, joinWrappedLines: options.joinWrappedLines)
+        apply(analysis: analysis)
+        replan(analysis: analysis)
+    }
+
+    private func reanalyzeInBackground(_ raw: String) {
+        generation += 1
+        let mine = generation, source = self.source, options = self.options
+        setBusy(true)
+        summaryLabel.stringValue = L("Reading…")
+        Task { @MainActor [weak self] in
+            let result = await Task.detached(priority: .userInitiated) { () -> ((kinds: [TitleKind], suggestedTitle: String?), ImportPlan) in
+                let analysis = TextImporter.analyze(raw, source: source, joinWrappedLines: options.joinWrappedLines)
+                var used = options
+                used.roles = options.roles.filter { key, _ in analysis.kinds.contains { $0.id == key } }
+                return (analysis, TextImporter.plan(raw, source: source, options: used, analysis: analysis))
+            }.value
+            guard let self, mine == self.generation else { return }
+            self.apply(analysis: result.0)
+            self.show(plan: result.1)
+            self.setBusy(false)
+            self.updateEnabled()
+        }
+    }
+
+    private func apply(analysis: (kinds: [TitleKind], suggestedTitle: String?)) {
         kinds = analysis.kinds
         options.roles = options.roles.filter { key, _ in kinds.contains { $0.id == key } }
         if let title = analysis.suggestedTitle, titleField.stringValue.isEmpty || titleField.stringValue == pendingSuggestion { titleField.stringValue = title; pendingSuggestion = title }
         kindsTable.reloadData()
-        replan()
     }
 
     private var pendingSuggestion = ""
 
-    private func replan() {
+    private func replan(analysis: (kinds: [TitleKind], suggestedTitle: String?)? = nil) {
         guard let raw else { return }
-        plan = TextImporter.plan(raw, source: source, options: options)
+        show(plan: TextImporter.plan(raw, source: source, options: options, analysis: analysis))
+    }
+
+    private func show(plan newPlan: ImportPlan) {
+        plan = newPlan
         func scene(_ s: ImportPlan.Scene) -> Node { Node(s.title, s.characters) }
         func chapter(_ c: ImportPlan.Chapter) -> Node { Node(c.title, c.characters, c.scenes.map(scene)) }
         tree = plan.items.map { item in
@@ -259,7 +320,7 @@ final class ImportWindowController: NSObject, NSWindowDelegate, NSTableViewDataS
     func setRole(_ kind: String, _ role: ImportRole) {
         options.roles[kind] = role
         kindsTable.reloadData()
-        replan()
+        if let raw, raw.utf8.count > Self.backgroundSize { reanalyzeInBackground(raw) } else { replan() }
     }
 
     func setOptions(split: Bool? = nil, join: Bool? = nil) {

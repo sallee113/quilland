@@ -282,9 +282,10 @@ public enum TextImporter {
 
     // MARK: The plan
 
-    public static func plan(_ raw: String, source: ImportSource, options: ImportOptions) -> ImportPlan {
+    /// `analysis` is what `analyze` gave for this text, when the caller has it (a long text is not read twice).
+    public static func plan(_ raw: String, source: ImportSource, options: ImportOptions, analysis known: (kinds: [TitleKind], suggestedTitle: String?)? = nil) -> ImportPlan {
         let paras = paragraphs(from: raw, source: source, join: options.joinWrappedLines)
-        let analysis = analyze(raw, source: source, joinWrappedLines: options.joinWrappedLines)
+        let analysis = known ?? analyze(raw, source: source, joinWrappedLines: options.joinWrappedLines)
         var roles: [String: ImportRole] = [:]
         for k in analysis.kinds { roles[k.id] = options.roles[k.id] ?? k.defaultRole }
         let sceneWord = ["ru": "Сцена", "fr": "Scène"][options.language] ?? "Scene"
@@ -302,8 +303,10 @@ public enum TextImporter {
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sceneTitle != nil {
                 if chapter == nil { chapter = (BookWords.beginning(options.language), []) }
                 sceneNumber += 1
-                let markdown = normalize(text)
-                chapter?.scenes.append(.init(title: sceneTitle ?? "\(sceneWord) \(sceneNumber)", markdown: markdown, characters: TextStats.count(MarkdownParser.parse(markdown)).characters))
+                // Read once: the body written by the format's own writer, and its size from the same reading.
+                let document = MarkdownParser.parse(text)
+                let markdown = MarkdownWriter.write(document)
+                chapter?.scenes.append(.init(title: sceneTitle ?? "\(sceneWord) \(sceneNumber)", markdown: markdown, characters: TextStats.count(document).characters))
             }
             body = []
             sceneTitle = nil
