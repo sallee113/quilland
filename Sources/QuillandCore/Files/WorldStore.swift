@@ -46,6 +46,9 @@ public final class WorldStore {
 
     private var worldsDirectory: URL { book.appendingPathComponent("bible/worlds") }
     private var placesDirectory: URL { book.appendingPathComponent("bible/places") }
+    /// The file each record was read from (a file is normally named by its id, but one that is not is written again where it is, not beside it).
+    private var worldFiles: [String: URL] = [:]
+    private var entryFiles: [String: URL] = [:]
 
     // MARK: Reading
 
@@ -56,16 +59,35 @@ public final class WorldStore {
         func files(_ dir: URL) -> [URL] {
             ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).sorted().filter { $0.hasSuffix(".json") }.map { dir.appendingPathComponent($0) }
         }
+        worldFiles = [:]
+        entryFiles = [:]
+        // Two files with one id (an older version wrote a changed world beside the file it came from): the one named by the id is the later one, and is kept.
+        func keep(_ id: String, _ url: URL, in map: [String: URL]) -> Bool {
+            guard let existing = map[id] else { return true }
+            return url.lastPathComponent == id + ".json" && existing.lastPathComponent != id + ".json"
+        }
         for url in files(worldsDirectory) {
             do {
                 let r = WorldRecord(object: try JSONParser.parseObject(Data(contentsOf: url)))
-                if r.id != nil, r.name != nil { worlds.append(r) } else { problems.append("\(url.lastPathComponent): no id or name") }
+                guard let id = r.id, r.name != nil else { problems.append("\(url.lastPathComponent): no id or name"); continue }
+                if worldFiles[id] != nil {
+                    guard keep(id, url, in: worldFiles) else { continue }
+                    worlds.removeAll { $0.id == id }
+                }
+                worlds.append(r)
+                worldFiles[id] = url
             } catch { problems.append("\(url.lastPathComponent): \(error)") }
         }
         for url in files(placesDirectory) {
             do {
                 let r = PlaceRecord(object: try JSONParser.parseObject(Data(contentsOf: url)))
-                if r.id != nil, r.name != nil, r.world != nil { entries.append(r) } else { problems.append("\(url.lastPathComponent): no id, name or world") }
+                guard let id = r.id, r.name != nil, r.world != nil else { problems.append("\(url.lastPathComponent): no id, name or world"); continue }
+                if entryFiles[id] != nil {
+                    guard keep(id, url, in: entryFiles) else { continue }
+                    entries.removeAll { $0.id == id }
+                }
+                entries.append(r)
+                entryFiles[id] = url
             } catch { problems.append("\(url.lastPathComponent): \(error)") }
         }
         sortAll()
@@ -133,8 +155,8 @@ public final class WorldStore {
 
     // MARK: Writing
 
-    private func url(world id: String) -> URL { worldsDirectory.appendingPathComponent(id + ".json") }
-    private func url(entry id: String) -> URL { placesDirectory.appendingPathComponent(id + ".json") }
+    private func url(world id: String) -> URL { worldFiles[id] ?? worldsDirectory.appendingPathComponent(id + ".json") }
+    private func url(entry id: String) -> URL { entryFiles[id] ?? placesDirectory.appendingPathComponent(id + ".json") }
     private func textURL(_ id: String) -> URL {
         (world(id) != nil ? worldsDirectory : placesDirectory).appendingPathComponent(id + ".md")
     }

@@ -122,6 +122,8 @@ Ces vues conservent des fiches : un nom, des alias, une description, des notes e
 
 **La même personne sur deux fiches.** Si l’IA (ou vous) a créé deux fiches pour une même personne, faites un clic droit sur celle à retirer, ou appuyez sur *Fusionner avec…* sur sa fiche, puis choisissez le personnage à garder. Le nom et les alias de la fiche retirée deviennent des alias du personnage gardé, si bien que l’IA et la reconnaissance dans le texte reconnaissent ce nom désormais ; son profil, ses notes, ses scènes et ses relations s’ajoutent à ceux du personnage gardé, et la fiche va dans le dossier corbeille du livre. Un instantané est pris d’abord, et le bouton Annuler du bandeau (ou ⌘Z) annule la fusion.
 
+**Lieux et mondes.** Dans la vue Monde, faites un clic droit sur un lieu ou un monde (ou utilisez les boutons de sa fiche) pour des outils du même genre : *Fusionner avec…* réunit deux lieux, ou deux mondes, en un seul (le nom du retiré devient un alias, ses lieux et ses liens passent à l’autre). Si l’IA a pris un monde entier pour un lieu, choisissez *Transformer en monde…* : le lieu devient un monde à part et les lieux qu’il contient sont au premier niveau de ce monde. L’inverse, *Transformer en lieu…*, place un monde dans un autre monde, ou dans l’un de ses lieux. Chacune est un changement unique avec un instantané avant et après, et Annuler l’annule.
+
 Les noms sont repérés par des règles qui gèrent les terminaisons russes (« Анне » est reconnu comme « Анна »), si bien qu’une liste d’alias suffit généralement.
 
 ## 6. Le Plan

@@ -77,7 +77,9 @@ public enum BookCreator {
         try AtomicFile.write(Data(), to: folder.appendingPathComponent("manuscript/001-chapter/001-scene.md"))
 
         // The default world, so that a place can be made without setting one up.
-        try write("bible/worlds/\(UUID().uuidString.lowercased()).json", ["id": uuid(), "name": .string(words.world)])
+        // The file is named by the record's id, as every store writes it again.
+        let worldID = UUID().uuidString.lowercased()
+        try write("bible/worlds/\(worldID).json", ["id": .string(worldID), "name": .string(words.world)])
 
         // The starter kind (format, section 19).
         func field(_ name: String, _ kind: String, many: Bool = false) -> JSONValue {
@@ -85,6 +87,7 @@ public enum BookCreator {
             if many { f["many"] = .bool(true) }
             return .object(f)
         }
+        let kindID = UUID().uuidString.lowercased()
         let kind: JSONObject = [
             "color": .string("teal"),
             "description": .string(words.kindDescription),
@@ -92,10 +95,10 @@ public enum BookCreator {
             "findable": .bool(true),
             "hidden": .bool(false),
             "icon": .string("bag"),
-            "id": uuid(),
+            "id": .string(kindID),
             "name": .object(["many": .string(words.kindMany), "one": .string(words.kindOne)]),
         ]
-        try write("bible/kinds/\(UUID().uuidString.lowercased()).json", kind)
+        try write("bible/kinds/\(kindID).json", kind)
         return folder
     }
 }

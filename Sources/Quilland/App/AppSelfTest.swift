@@ -1052,6 +1052,30 @@ final class AppSelfTest {
         wv.onOpenScene?(sc[0].id); spin(0.5)
         check(main.mode == main.writingMode, "opening a scene from the card goes to the text")
         app.modeWorld(); spin(0.4)
+        // Merging and converting places and worlds: each is one change with its own Undo.
+        do {
+            let home = main.worlds.worlds[0].id!
+            let worldsBefore = main.worlds.worlds.count
+            let planet = try! main.worlds.addEntry(name: "Тэра", world: home)
+            let north = try! main.worlds.addEntry(name: "Север", world: home, parent: planet)
+            let twin = try! main.worlds.addEntry(name: "Планета Тэра", world: home)
+            try! main.worlds.updateEntry(twin) { $0.notes = ["Далёкая."] }
+            main.mergePlaces(twin, into: planet); spin(0.8)
+            check(main.worlds.entry(twin) == nil && main.worlds.entry(planet)?.aliases.contains("Планета Тэра") == true && main.worlds.entry(planet)?.notes.contains("Далёкая.") == true && main.worldView?.selected == planet, "Merge Into… on a place gives its name and notes to the other, and chooses it")
+            main.undoStructure(confirm: false); spin(0.8)
+            check(main.worlds.entry(twin) != nil && main.worlds.entry(planet)?.aliases.contains("Планета Тэра") != true, "and Undo brings the place back")
+            main.placeToWorld(planet); spin(0.8)
+            let made = main.worlds.worlds.first { $0.name == "Тэра" }
+            check(made != nil && main.worlds.entry(planet) == nil && main.worlds.entry(north)?.world == made?.id && main.worlds.entry(north)?.parent == nil, "Turn Into a World makes a world of a place, with what was inside it at the top")
+            if let made = made?.id {
+                main.worldToPlace(made, intoWorld: home, parent: nil); spin(0.8)
+                check(main.worlds.world(made) == nil && main.worlds.entries.contains { $0.name == "Тэра" && $0.world == home && $0.parent == nil } && main.worlds.entry(north)?.world == home, "and Turn Into a Place puts a world back as a place in another one")
+            }
+            main.undoStructure(confirm: false); spin(0.8)
+            main.undoStructure(confirm: false); spin(0.8)
+            check(main.worlds.entry(planet) != nil && main.worlds.entry(north)?.parent == planet && main.worlds.worlds.count == worldsBefore, "both can be undone", "planet \(main.worlds.entry(planet) != nil) parent \(String(describing: main.worlds.entry(north)?.parent)) worlds \(main.worlds.worlds.count) before \(worldsBefore)")
+            for id in [north, twin, planet] { try? main.worlds.deleteEntry(id) }
+        }
         main.worldView?.onEscape?(); spin(0.4)
         check(main.mode == main.writingMode, "Esc leaves the view")
         check(main.worlds.problems.isEmpty, "and the files of the worlds read without problems", "\(main.worlds.problems)")

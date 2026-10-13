@@ -330,6 +330,10 @@ final class MainAreaController: NSViewController {
             view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
             view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
             view.onChange = { [weak self] in self?.onChange?() }
+            view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
+            view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }
+            view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
+            view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
             view.onEscape = { [weak self] in self?.leaveFullAreaView() }
             _ = view.view
             worldView = view
@@ -709,6 +713,46 @@ final class MainAreaController: NSViewController {
             return nil
         }
         charactersView?.select(target)
+    }
+
+    // The same for places and worlds (the World view): a snapshot before and after, so that Undo takes the change back.
+
+    private func worldName(_ id: String) -> String { worlds.world(id)?.name ?? worlds.entry(id)?.name ?? "" }
+
+    func mergePlaces(_ source: String, into target: String) {
+        let names = ["from": worldName(source), "to": worldName(target)]
+        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", names)) { editor in
+            try WorldMerger.mergePlaces(source, into: target, book: editor.folder)
+            return nil
+        }
+        worldView?.select(target)
+    }
+
+    func mergeWorlds(_ source: String, into target: String) {
+        let names = ["from": worldName(source), "to": worldName(target)]
+        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", names)) { editor in
+            try WorldMerger.mergeWorlds(source, into: target, book: editor.folder)
+            return nil
+        }
+        worldView?.select(target)
+    }
+
+    func placeToWorld(_ id: String) {
+        var created: String?
+        restructure(focusText: false, undoName: L("Turn “{name}” into a world", ["name": worldName(id)])) { editor in
+            created = try WorldMerger.placeToWorld(id, book: editor.folder).world
+            return nil
+        }
+        if let created { worldView?.select(created) }
+    }
+
+    func worldToPlace(_ world: String, intoWorld: String, parent: String?) {
+        var created: String?
+        restructure(focusText: false, undoName: L("Turn “{name}” into a place", ["name": worldName(world)])) { editor in
+            created = try WorldMerger.worldToPlace(world, intoWorld: intoWorld, parent: parent, book: editor.folder).entry
+            return nil
+        }
+        if let created { worldView?.select(created) }
     }
 
     func charactersChanged() {

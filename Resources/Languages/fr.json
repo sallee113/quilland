@@ -852,7 +852,23 @@
     "Merge “{name}” into…": "Fusionner « {name} » avec…",
     "No such character.": "Ce personnage n’existe pas.",
     "The same person under another name: its name and what is known of it go to the character you choose": "La même personne sous un autre nom : son nom et ce qu’on sait d’elle vont au personnage que vous choisissez",
-    "There is no other character to merge into.": "Il n’y a pas d’autre personnage avec qui fusionner."
+    "There is no other character to merge into.": "Il n’y a pas d’autre personnage avec qui fusionner.",
+    "A place cannot be merged into a place inside it.": "Un lieu ne peut pas être fusionné avec un lieu qui est à l’intérieur.",
+    "A place cannot be merged into itself.": "Un lieu ne peut pas être fusionné avec lui-même.",
+    "A world cannot be merged into itself.": "Un monde ne peut pas être fusionné avec lui-même.",
+    "Choose the place to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept place, its description, notes and scenes are added to theirs, and what is inside it moves into the kept place. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le lieu à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du lieu gardé, sa description, ses notes et ses scènes s’ajoutent aux siennes, et ce qu’il contient passe dans le lieu gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
+    "Choose the world to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept world, and all its places move to the top of the kept world. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le monde à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du monde gardé, et tous ses lieux passent au premier niveau du monde gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
+    "Choose where the place goes. The world becomes a place there, and its places are inside it. You can undo this.": "Choisissez où va le lieu. Le monde y devient un lieu, et ses lieux sont à l’intérieur. Vous pouvez l’annuler.",
+    "The place becomes a world of its own, and the places inside it are at the top of that world. Its description, notes, scenes and the links to it go with it. You can undo this.": "Le lieu devient un monde à part, et les lieux qu’il contient sont au premier niveau de ce monde. Sa description, ses notes, ses scènes et les liens vers lui l’accompagnent. Vous pouvez l’annuler.",
+    "The same one under another name: its name and what is known of it go to the one you choose": "Le même sous un autre nom : son nom et ce qu’on en sait vont à celui que vous choisissez",
+    "Turn Into a Place": "Transformer en lieu",
+    "Turn Into a Place…": "Transformer en lieu…",
+    "Turn Into a World": "Transformer en monde",
+    "Turn Into a World…": "Transformer en monde…",
+    "Turn “{name}” into a place": "« {name} » devient un lieu",
+    "Turn “{name}” into a place?": "Transformer « {name} » en lieu ?",
+    "Turn “{name}” into a world": "« {name} » devient un monde",
+    "Turn “{name}” into a world?": "Transformer « {name} » en monde ?"
   },
   "plurals": {
     "Accept {n} Checked": {
