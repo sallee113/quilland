@@ -844,7 +844,15 @@
     "Merge the chosen scenes into “{first}”?": "Fusionner les scènes choisies dans « {first} » ?",
     "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Le texte, le synopsis, la note et les étiquettes de l’autre scène sont ajoutés après ceux de la première, les liens vers elle pointent vers la première, et l’autre scène va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
     "Merge": "Fusionner",
-    "Drag to resize the panel; double-click for the usual height": "Faites glisser pour redimensionner le panneau ; double-clic pour la hauteur habituelle"
+    "Drag to resize the panel; double-click for the usual height": "Faites glisser pour redimensionner le panneau ; double-clic pour la hauteur habituelle",
+    "A character cannot be merged into itself.": "Un personnage ne peut pas être fusionné avec lui-même.",
+    "Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le personnage à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du personnage gardé, et son profil, ses notes, ses scènes et ses relations s’ajoutent aux siens. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
+    "Merge Into…": "Fusionner avec…",
+    "Merge “{from}” into “{to}”": "Fusion de « {from} » avec « {to} »",
+    "Merge “{name}” into…": "Fusionner « {name} » avec…",
+    "No such character.": "Ce personnage n’existe pas.",
+    "The same person under another name: its name and what is known of it go to the character you choose": "La même personne sous un autre nom : son nom et ce qu’on sait d’elle vont au personnage que vous choisissez",
+    "There is no other character to merge into.": "Il n’y a pas d’autre personnage avec qui fusionner."
   },
   "plurals": {
     "Accept {n} Checked": {

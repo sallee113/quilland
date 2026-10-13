@@ -120,6 +120,8 @@ Ces vues conservent des fiches : un nom, des alias, une description, des notes e
 - **Monde** (⌘7) : mondes et lieux sous forme d’arbre, avec une fiche pour chacun.
 - **Événements** (⌘8) : ce qui se passe dans l’histoire, avec les scènes et les personnages concernés.
 
+**La même personne sur deux fiches.** Si l’IA (ou vous) a créé deux fiches pour une même personne, faites un clic droit sur celle à retirer, ou appuyez sur *Fusionner avec…* sur sa fiche, puis choisissez le personnage à garder. Le nom et les alias de la fiche retirée deviennent des alias du personnage gardé, si bien que l’IA et la reconnaissance dans le texte reconnaissent ce nom désormais ; son profil, ses notes, ses scènes et ses relations s’ajoutent à ceux du personnage gardé, et la fiche va dans le dossier corbeille du livre. Un instantané est pris d’abord, et le bouton Annuler du bandeau (ou ⌘Z) annule la fusion.
+
 Les noms sont repérés par des règles qui gèrent les terminaisons russes (« Анне » est reconnu comme « Анна »), si bien qu’une liste d’alias suffit généralement.
 
 ## 6. Le Plan

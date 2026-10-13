@@ -994,6 +994,21 @@ final class AppSelfTest {
         cv2.deleteSelected(confirm: false)
         check(main.characters.character(petr) == nil && cv2.shownNames == ["Анна Петровна"], "deleting a character takes it out of the list")
         check(!(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).isEmpty), "and into the trash folder")
+        // Merge Into…: the same person under two names.
+        do {
+            let keptID = main.characters.characters.first { $0.name == "Анна Петровна" }!.id!
+            let dupID = try! main.characters.add(name: "Анечка")
+            try! main.characters.update(dupID) { $0.notes = ["Младшая."]; $0.links = [sc[0].id: "спит"] }
+            let menuHost = main.charactersView!
+            _ = menuHost
+            main.mergeCharacters(dupID, into: keptID); spin(0.8)
+            let kept = main.characters.character(keptID)
+            check(main.characters.character(dupID) == nil && kept?.aliases.contains("Анечка") == true && kept?.notes.contains("Младшая.") == true && kept?.links[sc[0].id] == "спит", "Merge Into… takes the second card out and gives its name, notes and links to the first", "\(String(describing: kept?.aliases)) \(String(describing: kept?.notes))")
+            check(main.charactersView?.shownNames == ["Анна Петровна"] && main.charactersView?.selected == keptID, "the list shows the kept character, chosen")
+            check(main.undoStack.last?.name.contains("Анечка") == true && main.banner.isShowing, "and the banner offers Undo")
+            main.undoStructure(confirm: false); spin(0.8)
+            check(main.characters.character(dupID) != nil && main.characters.character(keptID)?.aliases.contains("Анечка") != true, "Undo brings the second card back and takes its name off the first", "dup \(main.characters.character(dupID) != nil) aliases \(String(describing: main.characters.character(keptID)?.aliases)) stack \(main.undoStack.map(\.name))")
+        }
         cv2.onEscape?(); spin(0.4)
         check(main.mode == main.writingMode, "Esc leaves the view")
         setText(sc[0].id, "Первая строка новой книги.")

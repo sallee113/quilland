@@ -11,7 +11,7 @@ struct CharacterSceneRow {
 }
 
 /// The Characters view: the list of characters on the left, the card of the chosen one on the right (the two-part layout).
-final class CharactersViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate {
+final class CharactersViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate, NSMenuDelegate {
     var store: CharacterStore!
     var relationships: RelationshipStore!
     let relCard = RelationshipCardController()
@@ -27,6 +27,9 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     var onOpenScene: ((String) -> Void)?
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
+    /// Merge Into…: the character to take out of the book and the one that keeps what is known of both. The owner of the book does it (and can undo it).
+    var onMerge: ((String, String) -> Void)?
+    private let mergeButton = NSButton(title: L("Merge Into…"), target: nil, action: nil)
 
     private(set) var selected: String?
     private var shown: [CharacterRecord] = []
@@ -103,6 +106,9 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         list.rowHeight = 24
         list.style = .sourceList
         list.setAccessibilityLabel(L("Characters"))
+        let listMenu = NSMenu()
+        listMenu.delegate = self
+        list.menu = listMenu
         let scroll = NSScrollView()
         scroll.documentView = list
         scroll.hasVerticalScroller = true
@@ -204,12 +210,17 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         tableScroll.heightAnchor.constraint(equalToConstant: 200).isActive = true
         deleteButton.target = self; deleteButton.action = #selector(deletePressed)
         deleteButton.bezelStyle = .rounded
+        mergeButton.target = self; mergeButton.action = #selector(mergePressed)
+        mergeButton.bezelStyle = .rounded
+        mergeButton.toolTip = L("The same person under another name: its name and what is known of it go to the character you choose")
+        let cardButtons = NSStackView(views: [mergeButton, deleteButton])
+        cardButtons.spacing = 10
 
         let profileBox = box(profile, height: 150), notesBox = box(notes, height: 90)
         relationshipsLabel.font = .systemFont(ofSize: 12)
         relationshipsLabel.textColor = .secondaryLabelColor
         card.setViews([nameField, aliasField, mainBox, relationshipsLabel, caption(L("Profile, appearance, speech")), profileBox, caption(L("Notes (one per line)")), notesBox,
-                       caption(L("Scenes: where the name is, point of view, what the character does (double-click opens the scene)")), tableScroll, deleteButton])
+                       caption(L("Scenes: where the name is, point of view, what the character does (double-click opens the scene)")), tableScroll, cardButtons])
         card.orientation = .vertical
         card.alignment = .leading
         card.spacing = 8
@@ -575,6 +586,52 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             try? store.update(id) { $0.notes = lines }
         }
         onChange?()
+    }
+
+    // MARK: Merging
+
+    @objc private func mergePressed() { mergeSelected() }
+
+    /// Right click on a character: the commands for it (the clicked character is the chosen one).
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === list.menu else { return }
+        menu.removeAllItems()
+        menu.autoenablesItems = false
+        let row = list.clickedRow
+        guard row >= 0, shown.indices.contains(row), let id = shown[row].id else { return }
+        select(id)
+        let merge = ClosureMenuItem(title: L("Merge Into…")) { [weak self] in self?.mergeSelected() }
+        merge.isEnabled = shown.count >= 2 || store.characters.count >= 2
+        menu.addItem(merge)
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(title: L("Delete Character…")) { [weak self] in self?.deleteSelected(confirm: true) })
+    }
+
+    /// Asks which character keeps the data (Cancel is the default), then hands the merge to the owner of the book.
+    func mergeSelected() {
+        guard let id = selected, let record = store.character(id) else { return }
+        let others = store.characters.filter { $0.id != id }
+        guard !others.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = L("There is no other character to merge into.")
+            alert.runModal()
+            return
+        }
+        commitEdits()
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 280, height: 26), pullsDown: false)
+        for other in others { popup.addItem(withTitle: other.name ?? ""); popup.lastItem?.representedObject = other.id }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L("Merge “{name}” into…", ["name": record.name ?? ""])
+        alert.informativeText = L("Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.", ["name": record.name ?? ""])
+        alert.accessoryView = popup
+        let cancel = alert.addButton(withTitle: L("Cancel"))
+        cancel.keyEquivalent = "\r"
+        let go = alert.addButton(withTitle: L("Merge"))
+        go.keyEquivalent = ""
+        go.hasDestructiveAction = true
+        guard alert.runModal() == .alertSecondButtonReturn, let target = popup.selectedItem?.representedObject as? String else { return }
+        onMerge?(id, target)
     }
 
     // MARK: Deleting

@@ -313,6 +313,7 @@ final class MainAreaController: NSViewController {
             view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
             view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
             view.onChange = { [weak self] in self?.charactersChanged() }
+            view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
             view.onEscape = { [weak self] in self?.leaveFullAreaView() }
             _ = view.view
             charactersView = view
@@ -699,6 +700,17 @@ final class MainAreaController: NSViewController {
     }
 
     /// A character was added, renamed or changed in the Characters view: the right panel reads it again.
+    /// Merge Into…: the second character leaves the book and the first one keeps what is known of both. Like the other changes that touch many files, a snapshot is
+    /// taken before and after, so that Undo (the banner, ⌘Z) takes it back.
+    func mergeCharacters(_ source: String, into target: String) {
+        let sourceName = characters.character(source)?.name ?? "", targetName = characters.character(target)?.name ?? ""
+        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", ["from": sourceName, "to": targetName])) { editor in
+            try CharacterMerger.merge(source, into: target, book: editor.folder)
+            return nil
+        }
+        charactersView?.select(target)
+    }
+
     func charactersChanged() {
         if showsRightPanel { rightPanel.refresh() }
         onChange?()

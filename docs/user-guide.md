@@ -118,6 +118,8 @@ These views keep cards: a name, aliases, a description, notes and fields of the 
 - **World** (⌘7): worlds and places as a tree, with a card for each.
 - **Events** (⌘8): things that happen in the story, with the scenes and characters they belong to.
 
+**The same person on two cards.** If the AI (or you) made two cards for one person, right-click the one to remove, or press *Merge Into…* on its card, and choose the character to keep. The removed card's name and aliases become aliases of the kept one, so the AI and the text matching recognise the name from now on; its profile, notes, scenes and relationships are added to the kept character's, and the card goes to the book's trash folder. A snapshot is taken first, and the banner's Undo (or ⌘Z) takes the merge back.
+
 Names are matched by rules that handle Russian endings (an "Анне" is found as "Анна"), so an alias list is usually enough.
 
 ## 6. The Plan
