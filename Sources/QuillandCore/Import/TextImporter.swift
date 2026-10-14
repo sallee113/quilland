@@ -279,8 +279,8 @@ public enum TextImporter {
         let hasChapterRole = roles.values.contains(.chapter)
         roles["number"] = hasChapterRole ? .scene : .chapter
         roles["numbered"] = hasChapterRole ? .scene : .chapter
-        roles["caps"] = .none
-        roles["break"] = .none
+        roles["caps"] = ImportRole.none   // (a bare `.none` here would be the dictionary's "no value")
+        roles["break"] = ImportRole.none
         let kinds = ids.map { id in TitleKind(id: id, label: label(for: id), count: counts[id] ?? 0, examples: examples[id] ?? [], defaultRole: roles[id] ?? .none) }
         return (kinds, suggestedTitle)
     }

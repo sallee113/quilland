@@ -67,9 +67,12 @@ final class PlanItemView: NSView {
 
     // MARK: The pointer
 
+    private var hoverArea: NSTrackingArea?
     override func updateTrackingAreas() {
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
         super.updateTrackingAreas()
     }
     override func mouseEntered(with event: NSEvent) { isHovered = isTopLayer }
@@ -185,9 +188,12 @@ final class PlanLineHeaderView: NSView {
 
     private(set) var isHovered = false { didSet { if isHovered != oldValue { needsDisplay = true } } }
 
+    private var hoverArea: NSTrackingArea?
     override func updateTrackingAreas() {
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
         super.updateTrackingAreas()
     }
     override func mouseEntered(with event: NSEvent) { isHovered = true }

@@ -17,7 +17,7 @@ if CommandLine.arguments.contains("--selftest-app") {
     // The settings of the test are its own, never the author's.
     setenv("QUILLAND_SETTINGS_DIR", NSTemporaryDirectory() + "quilland-selftest-settings-\(UUID().uuidString)", 1)
 }
-let app = NSApplication.shared
+let app = QuillandApplication.shared
 app.setActivationPolicy(.regular)
 // Before the first window is made: a button reacts to the pointer from the start.
 Hover.installForAllButtons()

@@ -127,7 +127,7 @@ public struct Template: Equatable, Sendable {
 }
 
 public final class Localizer: @unchecked Sendable {
-    nonisolated(unsafe) public static let shared = Localizer()
+    public static let shared = Localizer()
 
     public private(set) var current: Language?
     /// Folders that hold language files: the app's own, then the user's (a later one wins).

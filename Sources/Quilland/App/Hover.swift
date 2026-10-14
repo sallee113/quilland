@@ -47,6 +47,7 @@ enum Hover {
         private var hovered = -1
         private let light = RowLight()
         private var observers: [NSObjectProtocol] = []
+        private var scrollObserver: NSObjectProtocol?
 
         init(_ table: NSTableView) {
             self.table = table
@@ -65,7 +66,7 @@ enum Hover {
             }
         }
 
-        deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
+        deinit { (observers + (scrollObserver.map { [$0] } ?? [])).forEach { NotificationCenter.default.removeObserver($0) } }
 
         private func canLight(_ row: Int) -> Bool {
             guard let table, row >= 0, row < table.numberOfRows, !table.selectedRowIndexes.contains(row) else { return false }
@@ -92,7 +93,19 @@ enum Hover {
         @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { track(event) }
         private func track(_ event: NSEvent) {
             guard let table else { return }
+            watchScrolling()
             set(table.row(at: table.convert(event.locationInWindow, from: nil)))
+        }
+
+        /// The list scrolls under a pointer that does not move (the wheel): the row under it is another one, and the light follows.
+        private func watchScrolling() {
+            guard scrollObserver == nil, let clip = table?.enclosingScrollView?.contentView else { return }
+            clip.postsBoundsChangedNotifications = true
+            scrollObserver = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
+                guard let self, let table = self.table, let window = table.window, self.hovered >= 0 else { return }
+                let point = table.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+                self.set(table.bounds.contains(point) ? table.row(at: point) : -1)
+            }
         }
         @objc(mouseExited:) func mouseExited(with event: NSEvent) { set(-1) }
     }

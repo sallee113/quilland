@@ -2,6 +2,49 @@ import AppKit
 import QuillandCore
 
 /// `Quilland --selftest-app`: the first launch, a new book, writing, closing, reopening where the author left off.
+/// Moves a pretend pointer over a window and tells every tracking area under it, as the system does: entered, moved, left.
+final class PointerSimulator {
+    let window: NSWindow
+    private var inside: [ObjectIdentifier: (area: NSTrackingArea, view: NSView)] = [:]
+    private(set) var unanswered: [String] = []
+    private(set) var entered = 0
+
+    init(window: NSWindow) { self.window = window }
+
+    private func event(_ type: NSEvent.EventType, _ point: NSPoint, area: NSTrackingArea) -> NSEvent? {
+        type == .mouseMoved
+            ? NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)
+            : NSEvent.enterExitEvent(with: type, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil)
+    }
+
+    private func send(_ name: String, to area: NSTrackingArea, _ type: NSEvent.EventType, _ point: NSPoint) {
+        guard let owner = area.owner as? NSObject, let e = event(type, point, area: area) else { return }
+        if owner.responds(to: NSSelectorFromString(name)) { _ = owner.perform(NSSelectorFromString(name), with: e) } else { unanswered.append("\(Swift.type(of: owner)) \(name)") }
+    }
+
+    func move(to windowPoint: NSPoint) {
+        guard let content = window.contentView else { return }
+        func everyView(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(everyView) }
+        var now: [ObjectIdentifier: (area: NSTrackingArea, view: NSView)] = [:]
+        for v in everyView(content) where !v.isHiddenOrHasHiddenAncestor {
+            let local = v.convert(windowPoint, from: nil)
+            guard v.bounds.contains(local) else { continue }
+            for area in v.trackingAreas { now[ObjectIdentifier(area)] = (area, v) }
+        }
+        for (key, item) in inside where now[key] == nil {
+            if item.area.options.contains(.mouseEnteredAndExited) { send("mouseExited:", to: item.area, .mouseExited, windowPoint) }
+        }
+        for (key, item) in now {
+            if inside[key] == nil {
+                if item.area.options.contains(.mouseEnteredAndExited) { send("mouseEntered:", to: item.area, .mouseEntered, windowPoint); entered += 1 }
+                if item.area.options.contains(.cursorUpdate) { send("cursorUpdate:", to: item.area, .cursorUpdate, windowPoint) }
+            }
+            if item.area.options.contains(.mouseMoved) { send("mouseMoved:", to: item.area, .mouseMoved, windowPoint) }
+        }
+        inside = now
+    }
+}
+
 final class AppSelfTest {
     private var passed = 0
     private var failed = 0
@@ -484,6 +527,28 @@ final class AppSelfTest {
                 let lights = outline.rowView(atRow: 1, makeIfNecessary: false)?.subviews.filter { String(describing: Swift.type(of: $0)).contains("RowLight") }.count ?? -1
                 check(look(1) == chosen && lights == 0, "and a row chosen while the pointer is on it is not lit over its selection", "lights \(lights) same \(look(1) == chosen)")
                 Hover.setHoveredRow(outline, -1)
+                // The pointer moves: every tracking area under it hears it, as the system would tell it (the system's own tracking needs the application in front, which an
+                // automatic run is not, so the messages are sent here, to whatever answers for each area).
+                if let window = outline.window {
+                    func lights(_ row: Int) -> Int { outline.rowView(atRow: row, makeIfNecessary: false)?.subviews.filter { String(describing: Swift.type(of: $0)).contains("RowLight") }.count ?? -1 }
+                    outline.deselectAll(nil); spin(0.1)
+                    let pointer = PointerSimulator(window: window)
+                    let centre = { (row: Int) -> NSPoint in outline.convert(NSPoint(x: outline.bounds.midX, y: outline.rect(ofRow: row).midY), to: nil) }
+                    pointer.move(to: centre(1)); spin(0.1)
+                    let over = lights(1)
+                    pointer.move(to: centre(0)); spin(0.1)
+                    let moved = (lights(0), lights(1))
+                    pointer.move(to: NSPoint(x: -50, y: -50)); spin(0.1)
+                    check(over == 1 && moved.0 == 1 && moved.1 == 0 && lights(0) == 0 && pointer.unanswered.isEmpty, "a pointer moving over the tree lights the row under it, one at a time, and none when it leaves", "over \(over) moved \(moved) after \(lights(0)) \(lights(1)) unanswered \(pointer.unanswered)")
+                    // Over every button of the window: each answers, and the pointer leaving puts things back.
+                    func buttons(_ v: NSView) -> [NSView] { ((v is NSButton || v is NSSegmentedControl) ? [v] : []) + v.subviews.flatMap(buttons) }
+                    for v in window.contentView.map(buttons) ?? [] where !v.isHiddenOrHasHiddenAncestor && v.bounds.width > 4 {
+                        pointer.move(to: v.convert(NSPoint(x: v.bounds.midX, y: v.bounds.midY), to: nil))
+                    }
+                    pointer.move(to: NSPoint(x: -50, y: -50))
+                    check(pointer.unanswered.isEmpty && pointer.entered > 0, "the pointer over every button and tab of the window is answered", "entered \(pointer.entered) unanswered \(pointer.unanswered)")
+                    outline.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false); spin(0.1)
+                }
                 // The caret moves in the text (the right panel follows it after a moment): the tree keeps its choice.
                 let chosenID = main.tree?.selectedID
                 if let tv = main.controllers.first?.currentSheet?.textView { tv.setSelectedRange(NSRange(location: min(3, tv.string.utf16.count), length: 0)); spin(1.2); tv.setSelectedRange(NSRange(location: 0, length: 0)); spin(1.2) }
@@ -495,6 +560,15 @@ final class AppSelfTest {
             var missing: [String] = []
             for w in NSApp.windows where !(w is NSPanel) { if let c = w.contentView { for b in buttons(c) where b.action != nil && !(b is NSPopUpButton) && !Hover.isAttached(b) && !(b.superview is NSSearchField) && !b.title.isEmpty { missing.append(b.title) } } }
             check(missing.isEmpty, "every titled button in the windows reacts to the pointer", "\(missing)")
+        }
+        // The system is told that the checks can see an exception, and that the global button hook sits on buttons only (not on every view).
+        do {
+            let before = QuillandApplication.caught.count
+            NSApp.reportException(NSException(name: .genericException, reason: "probe of the automatic check", userInfo: nil))
+            check(QuillandApplication.caught.count == before + 1, "an exception AppKit catches is kept for the checks")
+            QuillandApplication.caught.removeLast()
+            let sel = #selector(NSView.viewDidMoveToWindow)
+            check(NSButton.instanceMethod(for: sel) != NSView.instanceMethod(for: sel), "the hook on buttons is not on every view")
         }
         // Every tracking area answers to the messages it asks for: an unanswered message is an exception, and one thrown while a dialog is open ends the dialog.
         do {
@@ -991,6 +1065,12 @@ final class AppSelfTest {
         cv.relCard.kindField.stringValue = "соседи"
         cv.relCard.controlTextDidEndEditing(Notification(name: NSControl.textDidEndEditingNotification, object: cv.relCard.kindField))
         check(main.relationships.relationship(rel)?.kind == "соседи" && cv.relationshipTitles == ["Анна Петровна, Пётр Иванович — соседи"], "the kind can be changed, and the list follows")
+        // A relationship's notes typed a moment ago (its own save waits for a timer) are saved when the book saves everything (before a merge, a close).
+        cv.relCard.notes.string = "Соседи по лестнице."
+        cv.relCard.textDidChange(Notification(name: NSText.didChangeNotification, object: cv.relCard.notes))
+        let waiting = RelationshipStore(book: main.folder).relationship(rel)?.notes != ["Соседи по лестнице."]
+        main.saveAll()
+        check(waiting && RelationshipStore(book: main.folder).relationship(rel)?.notes == ["Соседи по лестнице."], "what was typed in a relationship's card is saved by Save All, not left to its timer")
         check(cv.addRelationship([relAnna], kind: "один") == nil, "a relationship needs two characters")
         cv.select(petr)
         check(cv.selectedRelationship == nil && main.relationships.relationships(of: petr).count == 1, "choosing a character shows the character again")
@@ -1765,6 +1845,8 @@ final class AppSelfTest {
         check(!app.openBook(at: plain), "a folder that is not a Quilland book is not opened")
         _ = second
 
+        // Whatever the application caught on its own while all this ran (an exception AppKit would print and forget) is a failure.
+        check(QuillandApplication.caught.isEmpty, "no exception was thrown while the application handled events", "\(QuillandApplication.caught.prefix(5))")
         print("\n\(passed) passed, \(failed) failed")
         return failed == 0 ? 0 : 1
     }

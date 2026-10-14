@@ -575,6 +575,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
 
     /// Writes the profile and the notes typed and not yet saved.
     func commitEdits() {
+        relCard.commitEdits()   // a relationship's text is saved by its own card: it waits for its timer too
         saveTimer?.invalidate()
         saveTimer = nil
         guard !dirty.isEmpty, let id = selected else { dirty = []; return }
