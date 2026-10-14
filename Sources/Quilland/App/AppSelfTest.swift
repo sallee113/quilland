@@ -460,24 +460,34 @@ final class AppSelfTest {
         do {
             func outlineIn(_ v: NSView) -> NSOutlineView? { (v as? NSOutlineView) ?? v.subviews.lazy.compactMap(outlineIn).first }
             if let tree = main.tree?.view, let outline = outlineIn(tree), outline.numberOfRows > 1 {
-                Hover.setHoveredRow(outline, 1)
-                let lit = outline.rowView(atRow: 1, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
-                Hover.setHoveredRow(outline, 0)
-                let first = outline.rowView(atRow: 0, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0, second = outline.rowView(atRow: 1, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
-                Hover.setHoveredRow(outline, -1)
-                let after = outline.rowView(atRow: 0, makeIfNecessary: false)?.backgroundColor.alphaComponent ?? 0
-                check(lit > 0.01 && first > 0.01 && second < 0.01 && after < 0.01, "a row is lit while the pointer is over it, and only that one", "\(lit) \(first) \(second) \(after)")
-                // And it is drawn: the row looks different while it is lit.
                 func look(_ row: Int) -> Data? {
                     guard let rv = outline.rowView(atRow: row, makeIfNecessary: false), let rep = rv.bitmapImageRepForCachingDisplay(in: rv.bounds) else { return nil }
                     rv.cacheDisplay(in: rv.bounds, to: rep)
                     return rep.representation(using: .tiff, properties: [:])
                 }
-                let plain = look(1)
+                outline.deselectAll(nil)
+                let plain0 = look(0), plain1 = look(1)
                 Hover.setHoveredRow(outline, 1)
-                let shown = look(1)
+                let lit1 = look(1), still0 = look(0)
                 Hover.setHoveredRow(outline, -1)
-                check(plain != nil && plain != shown, "and the lit row is drawn differently")
+                check(plain1 != nil && plain1 != lit1 && still0 == plain0 && look(1) == plain1, "a row is lit while the pointer is over it, and only that one, and is as before afterwards")
+                // A chosen row is left alone: its selection look is the same with the pointer on it and away from it, and a row that gets chosen under the pointer stops being lit.
+                outline.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false); spin(0.1)
+                let chosen = look(1)
+                Hover.setHoveredRow(outline, 1)
+                let chosenHovered = look(1)
+                Hover.setHoveredRow(outline, 0); Hover.setHoveredRow(outline, -1)
+                check(chosen != nil && chosenHovered == chosen && look(1) == chosen && outline.selectedRow == 1 && outline.rowView(atRow: 1, makeIfNecessary: false)?.isSelected == true, "a chosen row keeps its selection look when the pointer comes and goes", "selected \(outline.selectedRow)")
+                outline.deselectAll(nil)
+                Hover.setHoveredRow(outline, 1)
+                outline.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false); spin(0.1)
+                let lights = outline.rowView(atRow: 1, makeIfNecessary: false)?.subviews.filter { String(describing: Swift.type(of: $0)).contains("RowLight") }.count ?? -1
+                check(look(1) == chosen && lights == 0, "and a row chosen while the pointer is on it is not lit over its selection", "lights \(lights) same \(look(1) == chosen)")
+                Hover.setHoveredRow(outline, -1)
+                // The caret moves in the text (the right panel follows it after a moment): the tree keeps its choice.
+                let chosenID = main.tree?.selectedID
+                if let tv = main.controllers.first?.currentSheet?.textView { tv.setSelectedRange(NSRange(location: min(3, tv.string.utf16.count), length: 0)); spin(1.2); tv.setSelectedRange(NSRange(location: 0, length: 0)); spin(1.2) }
+                check(main.tree?.selectedID == chosenID && outline.selectedRow == 1, "and so does a move of the caret in the text")
             } else { check(false, "the tree has rows to light") }
         }
         do {

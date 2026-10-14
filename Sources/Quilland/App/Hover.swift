@@ -33,33 +33,58 @@ enum Hover {
         return color
     }
 
+    /// The soft light over a row: a view of its own inside the row (under the row's cells), so that the row's own drawing, above all its selection, is never touched.
+    private final class RowLight: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func draw(_ dirtyRect: NSRect) {
+            NSColor.labelColor.withAlphaComponent(0.10).setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: 5, yRadius: 5).fill()
+        }
+    }
+
     private final class RowHover: NSObject {
         weak var table: NSTableView?
         private var hovered = -1
-        private var saved: NSColor = .clear
+        private let light = RowLight()
+        private var observers: [NSObjectProtocol] = []
 
         init(_ table: NSTableView) {
             self.table = table
             super.init()
+            light.autoresizingMask = [.width, .height]
             table.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
+            // A row that gets chosen is not lit any more (its own selection look is what shows).
+            // (An outline view posts its own notification for it, a table view the table's.)
+            for name in [NSTableView.selectionDidChangeNotification, NSOutlineView.selectionDidChangeNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: table, queue: .main) { [weak self] _ in
+                    guard let self else { return }
+                    let row = self.hovered
+                    self.hovered = -2
+                    self.set(row)
+                })
+            }
         }
 
-        private func canChoose(_ row: Int) -> Bool {
-            guard let table, row >= 0, row < table.numberOfRows else { return false }
+        deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
+
+        private func canLight(_ row: Int) -> Bool {
+            guard let table, row >= 0, row < table.numberOfRows, !table.selectedRowIndexes.contains(row) else { return false }
             if table.delegate?.tableView?(table, isGroupRow: row) == true { return false }
             return table.delegate?.tableView?(table, shouldSelectRow: row) ?? true
         }
 
         private func set(_ row: Int) {
             guard let table, row != hovered else { return }
-            if hovered >= 0, let old = table.rowView(atRow: hovered, makeIfNecessary: false) { old.backgroundColor = saved }
+            light.removeFromSuperview()
+            hovered = -1
+            guard canLight(row), let view = table.rowView(atRow: row, makeIfNecessary: false) else { return }
             hovered = row
-            guard row >= 0, let view = table.rowView(atRow: row, makeIfNecessary: false) else { hovered = -1; return }
-            saved = view.backgroundColor
-            view.backgroundColor = NSColor(cgColor: Hover.tint(for: table)) ?? .clear
+            light.frame = view.bounds
+            view.addSubview(light, positioned: .below, relativeTo: view.subviews.first)
+            light.needsDisplay = true
         }
 
-        func hover(_ row: Int) { set(canChoose(row) ? row : -1) }
+        func hover(_ row: Int) { set(row) }
 
         // The system sends every message the tracking area's options ask for to the owner, and a message the owner does not answer is an exception (which ends a
         // modal dialog that is open at the time): the owner answers all three.
@@ -67,8 +92,7 @@ enum Hover {
         @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { track(event) }
         private func track(_ event: NSEvent) {
             guard let table else { return }
-            let row = table.row(at: table.convert(event.locationInWindow, from: nil))
-            set(canChoose(row) ? row : -1)
+            set(table.row(at: table.convert(event.locationInWindow, from: nil)))
         }
         @objc(mouseExited:) func mouseExited(with event: NSEvent) { set(-1) }
     }
