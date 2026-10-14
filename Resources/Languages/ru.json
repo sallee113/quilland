@@ -1158,6 +1158,8 @@
     "Turn “{name}” into a place": "«{name}» становится местом",
     "Turn “{name}” into a place?": "Сделать «{name}» местом?",
     "Turn “{name}” into a world": "«{name}» становится миром",
-    "Turn “{name}” into a world?": "Сделать «{name}» миром?"
+    "Turn “{name}” into a world?": "Сделать «{name}» миром?",
+    "Not saved: {error}": "Не сохранено: {error}",
+    "“{title}” was changed by another program. Its other version is in the book's trash folder (.quilland/trash).": "«{title}» изменена другой программой. Её другая версия лежит в папке корзины книги (.quilland/trash)."
   }
 }

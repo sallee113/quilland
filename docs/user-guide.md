@@ -284,7 +284,7 @@ A book is a folder. You can open it in Finder, put it under Git, and copy it. In
 
 Quilland's own settings live in your user folder: preferences, `prompts.json` (changed prompts) and `actions.json` (saved actions). You can back them up or copy them to another Mac.
 
-Edit the files outside Quilland only when the app is closed, and keep a copy. If a file is damaged, *Loose Ends* names it.
+Edit the files outside Quilland only when the app is closed, and keep a copy. If another program changes a scene while Quilland has it open (a Git checkout, a synchronised folder), Quilland keeps that version in the trash folder and says so before it saves its own, so that neither is lost; a save that fails is shown in the status bar as "Not saved". If a file is damaged, *Loose Ends* names it.
 
 ## 14. Troubleshooting
 

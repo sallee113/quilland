@@ -155,7 +155,8 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         parts.append(L("today {change}", ["change": (today >= 0 ? "+" : "−") + number(abs(today))]))
         status.leftText = parts.joined(separator: "  ·  ")
         let dirty = main.session.documents.values.contains { $0.isDirty }
-        status.rightText = aiStatus ?? (dirty ? L("editing…") : L("Saved"))
+        let failed = main.session.documents.values.first { $0.lastSaveError != nil }
+        status.rightText = aiStatus ?? (failed != nil ? L("Not saved: {error}", ["error": failed?.lastSaveError ?? ""]) : (dirty ? L("editing…") : L("Saved")))
         status.refreshKeyboard()
     }
 

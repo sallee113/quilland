@@ -1,6 +1,11 @@
 import AppKit
 import QuillandCore
 
+extension Notification.Name {
+    /// A scene's file had been changed by another program since it was read; the other version was kept (object: the document, `copy`: where it is).
+    static let sceneExternalConflict = Notification.Name("QuillandSceneExternalConflict")
+}
+
 protocol SceneDocumentObserver: AnyObject {
     /// The text, the counts or the saved state changed.
     func sceneDocumentDidChange(_ document: SceneDocument)
@@ -20,6 +25,8 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
     private(set) var isDirty = false
     private(set) var saveCount = 0
     private(set) var lastSaveError: String?
+    /// How the scene's file looked when it was read or written last (changed time and size): a different one means another program changed it.
+    private var knownStamp: String?
     var autosaveDelay: TimeInterval = 0.8
     /// For tests: do not wait for the timers.
     var timersEnabled = true
@@ -68,6 +75,28 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
         isStyling = false
         counts = TextStats.count(AttributedBridge.document(from: storage))
         isDirty = false
+        knownStamp = Self.stamp(of: url)
+    }
+
+    private static func stamp(of url: URL) -> String? {
+        // (Not `URL.resourceValues`: a URL keeps the values it read first, and would not see a change.)
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path), let date = attributes[.modificationDate] as? Date else { return nil }
+        return "\(date.timeIntervalSince1970)/\((attributes[.size] as? NSNumber)?.intValue ?? 0)"
+    }
+
+    /// Another program changed the file (a Git checkout, a synchronised folder, another editor) since it was read: its version is copied into the book's trash folder
+    /// before this one is written over it, so that nothing is lost either way. Returns where the copy is.
+    private static func keepOtherVersion(of url: URL) -> URL? {
+        var root = url.deletingLastPathComponent()
+        while root.path != "/", !FileManager.default.fileExists(atPath: root.appendingPathComponent("book.json").path) { root = root.deletingLastPathComponent() }
+        guard root.path != "/" else { return nil }
+        let folder = root.appendingPathComponent(".quilland/trash/\(TrashFolder.newName())/conflicts")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let copy = folder.appendingPathComponent(url.lastPathComponent)
+            try FileManager.default.copyItem(at: url, to: copy)
+            return copy
+        } catch { return nil }
     }
 
     // MARK: Keeping the text valid
@@ -140,8 +169,12 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
         saveTimer?.invalidate()
         discardGhost?()
         let (markdown, _) = MarkdownWriter.writeWithReport(AttributedBridge.document(from: storage))
+        var otherVersion: URL?
+        if let known = knownStamp, let now = Self.stamp(of: url), now != known { otherVersion = Self.keepOtherVersion(of: url) }
         do {
             try AtomicFile.write(Data(markdown.utf8), to: url)
+            knownStamp = Self.stamp(of: url)
+            if let otherVersion { NotificationCenter.default.post(name: .sceneExternalConflict, object: self, userInfo: ["copy": otherVersion]) }
             isDirty = false
             saveCount += 1
             lastSaveError = nil

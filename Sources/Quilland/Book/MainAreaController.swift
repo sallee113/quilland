@@ -77,7 +77,15 @@ final class MainAreaController: NSViewController {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private var conflictObserver: NSObjectProtocol?
+    deinit { conflictObserver.map(NotificationCenter.default.removeObserver) }
+
     override func loadView() {
+        // A scene that another program changed under this one: the other version was kept, and the author is told.
+        conflictObserver = NotificationCenter.default.addObserver(forName: .sceneExternalConflict, object: nil, queue: .main) { [weak self] note in
+            guard let self, let doc = note.object as? SceneDocument, self.session.documents.values.contains(where: { $0 === doc }) else { return }
+            self.banner.show(L("“{title}” was changed by another program. Its other version is in the book's trash folder (.quilland/trash).", ["title": doc.title]), undoable: false)
+        }
         // The area, and under it the bottom panel (Search and Replace), folded away until it is asked for.
         let holder = NSViewController()
         holder.view = container
@@ -200,6 +208,11 @@ final class MainAreaController: NSViewController {
     }
 
     func rebuild() {
+        // What was typed in a card and still waits for its save timer is saved before the card goes (the timers do not outlive their views).
+        outlineDetail?.commitEdits()
+        charactersView?.commitEdits()
+        worldView?.commitEdits()
+        eventsView?.commitEdits()
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         compareSplit = nil

@@ -613,6 +613,7 @@
     "Not a title": "",
     "Not checked yet. Test Connection asks LM Studio.": "",
     "Not on the plan yet": "",
+    "Not saved: {error}": "",
     "Note": "",
     "Note of the scene “{title}”": "",
     "Notes": "",
@@ -1059,6 +1060,7 @@
     "“{keys}” is already used by {names}": "",
     "“{title}” ({group}) comes back in its old place. If that place is gone, it goes into a chapter called “Recovered” at the end.": "",
     "“{title}” goes back to how it was in this snapshot. What it is now is replaced.": "",
+    "“{title}” was changed by another program. Its other version is in the book's trash folder (.quilland/trash).": "",
     "“{wanted}” is not on the server; “{model}” will be used instead.": ""
   }
 }

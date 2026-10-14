@@ -286,7 +286,7 @@ Un livre est un dossier. Vous pouvez l’ouvrir dans le Finder, le placer sous G
 
 Les réglages propres à Quilland se trouvent dans votre dossier utilisateur : les préférences, `prompts.json` (prompts modifiés) et `actions.json` (actions enregistrées). Vous pouvez les sauvegarder ou les copier sur un autre Mac.
 
-Ne modifiez les fichiers en dehors de Quilland que lorsque l’application est fermée, et gardez une copie. Si un fichier est endommagé, *Fils perdus* le désigne.
+Ne modifiez les fichiers en dehors de Quilland que lorsque l’application est fermée, et gardez une copie. Si un autre programme modifie une scène pendant que Quilland l’a ouverte (un checkout Git, un dossier synchronisé), Quilland garde cette version dans le dossier corbeille et le signale avant d’enregistrer la sienne, pour que ni l’une ni l’autre ne soit perdue ; un enregistrement qui échoue s’affiche dans la barre d’état comme « Non enregistré ». Si un fichier est endommagé, *Fils perdus* le désigne.
 
 ## 14. Dépannage
 

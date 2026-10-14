@@ -26,4 +26,7 @@ All of them must pass. The self-test ends with a check that no exception was thr
 5. **Files are named by their id.** A store writes a record where it read it, and reads two files with one id as one record.
 6. **Everything that is typed is saved by `MainAreaController.saveAll()`** before the book is changed in a way that rebuilds the views (a merge, a move, closing the window); a controller that saves after a timer has a `commitEdits()` that `saveAll()` reaches.
 7. **A change that touches many files goes through `restructure(...)`:** it takes a snapshot before and after, so that Undo works, and it reloads the stores.
-8. Small commits, one subject each; the self-test before each.
+8. **A view that holds typed text with a save timer is saved before it is torn down** (`rebuild()` commits the cards of the full-area views; the timers do not outlive their views).
+9. **A file's change is read with `FileManager.attributesOfItem`, never `URL.resourceValues` on a URL kept around:** a URL remembers the values it read first and would not see another program's change.
+10. **A save that fails is shown** (status bar: "Not saved"), and a scene changed by another program since it was read is kept in the trash folder before ours is written.
+11. Small commits, one subject each; the self-test before each.

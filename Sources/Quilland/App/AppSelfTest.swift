@@ -496,7 +496,10 @@ final class AppSelfTest {
         let removed = main.session.structure.roots[1].id
         main.delete(removed, confirm: false); spin(0.5)
         check(main.session.structure.roots.count == 1 && main.session.structure.scenes.count == 2 && main.currentSceneID != nil, "Delete removes the chapter, and the cursor stays in a scene that is left")
-        check(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).count == 1, "what was deleted is in the trash folder, not gone")
+        // (A folder of the trash that only holds the other version of a scene another program changed is not a deletion.)
+        let trashRoot = folder.appendingPathComponent(".quilland/trash")
+        let deletions = ((try? FileManager.default.contentsOfDirectory(atPath: trashRoot.path)) ?? []).filter { name in !((try? FileManager.default.subpathsOfDirectory(atPath: trashRoot.appendingPathComponent(name).path)) ?? []).allSatisfy { $0.hasPrefix("conflicts") } }
+        check(deletions.count == 1, "what was deleted is in the trash folder, not gone", "\(deletions)")
         check(BookStructure.problemsFree(folder), "the book on disk reads without problems")
         check(NSApp.mainMenu?.items.contains { $0.submenu?.title == "Debug" } == false, "there is no Debug menu")
         // A list lights the row under the pointer, and only a row that can be chosen.
@@ -1084,6 +1087,57 @@ final class AppSelfTest {
         cv2.deleteSelected(confirm: false)
         check(main.characters.character(petr) == nil && cv2.shownNames == ["Анна Петровна"], "deleting a character takes it out of the list")
         check(!(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).isEmpty), "and into the trash folder")
+        // A scene changed by another program since it was read is not silently overwritten: its version is kept in the trash folder, and the author is told.
+        do {
+            let sceneID = main.session.structure.scenes[0].id
+            let doc = main.session.document(sceneID)!
+            let file = doc.url
+            let theirs = "Чужая версия сцены, которую написала другая программа.\n"
+            func theirCopies() -> Int {
+                let trash = main.folder.appendingPathComponent(".quilland/trash")
+                return ((try? FileManager.default.subpathsOfDirectory(atPath: trash.path)) ?? []).filter { $0.contains("conflicts/") && (try? String(contentsOf: trash.appendingPathComponent($0), encoding: .utf8)) == theirs }.count
+            }
+            func type(_ text: String) { doc.storage.replaceCharacters(in: NSRange(location: doc.storage.length, length: 0), with: text); doc.textDidChange(); doc.saveNow() }
+            type(" Моя версия.")
+            doc.saveNow()
+            try? Data(theirs.utf8).write(to: file)
+            try? FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(30)], ofItemAtPath: file.path)
+            type(" Ещё слово.")
+            spin(0.3)
+            check(theirCopies() == 1 && ((try? String(contentsOf: file, encoding: .utf8)) ?? "").contains("Моя версия."), "a scene another program changed is kept in the trash folder before this version is written", "copies \(theirCopies())")
+            check(main.banner.isShowing, "and the author is told")
+            type(" И ещё.")
+            check(theirCopies() == 1, "a save after that, with no outside change, keeps nothing more")
+            // A save that fails says so in the status bar.
+            let folder = file.deletingLastPathComponent()
+            try? FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+            doc.storage.replaceCharacters(in: NSRange(location: doc.storage.length, length: 0), with: " Не сохранится.")
+            doc.textDidChange(); let saved = doc.saveNow()
+            again.refreshStatus()
+            let statusText = again.statusBar.rightText
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+            check(!saved && statusText.hasPrefix("Not saved"), "a save that fails is told in the status bar, not shown as editing", statusText)
+            doc.saveNow(); again.refreshStatus()
+            check(again.statusBar.rightText == "Saved" || again.statusBar.rightText == "editing…", "and the next save that works takes it away", again.statusBar.rightText)
+        }
+        // Text typed in a card (its own save waits for a timer) is saved when the view is left at once, not lost with the view.
+        do {
+            let who = main.characters.characters.first!.id!
+            main.charactersView?.select(who)
+            let v = main.charactersView!
+            v.profile.string = "Профиль, набранный секунду назад."
+            v.textDidChange(Notification(name: NSText.didChangeNotification, object: v.profile))
+            app.modeWorld(); spin(0.3)
+            check(CharacterStore(book: main.folder).profile(who) == "Профиль, набранный секунду назад.", "what was typed in a character's card is saved when the view is left before its timer fires", CharacterStore(book: main.folder).profile(who))
+            let place = try! main.worlds.addEntry(name: "Проверочный дом", world: main.worlds.worlds[0].id!)
+            main.worldView?.reload(); main.worldView?.select(place)
+            main.worldView!.descriptionView.string = "Описание, набранное секунду назад."
+            main.worldView!.textDidChange(Notification(name: NSText.didChangeNotification, object: main.worldView!.descriptionView))
+            app.modeCharacters(); spin(0.3)
+            check(WorldStore(book: main.folder).text(place) == "Описание, набранное секунду назад.", "and so is a place's description", WorldStore(book: main.folder).text(place))
+            try? main.worlds.deleteEntry(place)
+            app.modeCharacters(); spin(0.3)
+        }
         // Merge Into…: the same person under two names.
         do {
             let keptID = main.characters.characters.first { $0.name == "Анна Петровна" }!.id!
