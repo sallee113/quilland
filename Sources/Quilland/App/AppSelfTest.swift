@@ -1120,6 +1120,42 @@ final class AppSelfTest {
             doc.saveNow(); again.refreshStatus()
             check(again.statusBar.rightText == "Saved" || again.statusBar.rightText == "editing…", "and the next save that works takes it away", again.statusBar.rightText)
         }
+        // Closing a book's window stops what the model is still doing for it.
+        do {
+            guard create(title: "Close Test", plan: false) != nil, let closing = app.bookWindows.last else { check(false, "a book to close"); return 1 }
+            spin(0.5)
+            closing.main.continueTask = Task { while !Task.isCancelled { try? await Task.sleep(nanoseconds: 50_000_000) } }
+            let running = closing.main.continueTask
+            closing.window.close(); spin(0.3)
+            check(running?.isCancelled == true, "closing the window stops a job of the model that is still running")
+            again.window.makeKeyAndOrderFront(nil); spin(0.3)
+            app.settings.noteOpened(folder: main.folder, name: again.bookTitle)   // (the book of the checks is the one to reopen again)
+        }
+        // Looking at the book changes nothing in its files (Git shows no change from only browsing): every view is opened, scenes are chosen, everything is saved.
+        do {
+            func stamps() -> [String: String] {
+                var out: [String: String] = [:]
+                let root = main.folder
+                let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+                while let url = walker?.nextObject() as? URL {
+                    if url.pathComponents.contains(".quilland") { walker?.skipDescendants(); continue }
+                    let relative = url.pathComponents.suffix(from: max(0, url.pathComponents.firstIndex(of: root.lastPathComponent).map { $0 + 1 } ?? 0)).joined(separator: "/")
+                    guard let a = try? FileManager.default.attributesOfItem(atPath: url.path), (a[.type] as? FileAttributeType) == .typeRegular else { continue }
+                    out[relative] = "\((a[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)/\((a[.size] as? NSNumber)?.intValue ?? 0)"
+                }
+                return out
+            }
+            main.saveAll(); spin(1.0)
+            let before = stamps()
+            let startMode = main.mode
+            for mode in [app.modeBook, app.modeOutline, app.modePlan, app.modeCharacters, app.modeWorld, app.modeEvents, app.modePanels] { mode(); spin(0.5) }
+            for id in main.session.structure.scenes.map(\.id) { main.tree?.select(id); spin(0.1) }
+            main.saveAll(); spin(1.5)
+            main.setMode(startMode); spin(0.4)
+            let after = stamps()
+            let changed = after.filter { before[$0.key] != $0.value }.keys.sorted() + before.keys.filter { after[$0] == nil }.sorted()
+            check(changed.isEmpty, "only looking at the book (every view, every scene) writes nothing to its files", "\(changed)")
+        }
         // Text typed in a card (its own save waits for a timer) is saved when the view is left at once, not lost with the view.
         do {
             let who = main.characters.characters.first!.id!

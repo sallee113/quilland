@@ -842,6 +842,7 @@
     "Text size": "",
     "That could not be done": "",
     "That could not be saved": "",
+    "That could not be saved: {error}": "",
     "That language file cannot be used": "",
     "That was added after the snapshot; there is nothing of it to restore.": "",
     "The AI is not available": "",

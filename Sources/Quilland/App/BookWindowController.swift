@@ -190,6 +190,7 @@ final class BookWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        main.stopAI()
         snapshotTimer?.invalidate()
         onClose?(self)
     }

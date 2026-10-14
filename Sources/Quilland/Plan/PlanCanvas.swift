@@ -340,7 +340,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     func undo() {
         guard let last = undoStack.popLast() else { return }
         redoStack.append((last.label, store.captureState()))
-        try? store.restore(last.state)
+        attempt { try store.restore(last.state) }
         if let id = selectedID, store.cards[id] == nil { selectedID = nil }
         hideBanner()
         reload()
@@ -349,12 +349,21 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     func redo() {
         guard let next = redoStack.popLast() else { return }
         undoStack.append((next.label, store.captureState()))
-        try? store.restore(next.state)
+        attempt { try store.restore(next.state) }
         hideBanner()
         reload()
     }
 
     @objc private func bannerUndo() { undo() }
+
+    /// Does a change to the plan's files. A failure (a full disk, a folder that cannot be written) is told in the banner; it used to be dropped without a word.
+    @discardableResult
+    private func attempt<T>(_ work: () throws -> T) -> T? {
+        do { return try work() } catch {
+            showBanner(L("That could not be saved: {error}", ["error": "\(error)"]))
+            return nil
+        }
+    }
 
     private func showBanner(_ text: String) {
         bannerText = text
@@ -427,7 +436,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         let newTitle = title.isEmpty ? (card.title ?? "") : title
         guard newTitle != (card.title ?? "") || textView.string != (card.text ?? "") || color != (card.color ?? "indigo") else { return }
         registerUndo(L("Edit Card"))
-        try? store.updateCard(id) { $0.title = newTitle; $0.text = textView.string.isEmpty ? nil : textView.string; $0.color = color }
+        attempt { try store.updateCard(id) { $0.title = newTitle; $0.text = textView.string.isEmpty ? nil : textView.string; $0.color = color } }
         reload()
     }
 
@@ -485,7 +494,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         registerUndo("New Line")
         let colors = ["teal", "pink", "amber", "green", "purple", "blue"]
         let n = store.lines.count
-        let id = try? store.addLine(name: L("Line {n}", ["n": n + 1]), color: colors[n % colors.count])
+        let id = attempt { try store.addLine(name: L("Line {n}", ["n": n + 1]), color: colors[n % colors.count]) }
         reload()
         return id
     }
@@ -495,7 +504,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         registerUndo(L("New Card"))
         mode = .plan
         let spot = point ?? NSPoint(x: canvas.layout.columnsRight + 60, y: scrollView.contentView.bounds.origin.y + 60)
-        let id = try? store.addCard(title: L("New card"), x: max(0, Int(spot.x)), y: max(0, Int(spot.y)))
+        let id = attempt { try store.addCard(title: L("New card"), x: max(0, Int(spot.x)), y: max(0, Int(spot.y))) }
         selectedID = id
         reload()
         return id
@@ -504,7 +513,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     func deleteSelected() {
         guard let id = selectedID, let card = store.cards[id] else { NSSound.beep(); return }
         registerUndo("Delete Card")
-        try? store.deleteCard(id)
+        attempt { try store.deleteCard(id) }
         showBanner(L("Deleted card “{title}”", ["title": card.title ?? ""]))
         selectedID = nil
         reload()
@@ -514,7 +523,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         let text = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, store.lines.first(where: { $0.id == id })?.name != text else { reload(); return }
         registerUndo(L("Rename Line"))
-        try? store.renameLine(id, to: text)
+        attempt { try store.renameLine(id, to: text) }
         reload()
     }
 
@@ -541,8 +550,8 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         let summary = summaryField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (name.isEmpty ? lane.name ?? "" : name) != (lane.name ?? "") || summary != (lane.summary ?? "") else { return }
         registerUndo(L("Edit Line"))
-        if !name.isEmpty { try? store.renameLine(id, to: name) }
-        try? store.setLineDescription(id, to: summary)
+        if !name.isEmpty { attempt { try store.renameLine(id, to: name) } }
+        attempt { try store.setLineDescription(id, to: summary) }
         reload()
     }
 
@@ -552,13 +561,13 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         let all = store.lines.compactMap(\.id)
         guard visible.indices.contains(index), let i = all.firstIndex(of: id), let j = all.firstIndex(of: visible[index]), i != j else { reload(); return }
         registerUndo(L("Move Line"))
-        for _ in 0..<abs(j - i) { _ = try? store.moveLine(id, by: j > i ? 1 : -1) }
+        for _ in 0..<abs(j - i) { _ = attempt { try store.moveLine(id, by: j > i ? 1 : -1) } }
         reload()
     }
 
     func setLineColor(_ id: String, to color: String) {
         registerUndo(L("Line Color"))
-        try? store.setLineColor(id, to: color)
+        attempt { try store.setLineColor(id, to: color) }
         reload()
     }
 
@@ -571,13 +580,13 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         var j = i + step
         while ids.indices.contains(j), off.contains(ids[j]) { j += step }
         guard ids.indices.contains(j) else { undoStack.removeLast(); NSSound.beep(); return }
-        for _ in 0..<abs(j - i) { _ = try? store.moveLine(id, by: step) }
+        for _ in 0..<abs(j - i) { _ = attempt { try store.moveLine(id, by: step) } }
         reload()
     }
 
     func setLine(_ id: String, visible: Bool) {
         registerUndo(visible ? L("Show Line") : L("Hide Line"))
-        try? store.setLine(id, visible: visible)
+        attempt { try store.setLine(id, visible: visible) }
         reload()
     }
 
@@ -628,7 +637,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         for v in canvas.itemViews where v.item.kind == .card {
             if store.cards[v.item.id]?.line == id { places[v.item.id] = (Int(v.frame.minX), Int(v.frame.minY)) }
         }
-        try? store.deleteLine(id, floatingAt: places)
+        attempt { try store.deleteLine(id, floatingAt: places) }
         reload()
     }
 
@@ -700,7 +709,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         registerUndo(L("Link to Line"))
         let layout = PlanLayout.make(from: store, excluding: id, hidden: hidden)
         let start = (try? store.resolve(.between(layout.rows.last?.start, nil))) ?? PlanPositions.step
-        try? store.updateCard(id) { $0.place(onLine: line, start: start) }
+        attempt { try store.updateCard(id) { $0.place(onLine: line, start: start) } }
         reload()
     }
 }

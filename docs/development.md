@@ -29,4 +29,7 @@ All of them must pass. The self-test ends with a check that no exception was thr
 8. **A view that holds typed text with a save timer is saved before it is torn down** (`rebuild()` commits the cards of the full-area views; the timers do not outlive their views).
 9. **A file's change is read with `FileManager.attributesOfItem`, never `URL.resourceValues` on a URL kept around:** a URL remembers the values it read first and would not see another program's change.
 10. **A save that fails is shown** (status bar: "Not saved"), and a scene changed by another program since it was read is kept in the trash folder before ours is written.
-11. Small commits, one subject each; the self-test before each.
+11. **Looking changes nothing:** opening every view and every scene writes no file of the book (the self-test checks it), so that Git shows only what the author changed. Data files are written in their canonical form (`JSONWriter`), a record is written again only when it changed.
+12. **Closing a book window stops the model's jobs for it** (`MainAreaController.stopAI()`).
+13. **A change to the files that fails is told** (a banner or an alert), never dropped with `try?`.
+14. Small commits, one subject each; the self-test before each.

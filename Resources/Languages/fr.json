@@ -870,7 +870,8 @@
     "Turn “{name}” into a world": "« {name} » devient un monde",
     "Turn “{name}” into a world?": "Transformer « {name} » en monde ?",
     "Not saved: {error}": "Non enregistré : {error}",
-    "“{title}” was changed by another program. Its other version is in the book's trash folder (.quilland/trash).": "« {title} » a été modifiée par un autre programme. L’autre version est dans le dossier corbeille du livre (.quilland/trash)."
+    "“{title}” was changed by another program. Its other version is in the book's trash folder (.quilland/trash).": "« {title} » a été modifiée par un autre programme. L’autre version est dans le dossier corbeille du livre (.quilland/trash).",
+    "That could not be saved: {error}": "Impossible d’enregistrer : {error}"
   },
   "plurals": {
     "Accept {n} Checked": {

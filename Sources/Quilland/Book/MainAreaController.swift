@@ -768,6 +768,15 @@ final class MainAreaController: NSViewController {
         if let created { worldView?.select(created) }
     }
 
+    /// The book's window is closing: whatever the model is still doing for it (a continuation, a synopsis, a collection, a chat answer, a grammar check) is stopped, so
+    /// that LM Studio is not left generating for a window that is gone.
+    func stopAI() {
+        continueTask?.cancel()
+        collect.stop()
+        chatSession.stop()
+        searchPanel.proofView.stopGrammar()
+    }
+
     func charactersChanged() {
         if showsRightPanel { rightPanel.refresh() }
         onChange?()

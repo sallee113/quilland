@@ -221,6 +221,8 @@ final class ProofreadingView: NSView, NSTableViewDataSource, NSTableViewDelegate
 
     @objc private func grammarPressed() { startGrammar() }
     @objc private func grammarStopPressed() { grammarTask?.cancel() }
+    /// The book window is closing: a grammar check that is still running stops.
+    func stopGrammar() { grammarTask?.cancel() }
 
     /// Asks the model to correct the scenes of the scope; its corrections come in as findings, a few at a time. Never accepted all at once.
     func startGrammar() {
