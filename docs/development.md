@@ -14,7 +14,7 @@ All of them must pass. The self-test ends with a check that no exception was thr
 ## What the checks cover
 
 - **Unit tests** (`Tests/`): files, formats, import, export, names, snapshots, the AI jobs against a fake LM Studio server, merging and converting records.
-- **Self-test** (`Sources/Quilland/App/AppSelfTest.swift`): the windows and views of the real application, driven in code. It also moves a pretend pointer over the windows (`PointerSimulator`) and tells every tracking area what the system would, so that a list, a button or a tab that does not answer is found.
+- **Self-test** (`Sources/Quilland/App/AppSelfTest.swift` and one `AppSelfTest+<Topic>.swift` per topic: Start, AIFeatures, Panels, Editing, Records, Safety, RecordMerges, Structure, Files, Settings, Startup, run in that order): the windows and views of the real application, driven in code. A check goes in the topic it is about; what a topic makes for the next ones (the book, its window, its scenes) is a property of `AppSelfTest`. It also moves a pretend pointer over the windows (`PointerSimulator`) and tells every tracking area what the system would, so that a list, a button or a tab that does not answer is found.
 - **Pictures** (`--snapshot-ui`, `--snapshot-chat`, `--snapshot-settings`): to look at a layout; `QUILLAND_FORCE_LANGUAGE=fr` shows a language.
 
 ## Where things are: the main area
