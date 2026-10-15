@@ -6,7 +6,7 @@ final class MainAreaController: NSViewController {
     enum Mode: String { case panels, book, compare, outline, characters, world, events, plan }
 
     let folder: URL
-    private(set) var session: BookSession
+    var session: BookSession
     private(set) var mode: Mode
     private(set) var typewriter = false
     /// Focus Mode (Book mode only): only the text, the line with the cursor in the middle.
@@ -20,14 +20,14 @@ final class MainAreaController: NSViewController {
     /// The writing mode the author comes back to from a full-area view (Esc).
     private(set) var writingMode: Mode = .panels
     /// Synopsis and note of every section, for the Outline's hover text and note marks.
-    private var sectionTexts: [String: (synopsis: String?, note: String?)] = [:]
+    var sectionTexts: [String: (synopsis: String?, note: String?)] = [:]
     private var panelsSplit: NSSplitViewController?
     let banner = UndoBannerView()
     /// What each structural change did, newest last: the snapshots from before and after it.
     struct StructureUndo { var name: String; var pre: SnapshotStore.Info; var post: SnapshotStore.Info? }
-    private(set) var undoStack: [StructureUndo] = []
+    var undoStack: [StructureUndo] = []
     /// What was undone and can be done again: `post` is the book as it was just before the undo.
-    private(set) var redoStack: [StructureUndo] = []
+    var redoStack: [StructureUndo] = []
     private var outerSplit: NSSplitViewController?
     private(set) var showsRightPanel: Bool
     private(set) lazy var rightPanel: RightPanelController = makeRightPanel()
@@ -47,8 +47,8 @@ final class MainAreaController: NSViewController {
     private(set) var eventsView: EventsViewController?
     private var countsTimer: Timer?
     /// After a rebuild the text takes the focus, except when the author was working in the tree.
-    private var focusTextAfterRebuild = true
-    private var pendingTreeSelection: String?
+    var focusTextAfterRebuild = true
+    var pendingTreeSelection: String?
     /// An interrupted move was finished when the book was opened (the banner says so once the view is there).
     private(set) var finishedInterruptedMove = false
     private var day: LocalBookState
@@ -57,7 +57,7 @@ final class MainAreaController: NSViewController {
     /// The cursor moved: the scene's id and the place in it.
     var onCursorMoved: ((String, Int) -> Void)?
     var onChange: (() -> Void)?
-    private var pendingCursor: (scene: String, position: Int)?
+    var pendingCursor: (scene: String, position: Int)?
 
     init(folder: URL, state: LocalBookState) throws {
         self.folder = folder
@@ -201,7 +201,7 @@ final class MainAreaController: NSViewController {
     }
 
     /// The scene and the place of the cursor now, so that a rebuilt view can put it back.
-    private func remember() {
+    func remember() {
         if let c = controllers.first(where: { $0.currentSceneID != nil }), let id = c.currentSceneID, let tv = c.currentSheet?.textView {
             pendingCursor = (id, tv.selectedRange().location)
         }
@@ -586,131 +586,14 @@ final class MainAreaController: NSViewController {
         c.focus(sceneID: id)
     }
 
-    // MARK: Changing the structure
+    // MARK: The section the commands are about
 
     /// The section the commands are about: the tree's selection in Panels, otherwise the scene with the cursor.
     var selectedSectionID: String? { (mode == .panels || mode == .outline ? tree?.selectedID : nil) ?? currentSceneID }
 
-    private func treeCommand(_ command: StructureTreeController.Command, _ id: String) {
-        switch command {
-        case .newSceneAfter: add(.scene, place: .after, anchor: id, fromTree: true)
-        case .newSceneBefore: add(.scene, place: .before, anchor: id, fromTree: true)
-        case .newChapter: add(.chapter, place: .after, anchor: id, fromTree: true)
-        case .newPart: add(.part, place: .after, anchor: id, fromTree: true)
-        case .moveUp: move(id, by: -1)
-        case .moveDown: move(id, by: 1)
-        case .delete: delete(id)
-        case .status(let s): setStatus(id, to: s)
-        case .mergeNext: merge(id, direction: 1)
-        case .mergePrevious: merge(id, direction: -1)
-        case .group: groupIntoPart()
-        case .ungroup: ungroupPart(id)
-        }
-    }
-
-    private var treeHasFocus: Bool { (mode == .panels || mode == .outline) && tree?.isFirstResponder == true }
-
-    func add(_ kind: BookStructure.Kind, place: BookEditor.Place = .after, anchor: String? = nil, fromTree: Bool = false) {
-        let inTree = fromTree || treeHasFocus
-        restructure(focusText: !inTree, beginRename: inTree, undoName: L("New {kind}", ["kind": L(kind.rawValue.capitalized)])) { editor in
-            try editor.add(kind, relativeTo: anchor ?? self.selectedSectionID, place: place)
-        }
-    }
-
-    func move(_ id: String? = nil, by step: Int) {
-        guard let id = id ?? selectedSectionID else { return }
-        restructure(focusText: !treeHasFocus, undoName: L("Move")) { editor in
-            try editor.moveAcrossChapters(id, by: step)
-            return id
-        }
-    }
-
-    func setStatus(_ id: String? = nil, to status: String) {
-        guard let id = id ?? selectedSectionID, session.structure.scenes.contains(where: { $0.id == id }) else { return }
-        do { try BookEditor(structure: session.structure).setStatus(id, to: status) } catch { report(error); return }
-        session.applyInfo(id: id, status: status)
-        afterInfoChange()
-    }
-
-    func rename(_ id: String, to title: String) {
-        do { try BookEditor(structure: session.structure).rename(id, to: title) } catch { report(error); return }
-        session.applyInfo(id: id, title: title)
-        afterInfoChange()
-    }
-
-    private func afterInfoChange() {
-        tree?.reload(structure: session.structure, characters: { [weak self] in self?.sectionCharacters($0) ?? 0 })
-        outlineDetail?.refresh()
-        controllers.forEach { $0.updateJumpBar() }
-        onChange?()
-    }
+    var treeHasFocus: Bool { (mode == .panels || mode == .outline) && tree?.isFirstResponder == true }
 
     // MARK: The Outline
-
-    /// A synopsis or a note was changed from outside the views that show them (Replace): they read them again.
-    func didChangeSectionTexts() {
-        loadSectionTexts()
-        tree?.refreshCounts()
-        outlineDetail?.refresh()
-        if showsRightPanel { rightPanel.refresh() }
-        onChange?()
-    }
-
-    private func loadSectionTexts() {
-        sectionTexts = [:]
-        let editor = BookEditor(structure: session.structure)
-        func visit(_ node: BookStructure.Node) {
-            let record = editor.record(node.id)
-            sectionTexts[node.id] = (record?.string("synopsis"), record?.string("note"))
-            node.children.forEach(visit)
-        }
-        session.structure.roots.forEach(visit)
-    }
-
-    private func scenes(under id: String) -> [BookStructure.Node] {
-        guard let node = findNode(id) else { return [] }
-        func collect(_ n: BookStructure.Node) -> [BookStructure.Node] { n.kind == .scene ? [n] : n.children.flatMap(collect) }
-        return collect(node)
-    }
-
-    /// The size of a scene, a chapter or a part, in characters.
-    func sectionCharacters(_ id: String) -> Int { scenes(under: id).reduce(0) { $0 + (session.document($1.id)?.counts.characters ?? 0) } }
-
-    func sectionInfo(_ id: String) -> SectionInfo? {
-        guard let node = findNode(id) else { return nil }
-        let entry = session.structure.scenes.first { $0.id == id }
-        let path: String
-        switch node.kind {
-        case .scene: path = entry?.place ?? ""
-        case .chapter: path = session.structure.scenes.first { $0.chapterID == id }?.partTitle ?? ""
-        case .part: path = ""
-        }
-        let record = BookEditor(structure: session.structure).record(id)
-        let list = scenes(under: id)
-        let statuses = SceneRecord.knownStatuses.map { st in (status: st, count: list.filter { (session.document($0.id)?.status ?? "idea") == st }.count) }
-        let matcher = ParadigmMatcher(entries: characters.entries)
-        var found = Set<String>()
-        for scene in list { found.formUnion(matcher.matches(in: session.document(scene.id)?.storage.string ?? "").map(\.entry)) }
-        let names = characters.characters.filter { found.contains($0.id ?? "") }.compactMap(\.name)
-        return SectionInfo(id: id, kind: node.kind, title: node.title, path: path, status: session.document(id)?.status ?? node.status,
-                           characters: sectionCharacters(id), target: record?.int("target_characters"),
-                           synopsis: record?.string("synopsis") ?? "", note: record?.string("note") ?? "",
-                           sceneStatuses: statuses, sceneCount: list.count, characterNames: names)
-    }
-
-    func setSectionText(_ id: String, key: String, _ text: String) {
-        do { try BookEditor(structure: session.structure).setText(id, key: key, to: text) } catch { report(error); return }
-        var entry = sectionTexts[id] ?? (nil, nil)
-        if key == "synopsis" { entry.synopsis = text.isEmpty ? nil : text } else { entry.note = text.isEmpty ? nil : text }
-        sectionTexts[id] = entry
-        tree?.refreshCounts()
-        onChange?()
-    }
-
-    func setTarget(_ id: String, _ target: Int?) {
-        do { try BookEditor(structure: session.structure).setTarget(id, to: target) } catch { report(error); return }
-        outlineDetail?.refresh()
-    }
 
     /// Back to the text from the Outline: the writing mode left, at the cursor where it was.
     func leaveOutline() { leaveFullAreaView() }
@@ -718,74 +601,7 @@ final class MainAreaController: NSViewController {
     /// Esc in a full-area view (the Outline, Characters): back to the writing mode.
     func leaveFullAreaView() { if [.outline, .characters, .world, .events].contains(mode) { setMode(writingMode) } }
 
-    /// How many times a character's name is in each scene (only the scenes where it is).
-    func mentions(ofCharacter id: String) -> [String: Int] {
-        guard let record = characters.character(id), let name = record.name else { return [:] }
-        return mentions(of: NameEntry(id: id, name: name, aliases: record.aliases))
-    }
-
-    /// How many times a name (or one of its aliases) is in each scene (only the scenes where it is).
-    func mentions(of entry: NameEntry) -> [String: Int] {
-        let matcher = ParadigmMatcher(entries: [entry])
-        var out: [String: Int] = [:]
-        for e in session.structure.scenes {
-            let n = matcher.matches(in: session.document(e.id)?.storage.string ?? "").count
-            if n > 0 { out[e.id] = n }
-        }
-        return out
-    }
-
-    /// A character was added, renamed or changed in the Characters view: the right panel reads it again.
-    /// Merge Into…: the second character leaves the book and the first one keeps what is known of both. Like the other changes that touch many files, a snapshot is
-    /// taken before and after, so that Undo (the banner, ⌘Z) takes it back.
-    func mergeCharacters(_ source: String, into target: String) {
-        let sourceName = characters.character(source)?.name ?? "", targetName = characters.character(target)?.name ?? ""
-        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", ["from": sourceName, "to": targetName])) { editor in
-            try CharacterMerger.merge(source, into: target, book: editor.folder)
-            return nil
-        }
-        charactersView?.select(target)
-    }
-
     // The same for places and worlds (the World view): a snapshot before and after, so that Undo takes the change back.
-
-    private func worldName(_ id: String) -> String { worlds.world(id)?.name ?? worlds.entry(id)?.name ?? "" }
-
-    func mergePlaces(_ source: String, into target: String) {
-        let names = ["from": worldName(source), "to": worldName(target)]
-        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", names)) { editor in
-            try WorldMerger.mergePlaces(source, into: target, book: editor.folder)
-            return nil
-        }
-        worldView?.select(target)
-    }
-
-    func mergeWorlds(_ source: String, into target: String) {
-        let names = ["from": worldName(source), "to": worldName(target)]
-        restructure(focusText: false, undoName: L("Merge “{from}” into “{to}”", names)) { editor in
-            try WorldMerger.mergeWorlds(source, into: target, book: editor.folder)
-            return nil
-        }
-        worldView?.select(target)
-    }
-
-    func placeToWorld(_ id: String) {
-        var created: String?
-        restructure(focusText: false, undoName: L("Turn “{name}” into a world", ["name": worldName(id)])) { editor in
-            created = try WorldMerger.placeToWorld(id, book: editor.folder).world
-            return nil
-        }
-        if let created { worldView?.select(created) }
-    }
-
-    func worldToPlace(_ world: String, intoWorld: String, parent: String?) {
-        var created: String?
-        restructure(focusText: false, undoName: L("Turn “{name}” into a place", ["name": worldName(world)])) { editor in
-            created = try WorldMerger.worldToPlace(world, intoWorld: intoWorld, parent: parent, book: editor.folder).entry
-            return nil
-        }
-        if let created { worldView?.select(created) }
-    }
 
     /// The book's window is closing: whatever the model is still doing for it (a continuation, a synopsis, a collection, a chat answer, a grammar check) is stopped, so
     /// that LM Studio is not left generating for a window that is gone.
@@ -794,204 +610,6 @@ final class MainAreaController: NSViewController {
         collect.stop()
         chatSession.stop()
         searchPanel.proofView.stopGrammar()
-    }
-
-    func charactersChanged() {
-        if showsRightPanel { rightPanel.refresh() }
-        onChange?()
-    }
-
-    /// Opens the section's first scene in the writing mode.
-    func openInEditor(_ id: String) {
-        guard let scene = firstScene(of: id, in: session.structure) else { return }
-        pendingCursor = (scene, 0)
-        if mode == .outline { setMode(writingMode) }
-    }
-
-    /// Rows were dropped in the Outline: they go before the sibling that was at the drop place (or to the end), in book order.
-    func moveSections(_ ids: [String], parent: String?, index: Int?) {
-        let siblings = parent.flatMap { findNode($0)?.children } ?? (parent == nil ? session.structure.roots : [])
-        let anchor = index.flatMap { i in siblings.dropFirst(i).first { !ids.contains($0.id) }?.id }
-        restructure(focusText: false, undoName: "Move") { [folder] _ in
-            for id in ids {
-                let fresh = try BookStructure.load(folder: folder)
-                func find(_ target: String, in nodes: [BookStructure.Node]) -> BookStructure.Node? {
-                    for n in nodes { if n.id == target { return n }; if let f = find(target, in: n.children) { return f } }
-                    return nil
-                }
-                let list = parent.flatMap { find($0, in: fresh.roots)?.children } ?? fresh.roots
-                let at = anchor.flatMap { a in list.firstIndex { $0.id == a } } ?? list.count
-                try BookEditor(structure: fresh).move(id, toParent: parent, at: at)
-            }
-            return ids.first
-        }
-    }
-
-    /// Rename from the menu: the tree edits in place; elsewhere a small window asks.
-    func renameSelected() {
-        guard let id = selectedSectionID else { return }
-        if mode == .panels || mode == .outline, let tree { tree.focus(); tree.beginRename(); return }
-        guard let node = findNode(id) else { return }
-        let field = NSTextField(string: node.title)
-        field.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
-        let alert = NSAlert()
-        alert.messageText = L("Rename")
-        alert.accessoryView = field
-        alert.addButton(withTitle: L("Rename"))
-        alert.addButton(withTitle: L("Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !title.isEmpty { rename(id, to: title) }
-    }
-
-    func findNode(_ id: String) -> BookStructure.Node? {
-        func search(_ nodes: [BookStructure.Node]) -> BookStructure.Node? {
-            for n in nodes { if n.id == id { return n }; if let f = search(n.children) { return f } }
-            return nil
-        }
-        return search(session.structure.roots)
-    }
-
-    /// Asks, then takes the section out of the book (into `.quilland/trash`). Cancel is the default.
-    func delete(_ id: String? = nil, confirm: Bool = true) {
-        guard let id = id ?? selectedSectionID, let node = findNode(id) else { return }
-        let editor = BookEditor(structure: session.structure)
-        let weight = editor.weight(of: id) { [session] in session.document($0)?.counts.characters ?? 0 }
-        if confirm {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            switch node.kind {
-            case .scene: alert.messageText = L("Delete the scene “{title}”?", ["title": node.title])
-            case .chapter: alert.messageText = L("Delete the chapter “{title}”?", ["title": node.title])
-            case .part: alert.messageText = L("Delete the part “{title}”?", ["title": node.title])
-            }
-            let number = { (n: Int) in NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal) }
-            alert.informativeText = node.kind == .scene
-                ? L("The scene has {size}. Its files go to the book's trash folder (.quilland/trash).", ["size": Lp("{n} character||text", "{n} characters||text", weight.characters)])
-                : L("It holds {scenes} with {size} in all. Their files go to the book's trash folder (.quilland/trash).", ["scenes": Lp("{n} scene", "{n} scenes", weight.scenes), "size": Lp("{n} character||text", "{n} characters||text", weight.characters)])
-            let cancel = alert.addButton(withTitle: L("Cancel"))
-            cancel.keyEquivalent = "\r"
-            let remove = alert.addButton(withTitle: L("Delete"))
-            remove.keyEquivalent = ""
-            remove.hasDestructiveAction = true
-            guard alert.runModal() == .alertSecondButtonReturn else { return }
-        }
-        // The cursor goes to the scene before the deleted one's place, or the next.
-        let scenes = session.structure.scenes.map(\.id)
-        var inside = Set<String>()
-        func collect(_ n: BookStructure.Node) { if n.kind == .scene { inside.insert(n.id) }; n.children.forEach(collect) }
-        collect(node)
-        let first = scenes.firstIndex { inside.contains($0) } ?? 0
-        let after = scenes.first { !inside.contains($0) && (scenes.firstIndex(of: $0) ?? 0) > first }
-        let before = first > 0 ? scenes[first - 1] : nil
-        let keep = inside.contains(currentSceneID ?? "") ? (before ?? after) : currentSceneID
-        restructure(focusText: !treeHasFocus, cursorScene: keep, undoName: L("Delete “{title}”", ["title": node.title])) { editor in
-            try editor.delete(id)
-            return nil
-        }
-    }
-
-    /// Does a structural change, then reads the book again: the files were renumbered, so every scene is loaded anew.
-    private func restructure(focusText: Bool, beginRename: Bool = false, cursorScene: String? = nil, undoName: String = L("Change"), _ change: (BookEditor) throws -> String?) {
-        saveAll()
-        remember()
-        // A change that touches files takes a snapshot first, and another after it, so that Undo can tell whether the book moved on since.
-        let snapshots = SnapshotStore(bookFolder: folder)
-        let pre = try? snapshots.take(.beforeOperation, reason: L("Before {action}", ["action": undoName]))
-        let editor = BookEditor(structure: session.structure)
-        let selectedID: String?
-        do { selectedID = try change(editor) } catch { report(error); return }
-        if let pre {
-            let post = try? snapshots.take(.automatic, reason: L("After {action}", ["action": undoName]))
-            undoStack.append(StructureUndo(name: undoName, pre: pre, post: post))
-            redoStack.removeAll()
-            if undoStack.count > 20 { undoStack.removeFirst() }
-            banner.show(L("{action}.", ["action": undoName]), undoable: true)
-        }
-        // Merging moves links in the data files: the stores read them again.
-        reloadStores()
-        guard let structure = try? BookStructure.load(folder: folder) else { return }
-        session = BookSession(structure: structure)
-        // Where the cursor goes: the scene of the new or moved section (a chapter's or a part's first scene), otherwise where it was.
-        if let cursorScene { pendingCursor = (cursorScene, 0) }
-        else if mode != .outline, let id = selectedID, let scene = firstScene(of: id, in: structure) {
-            pendingCursor = scene == pendingCursor?.scene ? pendingCursor : (scene, 0)
-        }
-        pendingTreeSelection = selectedID
-        focusTextAfterRebuild = focusText
-        rebuild()
-        if beginRename { tree?.beginRename() }
-    }
-
-    // MARK: Undo of structure
-
-    /// Puts the book back as it was before the last structural change (⌘Z in the tree or the Outline, or the banner's button).
-    /// Anything written since is taken back too, so that is asked first; a safety snapshot is taken either way.
-    func undoStructure(confirm: Bool = true) {
-        guard let entry = undoStack.last else { return }
-        saveAll()
-        let snapshots = SnapshotStore(bookFolder: folder)
-        if confirm, let post = entry.post, snapshots.changed(since: post) {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = L("Undo “{name}”?", ["name": entry.name])
-            alert.informativeText = L("The book has changed since then (text written, or other changes). Undo takes the whole book back to how it was before “{name}”. A snapshot of the book as it is now is taken first, so nothing is lost.", ["name": entry.name])
-            let cancel = alert.addButton(withTitle: L("Cancel"))
-            cancel.keyEquivalent = "\r"
-            let go = alert.addButton(withTitle: L("Undo"))
-            go.keyEquivalent = ""
-            go.hasDestructiveAction = true
-            guard alert.runModal() == .alertSecondButtonReturn else { return }
-        }
-        let before: SnapshotStore.Info
-        do { before = try snapshots.restoreAll(from: entry.pre) } catch { report(error); return }
-        undoStack.removeLast()
-        redoStack.append(StructureUndo(name: entry.name, pre: entry.pre, post: before))
-        reloadFromDisk()
-        banner.show(L("Undone: {name}.", ["name": entry.name]), undoable: false, redo: true)
-    }
-
-    /// Does again what Undo took back (⇧⌘Z in the tree or the Outline, or the banner's button): the book as it was just before the undo is put back.
-    /// What was written since the undo is taken too, so that is asked first; a safety snapshot is taken either way.
-    func redoStructure(confirm: Bool = true) {
-        guard let entry = redoStack.last, let target = entry.post else { return }
-        saveAll()
-        let snapshots = SnapshotStore(bookFolder: folder)
-        if confirm, snapshots.changed(since: entry.pre) {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = L("Redo “{name}”?", ["name": entry.name])
-            alert.informativeText = L("The book has changed since the undo. Redo takes the whole book back to how it was before the undo. A snapshot of the book as it is now is taken first, so nothing is lost.")
-            let cancel = alert.addButton(withTitle: L("Cancel"))
-            cancel.keyEquivalent = "\r"
-            let go = alert.addButton(withTitle: L("Redo"))
-            go.keyEquivalent = ""
-            go.hasDestructiveAction = true
-            guard alert.runModal() == .alertSecondButtonReturn else { return }
-        }
-        do { _ = try snapshots.restoreAll(from: target) } catch { report(error); return }
-        redoStack.removeLast()
-        undoStack.append(StructureUndo(name: entry.name, pre: entry.pre, post: target))
-        reloadFromDisk()
-        banner.show(L("Redone: {name}.", ["name": entry.name]), undoable: true)
-    }
-
-    /// Reads everything again from the files (after something was put back from a snapshot).
-    /// The data files were changed under the stores (a merge, an undo, a restore): each store reads its files again.
-    private func reloadStores() {
-        characters.reload()
-        relationships.reload()
-        worlds.reload()
-        eventStore.reload()
-    }
-
-    func reloadFromDisk() {
-        reloadStores()
-        guard let structure = try? BookStructure.load(folder: folder) else { return }
-        session = BookSession(structure: structure)
-        pendingTreeSelection = nil
-        focusTextAfterRebuild = !(tree?.isFirstResponder ?? false)
-        rebuild()
     }
 
     // MARK: Settings that reach the area
@@ -1016,192 +634,6 @@ final class MainAreaController: NSViewController {
         let s = BookSettings.load(book: folder)
         session.applyBookSettings(language: s.language, words: BookDictionary.load(book: folder))
         onChange?()
-    }
-
-    // MARK: Importing
-
-    /// Adds an imported text at the end of the book: a snapshot first, a banner offering Undo after.
-    @discardableResult
-    func performImport(_ plan: ImportPlan) -> Bool {
-        var done = false
-        restructure(focusText: true, undoName: "Import") { [folder] _ in
-            let written = try TextImporter.write(plan, into: folder)
-            done = true
-            return written.firstSceneID
-        }
-        if done { banner.show(Lp("Imported {n} scene at the end of the book.", "Imported {n} scenes at the end of the book.", plan.sceneCount), undoable: true) }
-        return done
-    }
-
-    // MARK: Splitting, merging, grouping
-
-    /// Where a scene would be cut with the cursor at `caret`: at the start of a paragraph, that paragraph begins the new scene; anywhere else in it, the new
-    /// scene begins after it. Nil when there is no text on one side of the cut.
-    static func splitCut(in text: NSString, caret: Int) -> Int? {
-        let place = min(max(0, caret), text.length)
-        let paragraph = text.paragraphRange(for: NSRange(location: place, length: 0))
-        let cut = place == paragraph.location ? paragraph.location : NSMaxRange(paragraph)
-        let rest = cut < text.length ? text.substring(from: cut).trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        guard cut > 0, !rest.isEmpty, !text.substring(to: cut).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return cut
-    }
-
-    /// ⌥⌘↩: the scene is cut between two paragraphs; everything after the cut becomes a new scene next to it.
-    func splitSceneHere() {
-        guard let area = controllers.first(where: { $0.currentSceneID != nil }), let id = area.currentSceneID, let doc = session.document(id), let tv = area.currentSheet?.textView,
-              let entry = session.structure.scenes.first(where: { $0.id == id }) else { return }
-        let text = doc.storage.string as NSString
-        guard let cut = Self.splitCut(in: text, caret: tv.selectedRange().location) else {
-            let alert = NSAlert()
-            alert.messageText = L("Put the cursor between two paragraphs")
-            alert.informativeText = L("A scene is split where there is text on both sides of the cut.")
-            alert.runModal()
-            return
-        }
-        let moved = NSMutableAttributedString(attributedString: doc.storage.attributedSubstring(from: NSRange(location: cut, length: text.length - cut)))
-        // A fragment that goes on across the cut is divided: the second half gets a new id.
-        var divided = false
-        var lastBefore = false
-        doc.storage.enumerateAttribute(.quillandFragment, in: NSRange(location: 0, length: cut)) { v, _, _ in if v != nil { lastBefore = true } }
-        let startsWithMarker = moved.length > 0 && moved.attribute(.quillandFragment, at: 0, effectiveRange: nil) != nil
-        if lastBefore && !startsWithMarker {
-            var attrs = Styler.attributes(kind: BlockKind.fragment)
-            attrs[.quillandFragment] = UUID().uuidString.lowercased()
-            let marker = NSMutableAttributedString(string: AttributedBridge.object, attributes: attrs)
-            marker.append(NSAttributedString(string: "\n", attributes: Styler.attributes(kind: BlockKind.fragment)))
-            moved.insert(marker, at: 0)
-            divided = true
-        }
-        let movedMarkdown = MarkdownWriter.write(AttributedBridge.document(from: moved))
-        let title = entry.node.title + " 2"
-        let status = doc.status ?? "idea"
-        restructure(focusText: true, undoName: L("Split scene")) { [folder] editor in
-            // The old scene is cut and saved before any renumbering, while its file still has its name.
-            doc.storage.deleteCharacters(in: NSRange(location: cut, length: text.length - cut))
-            doc.textDidChange()
-            doc.updateCounts()
-            _ = doc.saveNow()
-            let newID = try editor.add(.scene, relativeTo: id, place: .after, title: title)
-            let fresh = try BookStructure.load(folder: folder)
-            try BookEditor(structure: fresh).setStatus(newID, to: status)
-            guard let made = fresh.scenes.first(where: { $0.id == newID }) else { throw BookEditor.Failure(description: L("The new scene was not found.")) }
-            try AtomicFile.write(Data(movedMarkdown.utf8), to: fresh.markdownURL(for: made.node))
-            return newID
-        }
-        if divided { banner.show(L("Scene split. A fragment was divided: its links stay with the first half."), undoable: true) }
-    }
-
-    /// Merges a scene with the one after it (`direction` 1) or before it (-1). The first of the two survives.
-    func merge(_ id: String? = nil, direction: Int, confirm: Bool = true) {
-        guard let id = id ?? selectedSectionID else { return }
-        // The scenes of its own chapter only: the neighbours in the same list.
-        let ids = siblingScenes(of: id)
-        guard let i = ids.firstIndex(of: id), ids.indices.contains(i + direction) else {
-            banner.show(direction > 0 ? L("There is no scene after this one in the chapter.") : L("There is no scene before this one in the chapter."), undoable: false)
-            return
-        }
-        let first = direction > 0 ? id : ids[i + direction]
-        let second = direction > 0 ? ids[i + direction] : id
-        mergeScenes(first: first, others: [second], confirm: confirm)
-    }
-
-    /// Outline: the chosen scenes (which must follow one another) are merged into the first.
-    func mergeSelected(confirm: Bool = true) {
-        let chosen = Set(tree?.selectedIDs ?? [])
-        let picked = session.structure.scenes.map(\.id).filter { chosen.contains($0) }
-        let ids = picked.first.map { siblingScenes(of: $0) } ?? []
-        guard picked.count >= 2, let start = ids.firstIndex(of: picked[0]), start + picked.count <= ids.count, Array(ids[start..<(start + picked.count)]) == picked else {
-            banner.show(L("Choose two or more scenes that follow one another in one chapter."), undoable: false)
-            return
-        }
-        mergeScenes(first: picked[0], others: Array(picked.dropFirst()), confirm: confirm)
-    }
-
-    private func mergeScenes(first: String, others: [String], confirm: Bool) {
-        if confirm {
-            let name = { (id: String) in self.findNode(id)?.title ?? "" }
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = others.count == 1 ? L("Merge “{second}” into “{first}”?", ["second": name(others[0]), "first": name(first)]) : L("Merge the chosen scenes into “{first}”?", ["first": name(first)])
-            alert.informativeText = L("The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.")
-            let cancel = alert.addButton(withTitle: L("Cancel"))
-            cancel.keyEquivalent = "\r"
-            let go = alert.addButton(withTitle: L("Merge"))
-            go.keyEquivalent = ""
-            go.hasDestructiveAction = true
-            guard alert.runModal() == .alertSecondButtonReturn else { return }
-        }
-        restructure(focusText: !treeHasFocus, cursorScene: first, undoName: L("Merge scenes")) { [folder] _ in
-            for other in others {
-                let fresh = try BookStructure.load(folder: folder)
-                try BookEditor(structure: fresh).merge(first, with: other)
-            }
-            return first
-        }
-    }
-
-    /// Group into a New Part…: the chosen chapters (not yet in a part) move into a new part.
-    func groupIntoPart() {
-        let chosen = (mode == .outline ? tree?.selectedIDs : nil) ?? [selectedSectionID].compactMap { $0 }
-        let loose = Set(session.structure.roots.filter { $0.kind == .chapter }.map(\.id))
-        guard !chosen.isEmpty, chosen.allSatisfy({ loose.contains($0) }) else {
-            banner.show(L("Choose one or more chapters that are not in a part."), undoable: false)
-            return
-        }
-        let field = NSTextField(string: BookEditor(structure: session.structure).language == "ru" ? "Новая часть" : "New Part")
-        field.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
-        let alert = NSAlert()
-        alert.messageText = L("Group into a new part")
-        alert.informativeText = L("The title of the part:")
-        alert.accessoryView = field
-        alert.addButton(withTitle: L("Group"))
-        alert.addButton(withTitle: L("Cancel"))
-        alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
-        groupChapters(chosen, titled: title)
-    }
-
-    func groupChapters(_ ids: [String], titled title: String) {
-        restructure(focusText: !treeHasFocus, undoName: L("Group into a part")) { editor in try editor.group(ids, intoNewPart: title) }
-    }
-
-    /// Ungroup Part…: its chapters move up to where it was; the part's own title and text go to the trash folder. Asks first.
-    func ungroupPart(_ id: String? = nil, confirm: Bool = true) {
-        guard let id = id ?? selectedSectionID, let part = findNode(id), part.kind == .part else {
-            banner.show(L("Choose a part."), undoable: false)
-            return
-        }
-        if confirm {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = L("Ungroup the part “{title}”?", ["title": part.title])
-            alert.informativeText = L("{chapters} move up to where the part was. The part's own title, text, synopsis and note go to the book's trash folder (.quilland/trash).", ["chapters": Lp("Its {n} chapter", "Its {n} chapters", part.children.count)])
-            let cancel = alert.addButton(withTitle: L("Cancel"))
-            cancel.keyEquivalent = "\r"
-            let go = alert.addButton(withTitle: L("Ungroup"))
-            go.keyEquivalent = ""
-            go.hasDestructiveAction = true
-            guard alert.runModal() == .alertSecondButtonReturn else { return }
-        }
-        restructure(focusText: !treeHasFocus, cursorScene: currentSceneID, undoName: L("Ungroup “{title}”", ["title": part.title])) { editor in
-            try editor.ungroup(id)
-            return nil
-        }
-    }
-
-    private func firstScene(of id: String, in structure: BookStructure) -> String? {
-        if structure.scenes.contains(where: { $0.id == id }) { return id }
-        return structure.scenes.first { $0.chapterID == id || $0.partID == id }?.id
-    }
-
-    private func report(_ error: Error) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = L("That could not be done")
-        alert.informativeText = "\(error)"
-        alert.runModal()
     }
 
     // MARK: Asked by the window and the menus
@@ -1252,7 +684,7 @@ final class MainAreaController: NSViewController {
     }
 
     /// The first scene at or under a section.
-    private func firstScene(of id: String) -> String? { firstScene(of: id, in: session.structure) }
+    func firstScene(of id: String) -> String? { firstScene(of: id, in: session.structure) }
 
     func localState() -> LocalBookState {
         remember()

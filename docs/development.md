@@ -17,6 +17,18 @@ All of them must pass. The self-test ends with a check that no exception was thr
 - **Self-test** (`Sources/Quilland/App/AppSelfTest.swift`): the windows and views of the real application, driven in code. It also moves a pretend pointer over the windows (`PointerSimulator`) and tells every tracking area what the system would, so that a list, a button or a tab that does not answer is found.
 - **Pictures** (`--snapshot-ui`, `--snapshot-chat`, `--snapshot-settings`): to look at a layout; `QUILLAND_FORCE_LANGUAGE=fr` shows a language.
 
+## Where things are: the main area
+
+`MainAreaController` (`Sources/Quilland/Book/`) shows the open book's views. Its files:
+
+- `MainAreaController.swift`: the state, the modes, `rebuild()` and one builder per mode, the right and bottom panels, saving (`saveAll()`, `pendingEditors`).
+- `+Structure`: add, move, rename, delete, split, merge, group, import; every change that touches files goes through `restructure(...)` (a snapshot before and after, the stores reloaded, the views rebuilt).
+- `+Undo`: Undo and Redo of those changes (the snapshots), `reloadStores()`, `reloadFromDisk()`.
+- `+Records`: mentions of characters and places in the scenes; merging and converting characters, places and worlds.
+- `+Outline`: the Outline's data (synopsis, note, size of each section).
+- `+SectionState`: what the Section menu can do now.
+- `+Search`, `+Proofreading`, `+Chat`, `+Continue`, `+Synopsis`: the bottom panel and the AI commands.
+
 ## Rules that came from mistakes
 
 1. **A bug is reproduced by a check that fails before the fix.** Then it is fixed, then the check passes.
