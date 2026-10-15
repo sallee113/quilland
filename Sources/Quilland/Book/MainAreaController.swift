@@ -207,9 +207,26 @@ final class MainAreaController: NSViewController {
         }
     }
 
+    /// What a mode shows: the view that fills the area, and the view controller behind it when there is one (the right panel is put beside it).
+    private struct Built {
+        var view: NSView
+        var controller: NSViewController?
+    }
+
+    /// Makes the area again for the mode it is in: what was typed is saved, the old views go, the mode's views are made and put in, and the cursor goes back.
     func rebuild() {
         // What was typed in a card and still waits for its save timer is saved before the card goes (the timers do not outlive their views).
         commitPendingEdits()
+        tearDownViews()
+        guard let built = buildViews() else { return }
+        var content = built.view
+        if showsRightPanel, !focusMode, let main = built.controller { content = besideRightPanel(main) }
+        show(content)
+        restoreCursor()
+        onChange?()
+    }
+
+    private func tearDownViews() {
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         compareSplit = nil
@@ -221,226 +238,243 @@ final class MainAreaController: NSViewController {
         charactersView = nil
         worldView = nil
         eventsView = nil
-        var content: NSView
-        var contentVC: NSViewController?
+    }
+
+    private func buildViews() -> Built? {
         switch mode {
-        case .panels:
-            let scene = pendingCursor.map(\.scene).flatMap { session.document($0) != nil ? $0 : nil } ?? session.structure.scenes.first?.id
-            let c = makeBookController(only: scene)
-            controllers = [c]
-            let list = StructureTreeController()
-            _ = list.view
-            list.reload(structure: session.structure, characters: { [weak self] in self?.session.document($0)?.counts.characters ?? 0 })
-            if let selected = pendingTreeSelection ?? scene { list.select(selected, notify: false) }
-            pendingTreeSelection = nil
-            list.onSelectScene = { [weak self] id in self?.showScene(id) }
-            list.onEnterText = { [weak self] in self?.enterText() }
-            list.onRename = { [weak self] id, title in self?.rename(id, to: title) }
-            list.onCommand = { [weak self] command, id in self?.treeCommand(command, id) }
-            list.canDo = { [weak self] command in self?.treeCanDo(command) ?? true }
-            list.onUndo = { [weak self] in self?.undoStructure() }
-            list.canUndo = { [weak self] in self?.undoStack.isEmpty == false }
-            list.onRedo = { [weak self] in self?.redoStructure() }
-            list.canRedo = { [weak self] in self?.redoStack.isEmpty == false }
-            list.onNew = { [weak self] kind, place in self?.add(kind, place: place, fromTree: true) }
-            tree = list
-            let split = NSSplitViewController()
-            split.splitView.isVertical = true
-            split.splitView.dividerStyle = .thin
-            split.splitView.autosaveName = "QuillandPanels"
-            let left = NSSplitViewItem(viewController: list)
-            left.minimumThickness = 170
-            left.maximumThickness = 480
-            left.holdingPriority = NSLayoutConstraint.Priority(260)
-            let centre = NSSplitViewItem(viewController: c)
-            centre.minimumThickness = 360
-            split.addSplitViewItem(left)
-            split.addSplitViewItem(centre)
-            panelsSplit = split
-            content = split.view
-            contentVC = split
-        case .outline:
-            let list = StructureTreeController()
-            list.isOutline = true
-            _ = list.view
-            loadSectionTexts()
-            list.synopsisOf = { [weak self] in self?.sectionTexts[$0]?.synopsis }
-            list.hasNote = { [weak self] in !(self?.sectionTexts[$0]?.note ?? "").isEmpty }
-            list.reload(structure: session.structure, characters: { [weak self] in self?.sectionCharacters($0) ?? 0 })
-            let detail = OutlineDetailController()
-            _ = detail.view
-            detail.info = { [weak self] in self?.sectionInfo($0) }
-            detail.totalCharacters = { [weak self] ids in ids.reduce(0) { $0 + (self?.sectionCharacters($1) ?? 0) } }
-            detail.onRename = { [weak self] id, title in self?.rename(id, to: title) }
-            detail.onStatus = { [weak self] id, status in self?.setStatus(id, to: status) }
-            detail.onTarget = { [weak self] id, target in self?.setTarget(id, target) }
-            detail.onText = { [weak self] id, key, text in self?.setSectionText(id, key: key, text) }
-            detail.onOpen = { [weak self] id in self?.openInEditor(id) }
-            list.onSelectNode = { [weak detail] ids in detail?.show(ids) }
-            list.onEnterText = { [weak self] in if let id = self?.tree?.selectedID { self?.openInEditor(id) } }
-            list.onEscape = { [weak self] in self?.leaveOutline() }
-            list.onRename = { [weak self] id, title in self?.rename(id, to: title) }
-            list.onCommand = { [weak self] command, id in self?.treeCommand(command, id) }
-            list.canDo = { [weak self] command in self?.treeCanDo(command) ?? true }
-            list.onUndo = { [weak self] in self?.undoStructure() }
-            list.canUndo = { [weak self] in self?.undoStack.isEmpty == false }
-            list.onRedo = { [weak self] in self?.redoStructure() }
-            list.canRedo = { [weak self] in self?.redoStack.isEmpty == false }
-            list.onNew = { [weak self] kind, place in self?.add(kind, place: place, fromTree: true) }
-            list.onMove = { [weak self] ids, parent, index in self?.moveSections(ids, parent: parent, index: index) }
-            let here = pendingTreeSelection ?? pendingCursor?.scene ?? session.structure.scenes.first?.id
-            pendingTreeSelection = nil
-            if let here { list.select(here, notify: false); detail.show([here]) }
-            tree = list
-            outlineDetail = detail
-            detail.onWriteSynopsis = { [weak self] in self?.writeSynopsis() }
-            let split = NSSplitViewController()
-            split.splitView.isVertical = true
-            split.splitView.dividerStyle = .thin
-            split.splitView.autosaveName = "QuillandOutline"
-            let left = NSSplitViewItem(viewController: list)
-            left.minimumThickness = 240
-            left.maximumThickness = 640
-            left.holdingPriority = NSLayoutConstraint.Priority(260)
-            let right = NSSplitViewItem(viewController: detail)
-            right.minimumThickness = 380
-            split.addSplitViewItem(left)
-            split.addSplitViewItem(right)
-            panelsSplit = split
-            content = split.view
-            let focusTree = !focusTextAfterRebuild
-            focusTextAfterRebuild = true
-            DispatchQueue.main.async { [weak self] in if focusTree { self?.tree?.focus() } }
-        case .characters:
-            let view = CharactersViewController()
-            view.store = characters
-            view.relationships = relationships
-            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
-            view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
-            view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
-            view.onChange = { [weak self] in self?.charactersChanged() }
-            view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
-            view.onEscape = { [weak self] in self?.leaveFullAreaView() }
-            _ = view.view
-            charactersView = view
-            content = view.view
-            contentVC = nil
-        case .world:
-            let view = WorldViewController()
-            view.store = worlds
-            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
-            view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
-            view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
-            view.onChange = { [weak self] in self?.onChange?() }
-            view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
-            view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }
-            view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
-            view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
-            view.onEscape = { [weak self] in self?.leaveFullAreaView() }
-            _ = view.view
-            worldView = view
-            content = view.view
-            contentVC = nil
-        case .events:
-            let view = EventsViewController()
-            view.events = eventStore
-            view.characters = characters
-            view.worlds = worlds
-            view.planStore = { [folder] in try? PlanStore(folder: folder) }
-            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
-            view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
-            view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
-            view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
-            view.onShowPlan = { [weak self] in self?.setMode(.plan) }
-            view.onChange = { [weak self] in self?.onChange?() }
-            view.onEscape = { [weak self] in self?.leaveFullAreaView() }
-            _ = view.view
-            eventsView = view
-            content = view.view
-            contentVC = nil
-        case .plan:
-            guard let store = try? PlanStore(folder: folder) else { return }
-            let plan = PlanCanvasController(store: store)
-            plan.showsControls = true
-            _ = plan.view
-            plan.sectionChoices = planSectionChoices()
-            plan.hiddenFor = { [weak self, weak plan] section in
-                guard let self, let plan, let scene = self.firstScene(of: section) else { return [] }
-                return PlanFilter.hidden(store: plan.store, sceneOrder: self.session.structure.scenes.map(\.id), from: scene)
-            }
-            plan.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
-            plan.onShowFromChanged = { [weak self] id in self?.planFrom = id }
-            plan.showFrom = planFrom.flatMap { id in plan.sectionChoices.contains { $0.id == id } ? id : nil }
-            plan.onChange = { [weak self] in self?.onChange?() }
-            planController = plan
-            content = plan.view
-        case .book, .compare:
-            let count = mode == .compare ? 2 : 1
-            for _ in 0..<count { controllers.append(makeBookController()) }
-            if mode == .compare {
-                let split = NSSplitViewController()
-                split.splitView.isVertical = true
-                split.splitView.dividerStyle = .thin
-                for c in controllers {
-                    let item = NSSplitViewItem(viewController: c)
-                    item.minimumThickness = 320
-                    split.addSplitViewItem(item)
-                }
-                compareSplit = split
-                content = split.view
-                contentVC = split
-            } else {
-                content = controllers[0].view
-                contentVC = controllers[0]
-            }
+        case .panels: return buildPanels()
+        case .outline: return buildOutline()
+        case .characters: return buildCharacters()
+        case .world: return buildWorld()
+        case .events: return buildEvents()
+        case .plan: return buildPlan()
+        case .book, .compare: return buildWriting()
         }
-        if showsRightPanel, !focusMode, let main = contentVC {
-            // The right panel beside the writing area (not in the Plan, which has its own view of things).
-            let outer = NSSplitViewController()
-            outer.splitView.isVertical = true
-            outer.splitView.dividerStyle = .thin
-            outer.splitView.autosaveName = "QuillandRight"
-            let writing = NSSplitViewItem(viewController: main)
-            writing.minimumThickness = 420
-            let side = NSSplitViewItem(viewController: rightPanel)
-            side.minimumThickness = 250
-            side.maximumThickness = 560
-            side.holdingPriority = NSLayoutConstraint.Priority(260)
-            outer.addSplitViewItem(writing)
-            outer.addSplitViewItem(side)
-            outerSplit = outer
-            content = outer.view
-            applyPanelPreferences()
-            rightPanel.refresh()
+    }
+
+    // MARK: The views of each mode
+
+    /// A tree on the left and a split with one more view beside it: Panels (the tree and a scene) and the Outline (the tree and the details of a section).
+    private func twoPanes(left: NSViewController, right: NSViewController, autosave: String, leftMin: CGFloat, leftMax: CGFloat, rightMin: CGFloat) -> NSSplitViewController {
+        let split = NSSplitViewController()
+        split.splitView.isVertical = true
+        split.splitView.dividerStyle = .thin
+        split.splitView.autosaveName = autosave
+        let leftItem = NSSplitViewItem(viewController: left)
+        leftItem.minimumThickness = leftMin
+        leftItem.maximumThickness = leftMax
+        leftItem.holdingPriority = NSLayoutConstraint.Priority(260)
+        let rightItem = NSSplitViewItem(viewController: right)
+        rightItem.minimumThickness = rightMin
+        split.addSplitViewItem(leftItem)
+        split.addSplitViewItem(rightItem)
+        return split
+    }
+
+    /// What every structure tree does: the commands of its menu, its keys, Undo and Redo, and the + button.
+    private func wireStructureCommands(_ list: StructureTreeController) {
+        list.onRename = { [weak self] id, title in self?.rename(id, to: title) }
+        list.onCommand = { [weak self] command, id in self?.treeCommand(command, id) }
+        list.canDo = { [weak self] command in self?.treeCanDo(command) ?? true }
+        list.onUndo = { [weak self] in self?.undoStructure() }
+        list.canUndo = { [weak self] in self?.undoStack.isEmpty == false }
+        list.onRedo = { [weak self] in self?.redoStructure() }
+        list.canRedo = { [weak self] in self?.redoStack.isEmpty == false }
+        list.onNew = { [weak self] kind, place in self?.add(kind, place: place, fromTree: true) }
+    }
+
+    private func buildPanels() -> Built {
+        let scene = pendingCursor.map(\.scene).flatMap { session.document($0) != nil ? $0 : nil } ?? session.structure.scenes.first?.id
+        let c = makeBookController(only: scene)
+        controllers = [c]
+        let list = StructureTreeController()
+        _ = list.view
+        list.reload(structure: session.structure, characters: { [weak self] in self?.session.document($0)?.counts.characters ?? 0 })
+        if let selected = pendingTreeSelection ?? scene { list.select(selected, notify: false) }
+        pendingTreeSelection = nil
+        list.onSelectScene = { [weak self] id in self?.showScene(id) }
+        list.onEnterText = { [weak self] in self?.enterText() }
+        wireStructureCommands(list)
+        tree = list
+        let split = twoPanes(left: list, right: c, autosave: "QuillandPanels", leftMin: 170, leftMax: 480, rightMin: 360)
+        panelsSplit = split
+        return Built(view: split.view, controller: split)
+    }
+
+    private func buildOutline() -> Built {
+        let list = StructureTreeController()
+        list.isOutline = true
+        _ = list.view
+        loadSectionTexts()
+        list.synopsisOf = { [weak self] in self?.sectionTexts[$0]?.synopsis }
+        list.hasNote = { [weak self] in !(self?.sectionTexts[$0]?.note ?? "").isEmpty }
+        list.reload(structure: session.structure, characters: { [weak self] in self?.sectionCharacters($0) ?? 0 })
+        let detail = OutlineDetailController()
+        _ = detail.view
+        detail.info = { [weak self] in self?.sectionInfo($0) }
+        detail.totalCharacters = { [weak self] ids in ids.reduce(0) { $0 + (self?.sectionCharacters($1) ?? 0) } }
+        detail.onRename = { [weak self] id, title in self?.rename(id, to: title) }
+        detail.onStatus = { [weak self] id, status in self?.setStatus(id, to: status) }
+        detail.onTarget = { [weak self] id, target in self?.setTarget(id, target) }
+        detail.onText = { [weak self] id, key, text in self?.setSectionText(id, key: key, text) }
+        detail.onOpen = { [weak self] id in self?.openInEditor(id) }
+        detail.onWriteSynopsis = { [weak self] in self?.writeSynopsis() }
+        list.onSelectNode = { [weak detail] ids in detail?.show(ids) }
+        list.onEnterText = { [weak self] in if let id = self?.tree?.selectedID { self?.openInEditor(id) } }
+        list.onEscape = { [weak self] in self?.leaveOutline() }
+        list.onMove = { [weak self] ids, parent, index in self?.moveSections(ids, parent: parent, index: index) }
+        wireStructureCommands(list)
+        let here = pendingTreeSelection ?? pendingCursor?.scene ?? session.structure.scenes.first?.id
+        pendingTreeSelection = nil
+        if let here { list.select(here, notify: false); detail.show([here]) }
+        tree = list
+        outlineDetail = detail
+        let split = twoPanes(left: list, right: detail, autosave: "QuillandOutline", leftMin: 240, leftMax: 640, rightMin: 380)
+        panelsSplit = split
+        let focusTree = !focusTextAfterRebuild
+        focusTextAfterRebuild = true
+        DispatchQueue.main.async { [weak self] in if focusTree { self?.tree?.focus() } }
+        return Built(view: split.view, controller: nil)
+    }
+
+    private func buildCharacters() -> Built {
+        let view = CharactersViewController()
+        view.store = characters
+        view.relationships = relationships
+        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
+        view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.onChange = { [weak self] in self?.charactersChanged() }
+        view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        charactersView = view
+        return Built(view: view.view, controller: nil)
+    }
+
+    private func buildWorld() -> Built {
+        let view = WorldViewController()
+        view.store = worlds
+        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
+        view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.onChange = { [weak self] in self?.onChange?() }
+        view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
+        view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }
+        view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
+        view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        worldView = view
+        return Built(view: view.view, controller: nil)
+    }
+
+    private func buildEvents() -> Built {
+        let view = EventsViewController()
+        view.events = eventStore
+        view.characters = characters
+        view.worlds = worlds
+        view.planStore = { [folder] in try? PlanStore(folder: folder) }
+        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
+        view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
+        view.onShowPlan = { [weak self] in self?.setMode(.plan) }
+        view.onChange = { [weak self] in self?.onChange?() }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        eventsView = view
+        return Built(view: view.view, controller: nil)
+    }
+
+    /// The Plan; nil when its files cannot be opened (the area stays empty, as it did).
+    private func buildPlan() -> Built? {
+        guard let store = try? PlanStore(folder: folder) else { return nil }
+        let plan = PlanCanvasController(store: store)
+        plan.showsControls = true
+        _ = plan.view
+        plan.sectionChoices = planSectionChoices()
+        plan.hiddenFor = { [weak self, weak plan] section in
+            guard let self, let plan, let scene = self.firstScene(of: section) else { return [] }
+            return PlanFilter.hidden(store: plan.store, sceneOrder: self.session.structure.scenes.map(\.id), from: scene)
         }
+        plan.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
+        plan.onShowFromChanged = { [weak self] id in self?.planFrom = id }
+        plan.showFrom = planFrom.flatMap { id in plan.sectionChoices.contains { $0.id == id } ? id : nil }
+        plan.onChange = { [weak self] in self?.onChange?() }
+        planController = plan
+        return Built(view: plan.view, controller: nil)
+    }
+
+    /// Book mode (one area of sheets) and Compare (two of them side by side).
+    private func buildWriting() -> Built {
+        let count = mode == .compare ? 2 : 1
+        for _ in 0..<count { controllers.append(makeBookController()) }
+        guard mode == .compare else { return Built(view: controllers[0].view, controller: controllers[0]) }
+        let split = NSSplitViewController()
+        split.splitView.isVertical = true
+        split.splitView.dividerStyle = .thin
+        for c in controllers {
+            let item = NSSplitViewItem(viewController: c)
+            item.minimumThickness = 320
+            split.addSplitViewItem(item)
+        }
+        compareSplit = split
+        return Built(view: split.view, controller: split)
+    }
+
+    // MARK: Around the views
+
+    /// The right panel beside the writing area (not in the Plan, which has its own view of things).
+    private func besideRightPanel(_ main: NSViewController) -> NSView {
+        let outer = NSSplitViewController()
+        outer.splitView.isVertical = true
+        outer.splitView.dividerStyle = .thin
+        outer.splitView.autosaveName = "QuillandRight"
+        let writing = NSSplitViewItem(viewController: main)
+        writing.minimumThickness = 420
+        let side = NSSplitViewItem(viewController: rightPanel)
+        side.minimumThickness = 250
+        side.maximumThickness = 560
+        side.holdingPriority = NSLayoutConstraint.Priority(260)
+        outer.addSplitViewItem(writing)
+        outer.addSplitViewItem(side)
+        outerSplit = outer
+        applyPanelPreferences()
+        rightPanel.refresh()
+        return outer.view
+    }
+
+    private func show(_ content: NSView) {
         content.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(content)
         NSLayoutConstraint.activate([
             content.topAnchor.constraint(equalTo: container.topAnchor), content.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: container.leadingAnchor), content.trailingAnchor.constraint(equalTo: container.trailingAnchor),
         ])
-        if let c = controllers.first {
-            // Where the author left off: that scene, with the cursor at that place, after the first layout.
-            let focusText = focusTextAfterRebuild
-            focusTextAfterRebuild = true
-            var scene = pendingCursor?.scene ?? session.structure.scenes.first?.id
-            if let s = scene, session.document(s) == nil { scene = session.structure.scenes.first?.id }
-            let position = pendingCursor?.position ?? 0
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let scene, self.session.document(scene) != nil else { return }
-                guard focusText else {
-                    c.select(sceneID: scene)
-                    self.tree?.focus()
-                    return
-                }
-                c.focus(sceneID: scene)
-                if let tv = c.currentSheet?.textView {
-                    tv.setSelectedRange(NSRange(location: min(position, tv.textStorage?.length ?? 0), length: 0))
-                    c.scrollToCursor()
-                }
+    }
+
+    /// Where the author left off: that scene, with the cursor at that place, after the first layout.
+    private func restoreCursor() {
+        guard let c = controllers.first else { return }
+        let focusText = focusTextAfterRebuild
+        focusTextAfterRebuild = true
+        var scene = pendingCursor?.scene ?? session.structure.scenes.first?.id
+        if let s = scene, session.document(s) == nil { scene = session.structure.scenes.first?.id }
+        let position = pendingCursor?.position ?? 0
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let scene, self.session.document(scene) != nil else { return }
+            guard focusText else {
+                c.select(sceneID: scene)
+                self.tree?.focus()
+                return
+            }
+            c.focus(sceneID: scene)
+            if let tv = c.currentSheet?.textView {
+                tv.setSelectedRange(NSRange(location: min(position, tv.textStorage?.length ?? 0), length: 0))
+                c.scrollToCursor()
             }
         }
-        onChange?()
     }
 
     private func makeRightPanel() -> RightPanelController {
