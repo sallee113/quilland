@@ -27,7 +27,7 @@ All of them must pass. The self-test ends with a check that no exception was thr
 - `+Records`: mentions of characters and places in the scenes; merging and converting characters, places and worlds.
 - `+Outline`: the Outline's data (synopsis, note, size of each section).
 - `+SectionState`: what the Section menu can do now.
-- `+Search`, `+Proofreading`, `+Chat`, `+Continue`, `+Synopsis`: the bottom panel and the AI commands.
+- `+Search`, `+Proofreading`, `+Chat`, `+Continue`, `+Synopsis`: the bottom panel and the AI commands. (The Proofreading tab itself is `ProofreadingView.swift`.)
 
 ## Rules that came from mistakes
 
