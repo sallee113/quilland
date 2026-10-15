@@ -224,7 +224,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
     func textDidEndEditing(_ notification: Notification) { commitEdits() }
 
     /// Writes the synopsis and the note typed here and not yet saved.
-    func commitEdits() {
+    @objc func commitEdits() {
         saveTimer?.invalidate()
         saveTimer = nil
         guard !dirty.isEmpty, let id = timerID ?? shown.first else { dirty = []; return }

@@ -209,10 +209,7 @@ final class MainAreaController: NSViewController {
 
     func rebuild() {
         // What was typed in a card and still waits for its save timer is saved before the card goes (the timers do not outlive their views).
-        outlineDetail?.commitEdits()
-        charactersView?.commitEdits()
-        worldView?.commitEdits()
-        eventsView?.commitEdits()
+        commitPendingEdits()
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         compareSplit = nil
@@ -318,11 +315,7 @@ final class MainAreaController: NSViewController {
             let view = CharactersViewController()
             view.store = characters
             view.relationships = relationships
-            view.scenes = { [weak self] in
-                self?.session.structure.scenes.map { e in
-                    (e.id, [e.partTitle, e.chapterTitle, e.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › "))
-                } ?? []
-            }
+            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
             view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
             view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
             view.onChange = { [weak self] in self?.charactersChanged() }
@@ -335,11 +328,7 @@ final class MainAreaController: NSViewController {
         case .world:
             let view = WorldViewController()
             view.store = worlds
-            view.scenes = { [weak self] in
-                self?.session.structure.scenes.map { e in
-                    (e.id, [e.partTitle, e.chapterTitle, e.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › "))
-                } ?? []
-            }
+            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
             view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
             view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
             view.onChange = { [weak self] in self?.onChange?() }
@@ -358,11 +347,7 @@ final class MainAreaController: NSViewController {
             view.characters = characters
             view.worlds = worlds
             view.planStore = { [folder] in try? PlanStore(folder: folder) }
-            view.scenes = { [weak self] in
-                self?.session.structure.scenes.map { e in
-                    (e.id, [e.partTitle, e.chapterTitle, e.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › "))
-                } ?? []
-            }
+            view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
             view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
             view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
             view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
@@ -471,7 +456,7 @@ final class MainAreaController: NSViewController {
         panel.followDelay = p.followDelay
         panel.sceneInfo = { [weak self] id in
             guard let self, let e = self.session.structure.scenes.first(where: { $0.id == id }), let doc = self.session.document(id) else { return nil }
-            let path = [e.partTitle, e.chapterTitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")
+            let path = e.place
             return SceneInfo(id: id, title: doc.title, path: path, status: doc.status, characters: doc.counts.characters)
         }
         panel.sceneText = { [weak self] id in self?.session.document(id)?.storage.string ?? "" }
@@ -662,7 +647,7 @@ final class MainAreaController: NSViewController {
         let entry = session.structure.scenes.first { $0.id == id }
         let path: String
         switch node.kind {
-        case .scene: path = [entry?.partTitle, entry?.chapterTitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")
+        case .scene: path = entry?.place ?? ""
         case .chapter: path = session.structure.scenes.first { $0.chapterID == id }?.partTitle ?? ""
         case .part: path = ""
         }
@@ -890,10 +875,7 @@ final class MainAreaController: NSViewController {
             banner.show(L("{action}.", ["action": undoName]), undoable: true)
         }
         // Merging moves links in the data files: the stores read them again.
-        characters.reload()
-        relationships.reload()
-        worlds.reload()
-        eventStore.reload()
+        reloadStores()
         guard let structure = try? BookStructure.load(folder: folder) else { return }
         session = BookSession(structure: structure)
         // Where the cursor goes: the scene of the new or moved section (a chapter's or a part's first scene), otherwise where it was.
@@ -961,11 +943,16 @@ final class MainAreaController: NSViewController {
     }
 
     /// Reads everything again from the files (after something was put back from a snapshot).
-    func reloadFromDisk() {
+    /// The data files were changed under the stores (a merge, an undo, a restore): each store reads its files again.
+    private func reloadStores() {
         characters.reload()
         relationships.reload()
         worlds.reload()
         eventStore.reload()
+    }
+
+    func reloadFromDisk() {
+        reloadStores()
         guard let structure = try? BookStructure.load(folder: folder) else { return }
         session = BookSession(structure: structure)
         pendingTreeSelection = nil
@@ -973,7 +960,7 @@ final class MainAreaController: NSViewController {
         rebuild()
     }
 
-    // MARK: Importing
+    // MARK: Settings that reach the area
 
     /// A preference changed: the text, the sheets, the right panel and the follow delay take it.
     func preferencesChanged() {
@@ -1198,13 +1185,19 @@ final class MainAreaController: NSViewController {
         return day.written(today: f.string(from: Date()), total: session.totalCharacters)
     }
 
+    /// Everything on screen that keeps typed text waiting for a timer of its own. A new editable view is added here: this is the one list that saving, rebuilding and
+    /// closing go by (the self-test checks that each kind of editor is reached).
+    private var pendingEditors: [PendingEdits] {
+        let all: [PendingEdits?] = [showsRightPanel ? rightPanel : nil, outlineDetail, charactersView, worldView, eventsView]
+        return all.compactMap { $0 }
+    }
+
+    /// Tells every editor that holds typed text to save it now.
+    func commitPendingEdits() { pendingEditors.forEach { $0.commitEdits() } }
+
     func saveAll() {
         session.saveAll()
-        if showsRightPanel { rightPanel.commitEdits() }
-        outlineDetail?.commitEdits()
-        charactersView?.commitEdits()
-        worldView?.commitEdits()
-        eventsView?.commitEdits()
+        commitPendingEdits()
     }
 
     var currentSceneID: String? { controllers.compactMap(\.currentSceneID).first }
@@ -1225,18 +1218,7 @@ final class MainAreaController: NSViewController {
     }
 
     /// The first scene at or under a section.
-    private func firstScene(of id: String) -> String? {
-        func find(_ nodes: [BookStructure.Node]) -> BookStructure.Node? {
-            for n in nodes { if n.id == id { return n }; if let f = find(n.children) { return f } }
-            return nil
-        }
-        func first(_ n: BookStructure.Node) -> String? {
-            if n.kind == .scene { return n.id }
-            for c in n.children { if let s = first(c) { return s } }
-            return nil
-        }
-        return find(session.structure.roots).flatMap(first)
-    }
+    private func firstScene(of id: String) -> String? { firstScene(of: id, in: session.structure) }
 
     func localState() -> LocalBookState {
         remember()

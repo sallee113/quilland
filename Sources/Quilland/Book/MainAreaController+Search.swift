@@ -87,7 +87,7 @@ extension MainAreaController {
 
     private func groupTitle(for id: String) -> String {
         if let e = session.structure.scenes.first(where: { $0.id == id }) {
-            return [e.partTitle, e.chapterTitle, e.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")
+            return e.fullPath
         }
         return findNode(id).map { "\(L($0.kind.rawValue.capitalized)): \($0.title)" } ?? ""
     }

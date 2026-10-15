@@ -130,7 +130,7 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
 
     func textDidEndEditing(_ notification: Notification) { commitEdits() }
 
-    func commitEdits() {
+    @objc func commitEdits() {
         saveTimer?.invalidate(); saveTimer = nil
         guard notesDirty, let id = selectedID else { notesDirty = false; return }
         notesDirty = false

@@ -6,7 +6,7 @@ extension MainAreaController {
     func proofreadingTargets(_ scope: SearchScope) -> [(id: String, title: String, text: String)] {
         searchTargets(scope).scenes.compactMap { id in
             guard let doc = session.document(id) else { return nil }
-            let title = session.structure.scenes.first { $0.id == id }.map { [$0.partTitle, $0.chapterTitle, $0.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ") } ?? ""
+            let title = session.structure.scenes.first { $0.id == id }?.fullPath ?? ""
             return (id, title, doc.storage.string)
         }
     }

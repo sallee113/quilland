@@ -191,7 +191,7 @@ final class LooseEndsView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         switch end.field {
         case "places": choices = main.worlds.entries.compactMap { e in e.id.flatMap { id in e.name.map { (id, $0) } } }
         case "worlds": choices = main.worlds.worlds.compactMap { w in w.id.flatMap { id in w.name.map { (id, $0) } } }
-        default: choices = main.session.structure.scenes.map { ($0.id, [$0.partTitle, $0.chapterTitle, $0.node.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")) }
+        default: choices = main.session.structure.sceneChoices
         }
         guard !choices.isEmpty else { NSSound.beep(); return }
         let alert = NSAlert()

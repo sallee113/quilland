@@ -1174,6 +1174,44 @@ final class AppSelfTest {
             try? main.worlds.deleteEntry(place)
             app.modeCharacters(); spin(0.3)
         }
+        // The same for the other editors that wait for a timer: an event's description and a scene's note in the Outline; and every kind of editor is on the list of
+        // those that Save All and a rebuild reach.
+        do {
+            let event = try! main.eventStore.add(title: "Проверочное событие")
+            app.modeEvents(); spin(0.4)
+            main.eventsView?.reload(); main.eventsView?.select(event)
+            main.eventsView!.descriptionView.string = "Описание события, набранное секунду назад."
+            main.eventsView!.textDidChange(Notification(name: NSText.didChangeNotification, object: main.eventsView!.descriptionView))
+            app.modeBook(); spin(0.3)
+            check(EventStore(book: main.folder).text(event) == "Описание события, набранное секунду назад.", "what was typed in an event's card is saved when the view is left before its timer fires", EventStore(book: main.folder).text(event))
+            try? main.eventStore.delete(event)
+            let scene = main.session.structure.scenes[0].id
+            app.modeOutline(); spin(0.4)
+            main.tree?.select(scene); spin(0.3)
+            main.outlineDetail!.note.string = "Заметка, набранная секунду назад."
+            main.outlineDetail!.textDidChange(Notification(name: NSText.didChangeNotification, object: main.outlineDetail!.note))
+            app.modeBook(); spin(0.3)
+            check(BookEditor(structure: try! BookStructure.load(folder: main.folder)).record(scene)?.string("note") == "Заметка, набранная секунду назад.", "and a scene's note typed in the Outline")
+            app.modeCharacters(); spin(0.3)
+            // Every class of the application that has a `commitEdits()` is declared a `PendingEdits`, so that it can be put on the list.
+            var strays: [String] = []
+            var found = 0
+            var count: UInt32 = 0
+            // (Only the classes of this application's own image: asking every class of the process reaches system classes that cannot be asked.)
+            if let image = class_getImageName(MainAreaController.self), let names = objc_copyClassNamesForImage(image, &count) {
+                for i in 0..<Int(count) {
+                    let name = String(cString: names[i])
+                    guard let cls = NSClassFromString(name), class_getInstanceMethod(cls, NSSelectorFromString("commitEdits")) != nil else { continue }
+                    found += 1
+                    // (A subclass of a class that declares it declares it too.)
+                    var current: AnyClass? = cls, declared = false
+                    while let c = current, !declared { declared = class_conformsToProtocol(c, PendingEdits.self); current = class_getSuperclass(c) }
+                    if !declared { strays.append(name) }
+                }
+                free(names)
+            }
+            check(strays.isEmpty && found >= 8, "every editor with a commitEdits() is declared a PendingEdits", "found \(found) strays \(strays)")
+        }
         // Merge Into…: the same person under two names.
         do {
             let keptID = main.characters.characters.first { $0.name == "Анна Петровна" }!.id!

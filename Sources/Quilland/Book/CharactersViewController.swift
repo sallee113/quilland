@@ -574,7 +574,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     func textDidEndEditing(_ notification: Notification) { commitEdits() }
 
     /// Writes the profile and the notes typed and not yet saved.
-    func commitEdits() {
+    @objc func commitEdits() {
         relCard.commitEdits()   // a relationship's text is saved by its own card: it waits for its timer too
         saveTimer?.invalidate()
         saveTimer = nil

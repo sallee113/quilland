@@ -520,7 +520,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     func textDidEndEditing(_ notification: Notification) { commitEdits() }
 
-    func commitEdits() {
+    @objc func commitEdits() {
         saveTimer?.invalidate()
         saveTimer = nil
         guard !dirty.isEmpty, let id = selected else { dirty = []; return }

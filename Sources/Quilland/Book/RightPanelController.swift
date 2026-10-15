@@ -353,7 +353,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     }
 
     /// Writes what was typed here and not yet saved.
-    func commitEdits() {
+    @objc func commitEdits() {
         saveTimer?.invalidate()
         saveTimer = nil
         guard !dirty.isEmpty else { return }
