@@ -61,6 +61,7 @@ extension MainAreaController {
         relationships.reload()
         worlds.reload()
         eventStore.reload()
+        researchStore.reload()
     }
 
     func reloadFromDisk() {

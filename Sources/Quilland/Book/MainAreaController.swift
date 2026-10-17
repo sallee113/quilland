@@ -3,7 +3,7 @@ import QuillandCore
 
 /// The main area of an open book's window: Panels (the tree and one scene), Book mode, Compare, or the Plan canvas (more views come later), for one book.
 final class MainAreaController: NSViewController {
-    enum Mode: String { case panels, book, compare, outline, characters, world, events, plan }
+    enum Mode: String { case panels, book, compare, outline, characters, world, events, research, plan }
 
     let folder: URL
     var session: BookSession
@@ -45,6 +45,8 @@ final class MainAreaController: NSViewController {
     private(set) var worldView: WorldViewController?
     private(set) lazy var eventStore = EventStore(book: folder)
     private(set) var eventsView: EventsViewController?
+    private(set) lazy var researchStore = ResearchStore(book: folder)
+    private(set) var researchView: ResearchViewController?
     private var countsTimer: Timer?
     /// After a rebuild the text takes the focus, except when the author was working in the tree.
     var focusTextAfterRebuild = true
@@ -238,6 +240,7 @@ final class MainAreaController: NSViewController {
         charactersView = nil
         worldView = nil
         eventsView = nil
+        researchView = nil
     }
 
     private func buildViews() -> Built? {
@@ -247,6 +250,7 @@ final class MainAreaController: NSViewController {
         case .characters: return buildCharacters()
         case .world: return buildWorld()
         case .events: return buildEvents()
+        case .research: return buildResearch()
         case .plan: return buildPlan()
         case .book, .compare: return buildWriting()
         }
@@ -387,6 +391,25 @@ final class MainAreaController: NSViewController {
         return Built(view: view.view, controller: nil)
     }
 
+    private func buildResearch() -> Built {
+        let view = ResearchViewController()
+        view.research = researchStore
+        view.characters = characters
+        view.worlds = worlds
+        view.events = eventStore
+        view.bookID = { [folder] in (try? JSONParser.parseObject(Data(contentsOf: folder.appendingPathComponent("book.json"))))?.string("id") }
+        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
+        view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
+        view.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
+        view.onChange = { [weak self] in self?.onChange?() }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        researchView = view
+        return Built(view: view.view, controller: nil)
+    }
+
     /// The Plan; nil when its files cannot be opened (the area stays empty, as it did).
     private func buildPlan() -> Built? {
         guard let store = try? PlanStore(folder: folder) else { return nil }
@@ -482,9 +505,11 @@ final class MainAreaController: NSViewController {
         panel.characterStore = characters
         panel.worldStore = worlds
         panel.eventStore = eventStore
+        panel.researchStore = researchStore
         panel.sceneOrder = { [weak self] in self?.session.structure.scenes.map(\.id) ?? [] }
         panel.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
         panel.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
+        panel.onOpenResearch = { [weak self] id in self?.setMode(.research); self?.researchView?.select(id) }
         panel.cursorScene = { [weak self] in self?.currentSceneID }
         let p = AppPreferences.shared.values
         panel.followDelay = p.followDelay
@@ -509,7 +534,7 @@ final class MainAreaController: NSViewController {
         switch mode {
         case .book, .compare: (controllers.first { $0.currentSceneID != nil } ?? controllers.first)?.openJumpList()
         case .panels, .outline: tree?.focus()
-        case .characters, .world, .events, .plan: break
+        case .characters, .world, .events, .research, .plan: break
         }
     }
 
@@ -599,7 +624,7 @@ final class MainAreaController: NSViewController {
     func leaveOutline() { leaveFullAreaView() }
 
     /// Esc in a full-area view (the Outline, Characters): back to the writing mode.
-    func leaveFullAreaView() { if [.outline, .characters, .world, .events].contains(mode) { setMode(writingMode) } }
+    func leaveFullAreaView() { if [.outline, .characters, .world, .events, .research].contains(mode) { setMode(writingMode) } }
 
     // The same for places and worlds (the World view): a snapshot before and after, so that Undo takes the change back.
 
@@ -624,7 +649,7 @@ final class MainAreaController: NSViewController {
 
     func applyPanelPreferences() {
         let p = AppPreferences.shared.values
-        let tabs = p.panelTabs.compactMap { name -> RightPanelController.Tab? in ["section": .section, "characters": .characters, "world": .world, "events": .events, "chat": .chat][name] }
+        let tabs = p.panelTabs.compactMap { name -> RightPanelController.Tab? in ["section": .section, "characters": .characters, "world": .world, "events": .events, "research": .research, "chat": .chat][name] }
         rightPanel.setVisibleTabs(tabs)
         rightPanel.followDelay = p.followDelay
     }
@@ -654,7 +679,7 @@ final class MainAreaController: NSViewController {
     /// Everything on screen that keeps typed text waiting for a timer of its own. A new editable view is added here: this is the one list that saving, rebuilding and
     /// closing go by (the self-test checks that each kind of editor is reached).
     private var pendingEditors: [PendingEdits] {
-        let all: [PendingEdits?] = [showsRightPanel ? rightPanel : nil, outlineDetail, charactersView, worldView, eventsView]
+        let all: [PendingEdits?] = [showsRightPanel ? rightPanel : nil, outlineDetail, charactersView, worldView, eventsView, researchView]
         return all.compactMap { $0 }
     }
 

@@ -398,6 +398,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         add(view, L("Characters"), #selector(modeCharacters), "6", target: self)
         add(view, L("World"), #selector(modeWorld), "7", target: self)
         add(view, L("Events"), #selector(modeEvents), "8", target: self)
+        add(view, L("Research"), #selector(modeResearch), "9", target: self)
         view.addItem(.separator())
         add(view, L("Jump to Scene…"), #selector(jumpToScene), "j", target: self)
         add(view, L("Right Panel"), #selector(toggleRightPanel), "r", [.command, .option], target: self)
@@ -518,6 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func findNextAction() { keyBook?.main.searchStep(1) }
     @objc func findPreviousAction() { keyBook?.main.searchStep(-1) }
     @objc func modeEvents() { keyBook?.main.setMode(.events); keyBook?.refreshStatus() }
+    @objc func modeResearch() { keyBook?.main.setMode(.research); keyBook?.refreshStatus() }
     @objc func modeWorld() { keyBook?.main.setMode(.world); keyBook?.refreshStatus() }
     @objc func modeCharacters() { keyBook?.main.setMode(.characters); keyBook?.refreshStatus() }
     @objc func modeOutline() { keyBook?.main.setMode(.outline); keyBook?.refreshStatus() }
@@ -552,7 +554,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         if item.action == #selector(showBookSettings) { return keyBook != nil }
         // The view in use and the right panel are ticked.
         let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeCompare), .compare), (#selector(modeOutline), .outline),
-                                                            (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events)]
+                                                            (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events), (#selector(modeResearch), .research)]
         if let action = item.action, let view = views.first(where: { $0.0 == action }) {
             item.state = keyBook?.main.mode == view.1 ? .on : .off
             return keyBook != nil
@@ -565,7 +567,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         if item.action == #selector(synopsisAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(continueAction) || item.action == #selector(continueDirectionAction) {
             let main = keyBook?.main
-            return AIService.shared.isReady && main != nil && main?.mode != .outline && main?.mode != .plan && main?.mode != .characters && main?.mode != .world && main?.mode != .events
+            return AIService.shared.isReady && main != nil && main?.mode != .outline && main?.mode != .plan && main?.mode != .characters && main?.mode != .world && main?.mode != .events && main?.mode != .research
         }
         if item.action == #selector(grammarAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(consistencyAction) { return keyBook != nil && AIService.shared.isReady }

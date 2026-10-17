@@ -12,7 +12,7 @@ Sommaire
 2. [La fenêtre](#2-la-fenêtre)
 3. [Écrire](#3-écrire)
 4. [Structure, parties, chapitres, scènes](#4-structure-parties-chapitres-scènes)
-5. [Personnages, Monde, Événements et relations](#5-personnages-monde-événements-et-relations)
+5. [Personnages, Monde, Événements et relations](#5-personnages-monde-événements-documentation-et-relations)
 6. [Le Plan](#6-le-plan)
 7. [Recherche, remplacement, relecture, fils perdus](#7-recherche-remplacement-relecture-fils-perdus)
 8. [Les assistants IA](#8-les-assistants-ia)
@@ -37,7 +37,7 @@ Sommaire
 
 ## 2. La fenêtre
 
-Le menu Présentation (⌘1–⌘8) choisit ce que montre la zone principale.
+Le menu Présentation (⌘1–⌘9) choisit ce que montre la zone principale.
 
 **Vues d’écriture**
 
@@ -56,10 +56,11 @@ Le menu Présentation (⌘1–⌘8) choisit ce que montre la zone principale.
 | Personnages | ⌘6 | Les fiches des personnages et les relations entre eux. |
 | Monde | ⌘7 | Mondes et lieux sous forme d’arbre. |
 | Événements | ⌘8 | Les événements de l’histoire. |
+| Documentation | ⌘9 | Votre matériel de référence : notes, sources et fichiers. |
 
 **Autour du texte**
 
-- **Le panneau de droite** a les onglets *Section*, *Personnages*, *Monde*, *Événements* et *Discussion*. Il suit le curseur après un court délai ; cochez *Épingler* pour le garder sur un élément. Affichez-le ou masquez-le avec ⌥⌘R.
+- **Le panneau de droite** a les onglets *Section*, *Personnages*, *Monde*, *Événements*, *Documentation* et *Discussion*. Il suit le curseur après un court délai ; cochez *Épingler* pour le garder sur un élément. Affichez-le ou masquez-le avec ⌥⌘R.
 - **Le panneau du bas** contient *Recherche*, *Remplacer*, *Relecture*, *Fils perdus* et *Suggestions*. Il s’ouvre depuis les commandes qui l’utilisent.
 - **La barre d’état** indique le nombre de caractères de la scène où se trouve le curseur, celui du livre et la variation du jour, la langue de saisie, et « Enregistré ».
 - **Le mode concentration** (⌃⌘↩, dans la vue Livre) masque tout sauf le texte et garde la ligne que vous tapez au milieu de l’écran.
@@ -111,7 +112,7 @@ Le menu **Section** fait le travail. Il ne propose que ce qui est possible à ce
 
 Chaque section a aussi un **synopsis** et une **note**, modifiables dans l’onglet *Section* du panneau de droite ou dans le Plan détaillé. Le synopsis peut être écrit par l’IA (voir plus bas).
 
-## 5. Personnages, Monde, Événements et relations
+## 5. Personnages, Monde, Événements, Documentation et relations
 
 Ces vues conservent des fiches : un nom, des alias, une description, des notes et les champs du type. Quilland connaît les noms et les alias ; le panneau de droite montre donc quels personnages et quels lieux apparaissent dans la scène que vous écrivez.
 
@@ -119,6 +120,7 @@ Ces vues conservent des fiches : un nom, des alias, une description, des notes e
 - **Les relations** relient deux personnages (par exemple « sœur », « ennemi ») et peuvent s’ouvrir comme une fiche à part.
 - **Monde** (⌘7) : mondes et lieux sous forme d’arbre, avec une fiche pour chacun.
 - **Événements** (⌘8) : ce qui se passe dans l’histoire, avec les scènes et les personnages concernés.
+- **Documentation** (⌘9) : le matériel rassemblé pour le livre, par exemple l’histoire de l’enseignement musical aux États-Unis. Un *document* a un titre, une *source* (un livre, un article, une adresse), votre propre texte et, si vous le souhaitez, un fichier. Chaque élément est facultatif : un document peut être seulement du texte, seulement un fichier, ou les deux. Un fichier est soit *copié dans le livre* (il voyage avec le livre et son historique Git ; Quilland demande d’abord au-delà de 20 Mo), soit seulement *lié* (il reste où il est, hors du livre ; le lien vaut pour ce Mac, et si le fichier bouge, Quilland l’indique comme introuvable sans l’oublier). *Ouvrir* et *Afficher dans le Finder* agissent sur le fichier. Un document peut être lié au livre entier, à une scène, à un personnage, à un lieu ou à un événement, avec une remarque pour chacun ; un double-clic sur un lien y mène. L’onglet *Documentation* du panneau de droite liste les documents liés à la scène où vous êtes et permet de lire et de modifier leur texte. Pour ajouter une note sans quitter le texte, saisissez un titre dans le champ en haut de l’onglet et appuyez sur Retour : le document est lié à la scène où vous êtes, et le curseur passe dans son texte. *À partir d’un fichier…* crée un document à partir d’un fichier (copié dans le livre, ou seulement lié au-delà de 20 Mo). Le filtre de la liste cherche dans les titres, les sources, les remarques et les textes. Un document supprimé va dans le dossier corbeille.
 
 **La même personne sur deux fiches.** Si l’IA (ou vous) a créé deux fiches pour une même personne, faites un clic droit sur celle à retirer, ou appuyez sur *Fusionner avec…* sur sa fiche, puis choisissez le personnage à garder. Le nom et les alias de la fiche retirée deviennent des alias du personnage gardé, si bien que l’IA et la reconnaissance dans le texte reconnaissent ce nom désormais ; son profil, ses notes, ses scènes et ses relations s’ajoutent à ceux du personnage gardé, et la fiche va dans le dossier corbeille du livre. Un instantané est pris d’abord, et le bouton Annuler du bandeau (ou ⌘Z) annule la fusion.
 
@@ -233,7 +235,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | Touche | Commande |
 | --- | --- |
 | ⌘1 ⌘2 ⌘3 | Panneaux, Livre, Comparer |
-| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 | Plan détaillé, Plan, Personnages, Monde, Événements |
+| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation |
 | ⌘J | Aller à la scène |
 | ⌥⌘R | Afficher ou masquer le panneau de droite |
 | ⌃⌘↩ | Mode concentration |
@@ -281,7 +283,7 @@ Un livre est un dossier. Vous pouvez l’ouvrir dans le Finder, le placer sous G
 
 - `book.json` : le titre, la langue et les réglages du livre.
 - `manuscript/` : la structure. Chaque scène est un fichier `.md` (le texte) avec un fichier `.json` à côté (statut, synopsis, note) ; les chapitres et les parties sont des dossiers.
-- Des dossiers pour les personnages, le monde, les événements, les relations et le plan contiennent un fichier JSON par fiche.
+- Des dossiers pour les personnages, le monde, les événements, les relations et le plan contiennent un fichier JSON par fiche. `research/` contient les documents : un fichier `.json`, un fichier `.md` pour le texte et un dossier `<id>.file/` pour un fichier copié.
 - Les instantanés et le cache de recherche sont conservés à côté du livre et peuvent être supprimés sans risque ; Quilland reconstruit le cache.
 
 Les réglages propres à Quilland se trouvent dans votre dossier utilisateur : les préférences, `prompts.json` (prompts modifiés) et `actions.json` (actions enregistrées). Vous pouvez les sauvegarder ou les copier sur un autre Mac.

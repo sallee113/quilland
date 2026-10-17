@@ -10,7 +10,7 @@ Contents
 2. [The window](#2-the-window)
 3. [Writing](#3-writing)
 4. [Structure: parts, chapters, scenes](#4-structure-parts-chapters-scenes)
-5. [Characters, World, Events and relationships](#5-characters-world-events-and-relationships)
+5. [Characters, World, Events and relationships](#5-characters-world-events-research-and-relationships)
 6. [The Plan](#6-the-plan)
 7. [Search, Replace, Proofreading, Loose Ends](#7-search-replace-proofreading-loose-ends)
 8. [AI helpers](#8-ai-helpers)
@@ -35,7 +35,7 @@ Contents
 
 ## 2. The window
 
-The View menu (⌘1–⌘8) chooses what the main area shows.
+The View menu (⌘1–⌘9) chooses what the main area shows.
 
 **Writing views**
 
@@ -54,10 +54,11 @@ The View menu (⌘1–⌘8) chooses what the main area shows.
 | Characters | ⌘6 | Cards of characters and the relationships between them. |
 | World | ⌘7 | Worlds and places as a tree. |
 | Events | ⌘8 | Events of the story. |
+| Research | ⌘9 | Your reference material: notes, sources and files. |
 
 **Around the text**
 
-- **The right panel** has the tabs *Section*, *Characters*, *World*, *Events* and *Chat*. It follows the cursor after a short delay; tick *Pin* to hold it on one thing. Show or hide it with ⌥⌘R.
+- **The right panel** has the tabs *Section*, *Characters*, *World*, *Events*, *Research* and *Chat*. It follows the cursor after a short delay; tick *Pin* to hold it on one thing. Show or hide it with ⌥⌘R.
 - **The bottom panel** has *Search*, *Replace*, *Proofreading*, *Loose Ends* and *Suggestions*. It opens from the commands that use it.
 - **The status bar** shows the count of the scene where the cursor is, the count of the book and today's change, the input language, and "Saved".
 - **Focus Mode** (⌃⌘↩, in Book view) hides everything but the text and keeps the line you are typing in the middle of the screen.
@@ -109,7 +110,7 @@ The **Section** menu does the work. It offers only what can be done now: for exa
 
 Each section also has a **synopsis** and a **note**, edited in the *Section* tab of the right panel or in the Outline. The synopsis can be written by the AI (see below).
 
-## 5. Characters, World, Events and relationships
+## 5. Characters, World, Events, Research and relationships
 
 These views keep cards: a name, aliases, a description, notes and fields of the kind. Quilland knows the names and aliases, so the right panel shows which characters and places appear in the scene you are writing.
 
@@ -117,6 +118,7 @@ These views keep cards: a name, aliases, a description, notes and fields of the 
 - **Relationships** link two characters (for example "sister", "enemy") and can be opened as their own card.
 - **World** (⌘7): worlds and places as a tree, with a card for each.
 - **Events** (⌘8): things that happen in the story, with the scenes and characters they belong to.
+- **Research** (⌘9): the material you gathered for the book, for example the history of music education in the USA. A *document* has a title, a *source* (a book, an article, an address), your own typed text, and, if you like, a file. Each can be there or not: a document may be only text, only a file, or both. A file is either *copied into the book* (it travels with the book and its Git history; Quilland asks first above 20 MB) or only *linked* (it stays where it is, outside the book; the link is for this Mac, and if the file moves Quilland shows it as missing and does not forget it). *Open* and *Show in Finder* work on the file. A document can be linked to the whole book, a scene, a character, a place or an event, with a remark for each; double-click a link to go there. The *Research* tab of the right panel lists the documents linked to the scene you are in and lets you read and change their text. To add a note without leaving the text, type a title in the field at the top of the tab and press Return: the document is linked to the scene you are in, and the cursor goes to its text. *From a File…* makes a document from a file (copied into the book, or only linked if it is over 20 MB). Filtering the list looks in titles, sources, remarks and text. Deleting a document sends it to the trash folder.
 
 **The same person on two cards.** If the AI (or you) made two cards for one person, right-click the one to remove, or press *Merge Into…* on its card, and choose the character to keep. The removed card's name and aliases become aliases of the kept one, so the AI and the text matching recognise the name from now on; its profile, notes, scenes and relationships are added to the kept character's, and the card goes to the book's trash folder. A snapshot is taken first, and the banner's Undo (or ⌘Z) takes the merge back.
 
@@ -231,7 +233,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | Key | Command |
 | --- | --- |
 | ⌘1 ⌘2 ⌘3 | Panels, Book, Compare |
-| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 | Outline, Plan, Characters, World, Events |
+| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 | Outline, Plan, Characters, World, Events, Research |
 | ⌘J | Jump to Scene |
 | ⌥⌘R | Show or hide the right panel |
 | ⌃⌘↩ | Focus Mode |
@@ -279,7 +281,7 @@ A book is a folder. You can open it in Finder, put it under Git, and copy it. In
 
 - `book.json`: the book's title, language and settings.
 - `manuscript/`: the structure. Each scene is a `.md` file (the text) with a `.json` file beside it (status, synopsis, note); chapters and parts are folders.
-- Folders for characters, world, events, relationships and the plan hold one JSON file per card.
+- Folders for characters, world, events, relationships and the plan hold one JSON file per card. `research/` holds the research documents: a `.json` file, a `.md` file with the text, and a folder `<id>.file/` with a copied file.
 - Snapshots and the search cache are kept beside the book and are safe to delete; Quilland rebuilds the cache.
 
 Quilland's own settings live in your user folder: preferences, `prompts.json` (changed prompts) and `actions.json` (saved actions). You can back them up or copy them to another Mac.

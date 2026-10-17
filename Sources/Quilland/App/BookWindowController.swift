@@ -137,6 +137,8 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         } else if main.mode == .events {
             let n = main.eventStore.events.count
             parts.append(Lp("{n} event", "{n} events", n))
+        } else if main.mode == .research {
+            parts.append(Lp("{n} document", "{n} documents", main.researchStore.documents.count))
         } else if main.mode == .world {
             let w = main.worlds.worlds.count, p = main.worlds.entries.count
             parts.append(L("{worlds}, {places}", ["worlds": Lp("{n} world", "{n} worlds", w), "places": Lp("{n} place", "{n} places", p)]))

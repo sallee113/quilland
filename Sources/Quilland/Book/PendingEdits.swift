@@ -11,5 +11,6 @@ extension OutlineDetailController: PendingEdits {}
 extension CharactersViewController: PendingEdits {}
 extension WorldViewController: PendingEdits {}
 extension EventsViewController: PendingEdits {}
+extension ResearchViewController: PendingEdits {}
 extension RelationshipCardController: PendingEdits {}
 extension PanelListTab: PendingEdits {}

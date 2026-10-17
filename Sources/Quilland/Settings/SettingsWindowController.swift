@@ -242,6 +242,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         state("tab.characters", v.panelTabs.contains("characters"))
         state("tab.world", v.panelTabs.contains("world"))
         state("tab.events", v.panelTabs.contains("events"))
+        state("tab.research", v.panelTabs.contains("research"))
         state("tab.chat", v.panelTabs.contains("chat"))
         set("followDelay", number: v.followDelay)
         state("aiEnabled", v.aiEnabled)
@@ -542,13 +543,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         case "spelling": prefs.update { $0.checkSpelling = on }
         case "aiEnabled": prefs.update { $0.aiEnabled = on }; AIService.shared.refresh()
         case "textReplacement": prefs.update { $0.systemTextReplacement = on }
-        case "tab.section", "tab.characters", "tab.world", "tab.events", "tab.chat":
+        case "tab.section", "tab.characters", "tab.world", "tab.events", "tab.research", "tab.chat":
             let name = String(id.dropFirst(4))
             prefs.update { p in
                 var tabs = p.panelTabs.filter { $0 != name }
                 if on { tabs.append(name) }
                 // At least one tab stays; the order is the panel's own.
-                let ordered = ["section", "characters", "world", "events", "chat"].filter { tabs.contains($0) }
+                let ordered = ["section", "characters", "world", "events", "research", "chat"].filter { tabs.contains($0) }
                 p.panelTabs = ordered.isEmpty ? [name] : ordered
             }
         default: break

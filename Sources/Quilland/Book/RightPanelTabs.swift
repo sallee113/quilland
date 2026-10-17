@@ -11,6 +11,8 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
     let notes = NSTextView()
     var onChange: (() -> Void)?
     var onOpen: ((String) -> Void)?
+    /// The column of the tab; a subclass can put one more row at its top.
+    let stack = NSStackView()
     private(set) var rowIDs: [String] = []
     var selectedID: String?
     var shownScene: String?
@@ -58,7 +60,7 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         let caption = NSTextField(labelWithString: L("Notes"))
         caption.font = .systemFont(ofSize: 11, weight: .semibold)
         caption.textColor = .secondaryLabelColor
-        let stack = NSStackView(views: [row, scroll, heading, detail, caption, notesScroll])
+        stack.setViews([row, scroll, heading, detail, caption, notesScroll], in: .leading)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
@@ -120,7 +122,11 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         let text = card?.notes ?? ""
         if notes.string != text { notes.string = text }
         notes.undoManager?.removeAllActions()
+        cardShown()
     }
+
+    /// For a subclass: the card of the chosen row has just been filled in.
+    func cardShown() {}
 
     func textDidChange(_ notification: Notification) {
         notesDirty = true
@@ -198,5 +204,111 @@ final class EventsTab: PanelListTab {
     override func saveNotes(_ text: String, for id: String) {
         let notes = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
         try? store.update(id) { $0.notes = notes }
+    }
+}
+
+/// The research documents linked to the scene (or all of them): the source and the file of the chosen one, and its typed text, which can be changed here.
+final class ResearchTab: PanelListTab {
+    var store: ResearchStore!
+
+    init() { super.init(allTitle: L("All research"), openTitle: L("Open in Research")); buildAddRow(); buildFileLink() }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] {
+        let shown = all ? store.ordered : (scene.map { store.linked(to: $0) } ?? [])
+        return shown.compactMap { r in r.id.flatMap { id in r.title.map { (id, $0) } } }
+    }
+
+    override func card(for id: String) -> (title: String, detail: String, notes: String)? {
+        guard let r = store.document(id) else { return nil }
+        var lines: [String] = []
+        if !r.source.isEmpty { lines.append(r.source) }
+        if let remark = shownScene.flatMap({ r.links[$0] }), !remark.isEmpty { lines.append(remark) }
+        return (r.title ?? "", lines.joined(separator: "\n"), store.text(id))
+    }
+
+    override func saveNotes(_ text: String, for id: String) { try? store.setText(id, text) }
+
+    // MARK: The short way to add
+
+    /// Type a title and press Return: a document, linked to the scene shown, is made and its text is ready to type in.
+    let addField = NSTextField()
+    private let fileButton = NSButton(title: L("From a File…"), target: nil, action: nil)
+
+    private func buildAddRow() {
+        addField.placeholderString = L("Add a note — type a title, press Return")
+        addField.setAccessibilityLabel(L("Add a note"))
+        addField.target = self; addField.action = #selector(addPressed)
+        fileButton.target = self; fileButton.action = #selector(fromFilePressed)
+        fileButton.bezelStyle = .rounded; fileButton.controlSize = .small
+        fileButton.toolTip = L("Makes a document from a file: it is copied into the book, or linked if it is over 20 MB")
+        let line = NSStackView(views: [addField, fileButton])
+        line.spacing = 6
+        stack.insertArrangedSubview(line, at: 0)
+        line.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
+    // MARK: The file as a link
+
+    /// The file's name, as a link: a click opens it in the program the system uses for that kind of file.
+    let fileLink = NSButton(title: "", target: nil, action: nil)
+
+    private func buildFileLink() {
+        fileLink.isBordered = false
+        fileLink.alignment = .left
+        fileLink.target = self; fileLink.action = #selector(openFile)
+        fileLink.setAccessibilityRole(.link)
+        fileLink.lineBreakMode = .byTruncatingMiddle
+        fileLink.isHidden = true
+        let at = (stack.arrangedSubviews.firstIndex(of: detail) ?? 3) + 1
+        stack.insertArrangedSubview(fileLink, at: at)
+        fileLink.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
+    override func cardShown() {
+        guard let id = selectedID, let file = store.document(id)?.file else { fileLink.isHidden = true; return }
+        let missing = store.fileState(id) == .missing
+        let title = missing ? L("{name} — the file is missing", ["name": file.name]) : file.name
+        fileLink.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: 12),
+            .foregroundColor: missing ? NSColor.systemOrange : NSColor.linkColor,
+            .underlineStyle: missing ? 0 : NSUnderlineStyle.single.rawValue,
+        ])
+        fileLink.isEnabled = !missing
+        fileLink.toolTip = missing ? L("The file is not where it was") : L("Open in the program the system uses for this kind of file")
+        fileLink.isHidden = false
+    }
+
+    /// For the checks: what opening does.
+    var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+
+    @objc func openFile() {
+        guard let id = selectedID, store.fileState(id) == .present, let url = store.fileURL(id) else { return }
+        openURL(url)
+    }
+
+    @objc private func addPressed() { addDocument(titled: addField.stringValue) }
+
+    /// Makes the document and links it to the scene shown; returns its id.
+    @discardableResult
+    func addDocument(titled raw: String, file: URL? = nil) -> String? {
+        let title = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, let id = try? store.add(title: title) else { return nil }
+        if let scene = shownScene { try? store.update(id) { $0.links[scene] = "" } }
+        if let file { try? store.attach(id, file: file, embed: ((try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int ?? 0) <= ResearchStore.embedWarningBytes) }
+        addField.stringValue = ""
+        selectedID = id
+        if shownScene == nil { allBox.state = .on }
+        refresh(scene: shownScene)
+        onChange?()
+        if file == nil { window?.makeFirstResponder(notes) }
+        return id
+    }
+
+    @objc private func fromFilePressed() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        addDocument(titled: url.deletingPathExtension().lastPathComponent, file: url)
     }
 }

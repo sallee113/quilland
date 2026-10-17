@@ -69,6 +69,7 @@ extension SettingsWindowController {
             check("tab.characters", L("Characters"), #selector(boxChanged(_:))),
             check("tab.world", L("World"), #selector(boxChanged(_:))),
             check("tab.events", L("Events"), #selector(boxChanged(_:))),
+            check("tab.research", L("Research"), #selector(boxChanged(_:))),
             check("tab.chat", L("Chat"), #selector(boxChanged(_:))),
             row([NSTextField(labelWithString: L("The panel follows the cursor after")), stepperField("followDelay", range: 0.3...6, step: 0.1, #selector(stepperChanged(_:))), NSTextField(labelWithString: L("seconds"))]),
         ]

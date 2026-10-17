@@ -13,7 +13,7 @@ struct SceneInfo {
 /// The right panel: Section and Characters tabs. It follows the cursor after a delay (so it does not jump while the author moves
 /// through the text) and can be pinned to what it shows.
 final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
-    enum Tab: Int { case section, characters, world, events, chat }
+    enum Tab: Int { case section, characters, world, events, research, chat }
 
     // Given by the main area.
     var sceneInfo: (String) -> SceneInfo? = { _ in nil }
@@ -24,9 +24,11 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     var characterStore: CharacterStore!
     var worldStore: WorldStore!
     var eventStore: EventStore!
+    var researchStore: ResearchStore!
     /// The scenes in the order of the book, for ordering the events.
     var sceneOrder: () -> [String] = { [] }
     var onOpenPlace: ((String) -> Void)?
+    var onOpenResearch: ((String) -> Void)?
     var chatSession: ChatSession?
     var chatMentions: (() -> NSMenu)?
     var onSaveChatAnswer: (() -> Void)?
@@ -50,6 +52,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private let charactersView = NSView()
     let worldTab = WorldTab()
     let eventsTab = EventsTab()
+    let researchTab = ResearchTab()
     let chatTab = ChatTab()
 
     // Section tab
@@ -92,7 +95,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         pinButton.toolTip = L("Keep showing this one while the cursor moves on")
         pinButton.controlSize = .small
         tabs.controlSize = .small
-        for v in [tabs, pinButton, sectionView, charactersView, worldTab, eventsTab, chatTab] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
+        for v in [tabs, pinButton, sectionView, charactersView, worldTab, eventsTab, researchTab, chatTab] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             tabs.topAnchor.constraint(equalTo: root.topAnchor, constant: 8), tabs.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             pinButton.centerYAnchor.constraint(equalTo: tabs.centerYAnchor), pinButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
@@ -104,11 +107,14 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         eventsTab.store = eventStore; eventsTab.worlds = worldStore; eventsTab.sceneOrder = { [weak self] in self?.sceneOrder() ?? [] }
         eventsTab.onOpen = { [weak self] in self?.onOpenEvent?($0) }
         eventsTab.onChange = { [weak self] in self?.onChange?() }
+        researchTab.store = researchStore
+        researchTab.onOpen = { [weak self] in self?.onOpenResearch?($0) }
+        researchTab.onChange = { [weak self] in self?.onChange?() }
         chatTab.session = chatSession
         chatTab.mentionsMenu = { [weak self] in self?.chatMentions?() ?? NSMenu() }
         chatTab.onSaveAnswer = { [weak self] in self?.onSaveChatAnswer?() }
         chatTab.onSaveAction = { [weak self] in self?.onSaveChatAction?() }
-        for v in [sectionView, charactersView, worldTab, eventsTab, chatTab] {
+        for v in [sectionView, charactersView, worldTab, eventsTab, researchTab, chatTab] {
             NSLayoutConstraint.activate([
                 v.topAnchor.constraint(equalTo: tabs.bottomAnchor, constant: 10), v.bottomAnchor.constraint(equalTo: root.bottomAnchor),
                 v.leadingAnchor.constraint(equalTo: root.leadingAnchor), v.trailingAnchor.constraint(equalTo: root.trailingAnchor),
@@ -228,6 +234,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         case .characters: return L("Characters")
         case .world: return L("World")
         case .events: return L("Events")
+        case .research: return L("Research")
         case .chat: return L("Chat")
         }
     }
@@ -255,6 +262,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         charactersView.isHidden = tab != .characters
         worldTab.isHidden = tab != .world
         eventsTab.isHidden = tab != .events
+        researchTab.isHidden = tab != .research
         chatTab.isHidden = tab != .chat
         refresh()
     }
@@ -319,6 +327,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         reloadCharacters()
         if shownTab == .world { worldTab.refresh(scene: shownScene) }
         if shownTab == .events { eventsTab.refresh(scene: shownScene) }
+        if shownTab == .research { researchTab.refresh(scene: shownScene) }
     }
 
     /// The worlds, places and things whose names are in the scene's text (found in any case form, with or without a capital).
@@ -364,7 +373,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             if pending.contains("note") { try? editor.setText(id, key: "note", to: note.string) }
         }
         if pending.contains("character") { saveCharacter() }
-        worldTab.commitEdits(); eventsTab.commitEdits()
+        worldTab.commitEdits(); eventsTab.commitEdits(); researchTab.commitEdits()
         onChange?()
     }
 
