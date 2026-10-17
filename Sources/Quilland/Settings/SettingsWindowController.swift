@@ -9,7 +9,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         var title: String { [L("General"), L("Appearance"), L("Writing"), L("Panels"), L("AI"), L("AI Prompts"), L("Shortcuts")][rawValue] }
         var keywords: String {
             switch self {
-            case .general: return L("general language folder books recent reopen start mode snapshot automatic minutes backup default")
+            case .general: return L("general language folder books recent reopen reminders start mode snapshot automatic minutes backup default")
             case .appearance: return L("appearance font size text line spacing reading width light dark theme sheet")
             case .writing: return L("writing typing corrections quotes dash dialogue ellipsis spelling spell check replacement autocorrect")
             case .panels: return L("panels right panel tabs section characters follow delay cursor")
@@ -215,6 +215,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         (controls["newBookFolder"] as? NSTextField)?.stringValue = v.newBookFolder ?? "Documents"
         set("recent", number: Double(v.recentLimit))
         state("reopen", v.reopenLastBook)
+        state("showReminders", v.showReminders)
         refreshLanguages()
         select("mode", key: v.defaultMode)
         state("autoSnapshots", v.autoSnapshots)
@@ -534,6 +535,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     func setFlag(_ id: String, _ on: Bool) {
         switch id {
         case "reopen": prefs.update { $0.reopenLastBook = on }
+        case "showReminders": prefs.update { $0.showReminders = on }
         case "autoSnapshots": prefs.update { $0.autoSnapshots = on }
         case "corrections": prefs.updateAutocorrect { $0.enabled = on }
         case "smartQuotes": prefs.updateAutocorrect { $0.smartQuotes = on }
@@ -648,7 +650,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         let d = Preferences()
         switch section {
         case .general:
-            prefs.update { $0.interfaceLanguage = d.interfaceLanguage; $0.defaultMode = d.defaultMode; $0.recentLimit = d.recentLimit; $0.reopenLastBook = d.reopenLastBook
+            prefs.update { $0.interfaceLanguage = d.interfaceLanguage; $0.defaultMode = d.defaultMode; $0.recentLimit = d.recentLimit; $0.reopenLastBook = d.reopenLastBook; $0.showReminders = d.showReminders
                 $0.autoSnapshots = d.autoSnapshots; $0.snapshotMinutes = d.snapshotMinutes; $0.newBookFolder = d.newBookFolder }
         case .appearance:
             prefs.update { $0.fontName = d.fontName; $0.fontSize = d.fontSize; $0.lineSpacing = d.lineSpacing; $0.readingWidth = d.readingWidth; $0.appearance = d.appearance }

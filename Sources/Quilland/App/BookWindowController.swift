@@ -53,6 +53,34 @@ final class BookWindowController: NSObject, NSWindowDelegate {
 
     func show() { window.makeKeyAndOrderFront(nil) }
 
+    // MARK: Reminders
+
+    private(set) var remindersSheet: NSWindow?
+    private(set) var remindersPopup: RemindersPopup?
+
+    /// A book that is just opened shows the reminders not yet done, in a window over it, if the author wants that (Settings ▸ General).
+    @discardableResult
+    func showRemindersIfAny() -> Bool {
+        guard AppPreferences.shared.values.showReminders, remindersSheet == nil, !main.remindersStore.open.isEmpty else { return false }
+        let popup = RemindersPopup(store: main.remindersStore)
+        let sheet = NSWindow(contentViewController: popup)
+        popup.onChange = { [weak self] in self?.main.remindersView?.reload(); self?.refreshStatus() }
+        popup.onClose = { [weak self] in self?.closeReminders() }
+        remindersSheet = sheet
+        remindersPopup = popup
+        window.beginSheet(sheet)
+        return true
+    }
+
+    func closeReminders() {
+        guard let sheet = remindersSheet else { return }
+        window.endSheet(sheet)
+        remindersSheet = nil
+        remindersPopup = nil
+        main.remindersView?.reload()
+        refreshStatus()
+    }
+
     // MARK: Snapshots
 
     /// Seconds between automatic snapshots (Settings ▸ General: 15 minutes unless the author chose otherwise).
@@ -137,6 +165,9 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         } else if main.mode == .events {
             let n = main.eventStore.events.count
             parts.append(Lp("{n} event", "{n} events", n))
+        } else if main.mode == .reminders {
+            let n = main.remindersStore.open.count
+            parts.append(n == 0 ? L("No open reminders") : Lp("{n} open reminder", "{n} open reminders", n))
         } else if main.mode == .research {
             parts.append(Lp("{n} document", "{n} documents", main.researchStore.documents.count))
         } else if main.mode == .world {

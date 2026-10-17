@@ -9,6 +9,8 @@ public struct Preferences: Equatable, Sendable {
     public var defaultMode = "panels"
     public var recentLimit = 10
     public var reopenLastBook = true
+    /// A book that has reminders not yet done shows them in a window when it opens.
+    public var showReminders = true
     public var autoSnapshots = true
     public var snapshotMinutes = 15
     /// Where New Book proposes to keep books (nil: the Documents folder).
@@ -68,6 +70,7 @@ public struct Preferences: Equatable, Sendable {
         p.defaultMode = o.string("default_mode") ?? p.defaultMode
         p.recentLimit = o.int("recent_limit") ?? p.recentLimit
         p.reopenLastBook = o.bool("reopen_last_book") ?? p.reopenLastBook
+        p.showReminders = o.bool("show_reminders") ?? p.showReminders
         p.autoSnapshots = o.bool("auto_snapshots") ?? p.autoSnapshots
         p.snapshotMinutes = o.int("snapshot_minutes") ?? p.snapshotMinutes
         p.newBookFolder = o.string("new_book_folder")
@@ -94,6 +97,7 @@ public struct Preferences: Equatable, Sendable {
         o.setString("default_mode", defaultMode)
         o.setInt("recent_limit", recentLimit)
         o.setBool("reopen_last_book", reopenLastBook)
+        o.setBool("show_reminders", showReminders)
         o.setBool("auto_snapshots", autoSnapshots)
         o.setInt("snapshot_minutes", snapshotMinutes)
         o.setString("new_book_folder", newBookFolder)

@@ -35,7 +35,7 @@ Contents
 
 ## 2. The window
 
-The View menu (⌘1–⌘9) chooses what the main area shows.
+The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 
 **Writing views**
 
@@ -55,6 +55,7 @@ The View menu (⌘1–⌘9) chooses what the main area shows.
 | World | ⌘7 | Worlds and places as a tree. |
 | Events | ⌘8 | Events of the story. |
 | Research | ⌘9 | Your reference material: notes, sources and files. |
+| Reminders | ⌘0 | A checklist for the book. |
 
 **Around the text**
 
@@ -126,13 +127,15 @@ These views keep cards: a name, aliases, a description, notes and fields of the 
 
 Names are matched by rules that handle Russian endings (an "Анне" is found as "Анна"), so an alias list is usually enough.
 
+**Reminders (⌘0).** A checklist for the book: things to check, fix or do. Type one at the bottom and press Return (a reminder may have several lines: Shift-Return starts a new line; long lines wrap); tick the box when it is done (done ones move under a "Done" heading, and can be brought back); click the text to change it; ✕ deletes it, and the banner that follows offers Undo. The list is saved in `reminders.json` in the book's folder, so it goes with the book through Git. When you open a book that has reminders not yet done, a window lists them; tick the ones you have done there, and close it. *Settings ▸ General* can turn that window off.
+
 ## 6. The Plan
 
 The Plan (⌘5) is a canvas. A **card** is an idea for something that will happen. Cards stand on **plot lines**, the horizontal lanes with a name and a colour. Drag a card along or between lines. Events that are already written appear on the same canvas in grey, so you can see what is done and what is still planned.
 
 - Double-click a line's title to edit it, or right-click it for *Edit…*, colour, move and delete.
 - *Show from* limits the plan to part of the book.
-- ⌘+ and ⌘− zoom the canvas, ⌘0 fits it to the window.
+- ⌘+ and ⌘− zoom the canvas, ⇧⌘0 fits it to the window.
 
 ## 7. Search, Replace, Proofreading, Loose Ends
 
@@ -233,12 +236,12 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | Key | Command |
 | --- | --- |
 | ⌘1 ⌘2 ⌘3 | Panels, Book, Compare |
-| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 | Outline, Plan, Characters, World, Events, Research |
+| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Outline, Plan, Characters, World, Events, Research, Reminders |
 | ⌘J | Jump to Scene |
 | ⌥⌘R | Show or hide the right panel |
 | ⌃⌘↩ | Focus Mode |
 | ⌥⌘T | Typewriter Scrolling |
-| ⌘+ ⌘− ⌘0 | Zoom the Plan |
+| ⌘+ ⌘− ⇧⌘0 | Zoom the Plan, fit it to the window |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Larger, smaller, usual book text size |
 
 **Finding and checking**
@@ -279,7 +282,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 
 A book is a folder. You can open it in Finder, put it under Git, and copy it. In outline:
 
-- `book.json`: the book's title, language and settings.
+- `book.json`: the book's title, language and settings. `reminders.json`: the reminders.
 - `manuscript/`: the structure. Each scene is a `.md` file (the text) with a `.json` file beside it (status, synopsis, note); chapters and parts are folders.
 - Folders for characters, world, events, relationships and the plan hold one JSON file per card. `research/` holds the research documents: a `.json` file, a `.md` file with the text, and a folder `<id>.file/` with a copied file.
 - Snapshots and the search cache are kept beside the book and are safe to delete; Quilland rebuilds the cache.

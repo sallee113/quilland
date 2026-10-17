@@ -29,7 +29,7 @@ public struct LooseEnds {
     public init(book: URL) { self.book = book }
 
     private static let dataFolders = ["manuscript", "bible", "plan"]
-    private static let rootFiles = ["book.json", "dictionary.json", "export.json"]
+    private static let rootFiles = ["book.json", "dictionary.json", "export.json", "reminders.json"]
     /// The link fields of an owner: a map of ids to text, or a list of ids; `places` point to world entries.
     static let mapFields = ["links", "places"]
     static let listFields = ["pov_scenes", "worlds", "characters"]

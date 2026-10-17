@@ -62,6 +62,7 @@ extension MainAreaController {
         worlds.reload()
         eventStore.reload()
         researchStore.reload()
+        remindersStore.reload()
     }
 
     func reloadFromDisk() {

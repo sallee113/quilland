@@ -37,7 +37,7 @@ Sommaire
 
 ## 2. La fenêtre
 
-Le menu Présentation (⌘1–⌘9) choisit ce que montre la zone principale.
+Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone principale.
 
 **Vues d’écriture**
 
@@ -57,6 +57,7 @@ Le menu Présentation (⌘1–⌘9) choisit ce que montre la zone principale.
 | Monde | ⌘7 | Mondes et lieux sous forme d’arbre. |
 | Événements | ⌘8 | Les événements de l’histoire. |
 | Documentation | ⌘9 | Votre matériel de référence : notes, sources et fichiers. |
+| Rappels | ⌘0 | Une liste de choses à faire pour le livre. |
 
 **Autour du texte**
 
@@ -128,13 +129,15 @@ Ces vues conservent des fiches : un nom, des alias, une description, des notes e
 
 Les noms sont repérés par des règles qui gèrent les terminaisons russes (« Анне » est reconnu comme « Анна »), si bien qu’une liste d’alias suffit généralement.
 
+**Rappels (⌘0).** Une liste de choses à vérifier, corriger ou faire pour le livre. Saisissez-en une en bas et appuyez sur Retour (un rappel peut avoir plusieurs lignes : Maj-Retour passe à la ligne ; les lignes longues passent à la ligne d’elles-mêmes) ; cochez la case quand c’est fait (les rappels faits passent sous un titre « Fait » et peuvent revenir) ; cliquez sur le texte pour le modifier ; ✕ le supprime, et le bandeau qui suit propose d’annuler. La liste est enregistrée dans `reminders.json`, dans le dossier du livre, et suit donc le livre avec Git. À l’ouverture d’un livre qui a des rappels en attente, une fenêtre les liste ; cochez-y ceux que vous avez faits, puis fermez-la. *Réglages ▸ Général* peut désactiver cette fenêtre.
+
 ## 6. Le Plan
 
 Le Plan (⌘5) est une toile. Une **carte** est l’idée de quelque chose qui va se passer. Les cartes se placent sur des **lignes narratives**, des couloirs horizontaux qui ont un nom et une couleur. Faites glisser une carte le long d’une ligne ou d’une ligne à l’autre. Les événements déjà écrits apparaissent sur la même toile en gris : on voit ce qui est fait et ce qui reste prévu.
 
 - Double-cliquez sur le titre d’une ligne pour le modifier, ou faites un clic droit pour *Modifier…*, la couleur, le déplacement et la suppression.
 - *Afficher à partir de* limite le plan à une partie du livre.
-- ⌘+ et ⌘− zooment la toile, ⌘0 l’ajuste à la fenêtre.
+- ⌘+ et ⌘− zooment la toile, ⇧⌘0 l’ajuste à la fenêtre.
 
 ## 7. Recherche, remplacement, relecture, fils perdus
 
@@ -235,12 +238,12 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | Touche | Commande |
 | --- | --- |
 | ⌘1 ⌘2 ⌘3 | Panneaux, Livre, Comparer |
-| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation |
+| ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation, Rappels |
 | ⌘J | Aller à la scène |
 | ⌥⌘R | Afficher ou masquer le panneau de droite |
 | ⌃⌘↩ | Mode concentration |
 | ⌥⌘T | Défilement machine à écrire |
-| ⌘+ ⌘− ⌘0 | Zoom du Plan |
+| ⌘+ ⌘− ⇧⌘0 | Zoom du Plan, ajustement à la fenêtre |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Texte du livre plus grand, plus petit, taille habituelle |
 
 **Recherche et vérification**
@@ -281,7 +284,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 
 Un livre est un dossier. Vous pouvez l’ouvrir dans le Finder, le placer sous Git et le copier. En résumé :
 
-- `book.json` : le titre, la langue et les réglages du livre.
+- `book.json` : le titre, la langue et les réglages du livre. `reminders.json` : les rappels.
 - `manuscript/` : la structure. Chaque scène est un fichier `.md` (le texte) avec un fichier `.json` à côté (statut, synopsis, note) ; les chapitres et les parties sont des dossiers.
 - Des dossiers pour les personnages, le monde, les événements, les relations et le plan contiennent un fichier JSON par fiche. `research/` contient les documents : un fichier `.json`, un fichier `.md` pour le texte et un dossier `<id>.file/` pour un fichier copié.
 - Les instantanés et le cache de recherche sont conservés à côté du livre et peuvent être supprimés sans risque ; Quilland reconstruit le cache.

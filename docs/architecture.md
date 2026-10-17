@@ -47,6 +47,7 @@ My Book/
   bible/
     characters/ worlds/ places/ events/ relationships/ kinds/   one JSON file per record,
                                                                 named by its id (+ .md for long text)
+  reminders.json             the book's checklist (View > Reminders; open ones shown when the book opens)
   research/                  <id>.json, <id>.md (typed text), <id>.file/<name> (a copied file)
   plan/                      canvas.json (the lines) and cards/ (one file per card)
   assets/                    the cover and other images
@@ -70,7 +71,7 @@ My Book/
 | `JSON/` | A strict parser, the canonical writer, `JSONValue`, typed records (`SceneRecord`, `CharacterRecord`, plan cards), `AtomicFile`. |
 | `Markdown/` | The book's Markdown subset: parser, writer, normalizer, text statistics. A round trip is exact. |
 | `Editor/` | `AttributedBridge`: Markdown ⇄ styled text for the editor. |
-| `Files/` | The stores and operations on the book: `BookStructure` (the tree of parts, chapters and scenes), `BookEditor` (add, move, split, merge, group), `Renumber`, `CharacterStore`, `WorldStore`, `EventStore`, `ResearchStore` (documents with typed text, an embedded or linked file, and links), `RelationshipStore`, `CharacterMerger` and `WorldMerger` (merge and convert records), `BookRelinker`, `LooseEnds`, `BookCreator`, `AppSettings`, `TrashFolder`. |
+| `Files/` | The stores and operations on the book: `BookStructure` (the tree of parts, chapters and scenes), `BookEditor` (add, move, split, merge, group), `Renumber`, `CharacterStore`, `WorldStore`, `EventStore`, `RemindersStore` (the checklist in `reminders.json`), `ResearchStore` (documents with typed text, an embedded or linked file, and links), `RelationshipStore`, `CharacterMerger` and `WorldMerger` (merge and convert records), `BookRelinker`, `LooseEnds`, `BookCreator`, `AppSettings`, `TrashFolder`. |
 | `Plan/` | `PlanStore` (lines and cards, with in-memory undo), positions, the "show from" filter. |
 | `Snapshots/` | `SnapshotStore` (take, thin, restore), `SnapshotInspector` (what changed), `SnapshotRecovery` (bring back one item). |
 | `Cache/` | `BookCache` over SQLite. |
@@ -87,7 +88,7 @@ My Book/
 
 - `AppDelegate` owns the menus (validated through `NSMenuItemValidation`), the book windows, the Welcome window, Settings and the AI connection.
 - `BookWindowController` is one open book: the window, the status bar, snapshots on a timer, saving on close.
-- `MainAreaController` is the heart of a book window. It shows the book in one of nine **modes** (Panels, Book, Compare, Outline, Plan, Characters, World, Events, Research), with the right panel and the bottom panel. Its files:
+- `MainAreaController` is the heart of a book window. It shows the book in one of ten **modes** (Panels, Book, Compare, Outline, Plan, Characters, World, Events, Research, Reminders), with the right panel and the bottom panel. Its files:
   - `MainAreaController.swift`: state, modes, `rebuild()` and one builder per mode, saving.
   - `+Structure`, `+Undo`: every change to the structure goes through `restructure(...)` (a snapshot before and after, the stores reloaded, the views rebuilt); Undo and Redo restore those snapshots.
   - `+Records`, `+Outline`, `+SectionState`: merges and conversions of records, the Outline's data, what the Section menu can do now.

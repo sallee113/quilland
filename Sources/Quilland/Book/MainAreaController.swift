@@ -3,7 +3,7 @@ import QuillandCore
 
 /// The main area of an open book's window: Panels (the tree and one scene), Book mode, Compare, or the Plan canvas (more views come later), for one book.
 final class MainAreaController: NSViewController {
-    enum Mode: String { case panels, book, compare, outline, characters, world, events, research, plan }
+    enum Mode: String { case panels, book, compare, outline, characters, world, events, research, reminders, plan }
 
     let folder: URL
     var session: BookSession
@@ -47,6 +47,8 @@ final class MainAreaController: NSViewController {
     private(set) var eventsView: EventsViewController?
     private(set) lazy var researchStore = ResearchStore(book: folder)
     private(set) var researchView: ResearchViewController?
+    private(set) lazy var remindersStore = RemindersStore(book: folder)
+    private(set) var remindersView: RemindersViewController?
     private var countsTimer: Timer?
     /// After a rebuild the text takes the focus, except when the author was working in the tree.
     var focusTextAfterRebuild = true
@@ -241,6 +243,7 @@ final class MainAreaController: NSViewController {
         worldView = nil
         eventsView = nil
         researchView = nil
+        remindersView = nil
     }
 
     private func buildViews() -> Built? {
@@ -251,6 +254,7 @@ final class MainAreaController: NSViewController {
         case .world: return buildWorld()
         case .events: return buildEvents()
         case .research: return buildResearch()
+        case .reminders: return buildReminders()
         case .plan: return buildPlan()
         case .book, .compare: return buildWriting()
         }
@@ -410,6 +414,16 @@ final class MainAreaController: NSViewController {
         return Built(view: view.view, controller: nil)
     }
 
+    private func buildReminders() -> Built {
+        let view = RemindersViewController()
+        view.store = remindersStore
+        view.onChange = { [weak self] in self?.onChange?() }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        remindersView = view
+        return Built(view: view.view, controller: nil)
+    }
+
     /// The Plan; nil when its files cannot be opened (the area stays empty, as it did).
     private func buildPlan() -> Built? {
         guard let store = try? PlanStore(folder: folder) else { return nil }
@@ -534,7 +548,7 @@ final class MainAreaController: NSViewController {
         switch mode {
         case .book, .compare: (controllers.first { $0.currentSceneID != nil } ?? controllers.first)?.openJumpList()
         case .panels, .outline: tree?.focus()
-        case .characters, .world, .events, .research, .plan: break
+        case .characters, .world, .events, .research, .reminders, .plan: break
         }
     }
 
@@ -624,7 +638,7 @@ final class MainAreaController: NSViewController {
     func leaveOutline() { leaveFullAreaView() }
 
     /// Esc in a full-area view (the Outline, Characters): back to the writing mode.
-    func leaveFullAreaView() { if [.outline, .characters, .world, .events, .research].contains(mode) { setMode(writingMode) } }
+    func leaveFullAreaView() { if [.outline, .characters, .world, .events, .research, .reminders].contains(mode) { setMode(writingMode) } }
 
     // The same for places and worlds (the World view): a snapshot before and after, so that Undo takes the change back.
 
@@ -679,7 +693,7 @@ final class MainAreaController: NSViewController {
     /// Everything on screen that keeps typed text waiting for a timer of its own. A new editable view is added here: this is the one list that saving, rebuilding and
     /// closing go by (the self-test checks that each kind of editor is reached).
     private var pendingEditors: [PendingEdits] {
-        let all: [PendingEdits?] = [showsRightPanel ? rightPanel : nil, outlineDetail, charactersView, worldView, eventsView, researchView]
+        let all: [PendingEdits?] = [showsRightPanel ? rightPanel : nil, outlineDetail, charactersView, worldView, eventsView, researchView, remindersView]
         return all.compactMap { $0 }
     }
 
