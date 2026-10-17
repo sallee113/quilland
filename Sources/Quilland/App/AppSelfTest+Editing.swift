@@ -36,6 +36,8 @@ extension AppSelfTest {
 
         main.showSearch(.replace); spin(0.2)
         check(panel2.mode == .replace && panel2.currentQuery.sources == [.text] && panel2.currentQuery.scope == .scene, "Replace starts with only the text and the scene as scope, chosen anew")
+        panel2.view.window?.layoutIfNeeded(); panel2.view.layoutSubtreeIfNeeded()
+        check(!panel2.replaceField.isHidden && abs(panel2.replaceField.frame.width - panel2.findField.frame.width) < 1 && panel2.replaceField.frame.width >= 150, "the replacement field is visible and as wide as the Find field", "\(panel2.replaceField.frame)")
         panel2.setChoices(scope: .book)
         panel2.findField.stringValue = "кот"
         panel2.replaceField.stringValue = "пёс"

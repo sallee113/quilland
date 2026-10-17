@@ -155,6 +155,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
         findField.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         replaceField.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         findField.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
+        replaceField.widthAnchor.constraint(equalTo: findField.widthAnchor).isActive = true
         applyMode()
     }
 
