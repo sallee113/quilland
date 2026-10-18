@@ -9,6 +9,8 @@ public struct BookSettings: Equatable, Sendable {
     public var language = "en"
     /// The size the book should reach, in characters (nil: none).
     public var targetCharacters: Int?
+    /// The id of the kind of book the target came from (`BookKinds`); nil: a size of the author's own.
+    public var kind: String?
     /// The file name of the cover in `assets/`.
     public var cover: String?
 
@@ -22,6 +24,7 @@ public struct BookSettings: Equatable, Sendable {
         s.copyright = o.string("copyright") ?? ""
         s.language = o.string("language") ?? "en"
         s.targetCharacters = o.int("target_characters")
+        s.kind = o.string("book_type")
         s.cover = o.string("cover")
         return s
     }
@@ -35,6 +38,7 @@ public struct BookSettings: Equatable, Sendable {
         o.setString("copyright", copyright.isEmpty ? nil : copyright)
         o.setString("language", language)
         o.setInt("target_characters", targetCharacters)
+        o.setString("book_type", kind)
         o.setString("cover", cover)
         try AtomicFile.write(JSONWriter.data(o), to: url)
     }

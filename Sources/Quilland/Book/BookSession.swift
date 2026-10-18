@@ -37,5 +37,6 @@ final class BookSession {
     /// Every unsaved scene is written now.
     func saveAll() { for d in documents.values where d.isDirty { d.saveNow() } }
 
+    var totalWords: Int { documents.values.reduce(0) { $0 + $1.counts.words } }
     var totalCharacters: Int { documents.values.reduce(0) { $0 + $1.counts.characters } }
 }

@@ -226,6 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         let key = book.folder.standardizedFileURL.path
         if let open = bookSettingsWindows[key] { open.show(); return }
         let controller = BookSettingsWindowController(folder: book.folder)
+        controller.currentSize = { [weak book] in (book?.main.session.totalCharacters ?? 0, book?.main.session.totalWords ?? 0) }
         controller.onChanged = { [weak self, weak book] in
             guard let self, let book else { return }
             book.bookSettingsChanged(settings: self.settings)

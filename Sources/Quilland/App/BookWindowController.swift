@@ -110,6 +110,7 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         let s = BookSettings.load(book: folder)
         window.title = s.title
         bookTitle = s.title
+        targetCharacters = s.targetCharacters
         settings.noteTitle(folder: folder, name: s.title)
         main.bookSettingsChanged()
     }
@@ -157,6 +158,9 @@ final class BookWindowController: NSObject, NSWindowDelegate {
 
     // MARK: Status
 
+    /// The size the book should reach (Book Settings), for the status bar.
+    private(set) lazy var targetCharacters: Int? = BookSettings.load(book: folder).targetCharacters
+
     func refreshStatus() {
         let number = { (n: Int) in NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal) }
         var parts: [String] = []
@@ -183,7 +187,12 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         } else if let doc = main.currentDocument {
             parts.append(Lp("{n} character||text", "{n} characters||text", doc.counts.characters))
         }
-        parts.append(L("book {size}", ["size": number(main.session.totalCharacters)]))
+        let total = main.session.totalCharacters
+        if let percent = BookKinds.percent(characters: total, target: targetCharacters), let target = targetCharacters {
+            parts.append(L("book {size} of {target} ({percent}%)", ["size": number(total), "target": number(target), "percent": percent]))
+        } else {
+            parts.append(L("book {size}", ["size": number(total)]))
+        }
         let today = main.writtenToday
         parts.append(L("today {change}", ["change": (today >= 0 ? "+" : "−") + number(abs(today))]))
         status.leftText = parts.joined(separator: "  ·  ")

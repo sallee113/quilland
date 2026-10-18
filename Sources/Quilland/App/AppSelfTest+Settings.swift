@@ -122,6 +122,23 @@ extension AppSelfTest {
             check(BookSettings.load(book: stFolder).title == "Новое имя", "a blank title is refused")
             bs.apply { $0.author = "А. Автор"; $0.copyright = "© 2026"; $0.targetCharacters = 300000 }
             check(BookSettings.load(book: stFolder).author == "А. Автор" && BookSettings.load(book: stFolder).targetCharacters == 300000, "author, copyright and target size are saved in book.json")
+            // The kind of book fills the target by the language; the size now is shown.
+            bs.setLanguage("ru")
+            bs.setKind("novel")
+            check(BookSettings.load(book: stFolder).kind == "novel" && BookSettings.load(book: stFolder).targetCharacters == 630_000, "choosing a kind fills in the target for the language of the book")
+            check(bs.sizeLines.kind.contains("90") && bs.sizeLines.kind.contains("15,75") || bs.sizeLines.kind.contains("15.75") || bs.sizeLines.kind.contains("15,8") || bs.sizeLines.kind.contains("15.8"), "and the words and author's sheets are shown", bs.sizeLines.kind)
+            let sizeNow = stMain.session.totalCharacters
+            check(bs.sizeLines.now.contains(NumberFormatter.localizedString(from: NSNumber(value: sizeNow), number: .decimal)) && bs.sizeLines.percent != nil, "the size of the book now and how far it has come are shown", bs.sizeLines.now)
+            bs.setTarget(700_000)
+            check(BookSettings.load(book: stFolder).kind == nil, "a number that is not the kind's own makes the book Custom")
+            bs.setKind("novel"); bs.setTarget(630_000)
+            check(BookSettings.load(book: stFolder).kind == "novel", "the kind's own number keeps it")
+            bs.setLanguage("en")
+            check(BookSettings.load(book: stFolder).targetCharacters == 540_000, "a change of language gives the kind's target in that language")
+            bs.setKind(nil)
+            check(BookSettings.load(book: stFolder).kind == nil && BookSettings.load(book: stFolder).targetCharacters == 540_000, "choosing Custom keeps the number")
+            check(stWin.targetCharacters == 540_000 && stWin.statusBar.leftText.contains("540"), "the target reaches the status bar", stWin.statusBar.leftText)
+            bs.apply { $0.targetCharacters = 300000 }
             bs.setLanguage("en")
             check(stMain.session.document(stScene)?.language == "en", "the language reaches the text")
             typer.insertText("", replacementRange: NSRange(location: 0, length: typer.string.utf16.count))

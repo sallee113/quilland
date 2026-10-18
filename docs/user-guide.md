@@ -213,7 +213,9 @@ Not built yet: importing a whole folder of Markdown files, and importing into th
 - **AI Prompts:** the prompts of each helper and your saved actions.
 - **Shortcuts:** change the key of any command. Select a row and press the new key.
 
-*File ▸ Book Settings…* (⇧⌘,) holds what belongs to one book: its language, its title and cover, and its own dictionary.
+*File ▸ Book Settings…* (⇧⌘,) holds what belongs to one book: its language, its title and cover, its target size, and its own dictionary.
+
+**Size of the book.** Choose a *Type of book* (flash fiction, short story, novelette, novella, short novel, novel, epic) and Quilland fills in a typical *Target size* for the book's language, in characters with spaces; you can type any other number, and the type then reads "Custom". Under the target you see it in words, and for Russian and Ukrainian books in author's sheets (1 sheet = 40,000 characters with spaces). *Size now* shows how big the book is at this moment (characters, words, sheets) and how far it has come, with a bar; the status bar shows the same as "book 123,456 of 540,000 (23%)". Changing the language of a book that has a type gives the type's target in the new language.
 
 ## 12. Keyboard shortcuts
 

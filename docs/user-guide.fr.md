@@ -215,7 +215,9 @@ Pas encore disponible : importer tout un dossier de fichiers Markdown, et import
 - **Prompts de l’IA :** les prompts de chaque assistant et vos actions enregistrées.
 - **Raccourcis :** changer la touche de n’importe quelle commande. Sélectionnez une ligne et appuyez sur la nouvelle touche.
 
-*Fichier ▸ Réglages du livre…* (⇧⌘,) contient ce qui appartient à un seul livre : sa langue, son titre et sa couverture, et son propre dictionnaire.
+*Fichier ▸ Réglages du livre…* (⇧⌘,) contient ce qui appartient à un seul livre : sa langue, son titre et sa couverture, sa taille cible et son propre dictionnaire.
+
+**Taille du livre.** Choisissez un *Type de livre* (très courte fiction, nouvelle, longue nouvelle, novella, court roman, roman, épopée) et Quilland renseigne une *Taille cible* typique pour la langue du livre, en caractères espaces compris ; vous pouvez saisir un autre nombre, et le type devient alors « Taille personnalisée ». Sous la cible, vous la voyez en mots, et pour les livres russes et ukrainiens en feuillets d’auteur (1 feuillet = 40 000 caractères espaces compris). *Taille actuelle* montre la taille du livre à cet instant (caractères, mots, feuillets) et le chemin parcouru, avec une barre ; la barre d’état affiche la même chose : « livre 123 456 sur 540 000 (23 %) ». Changer la langue d’un livre qui a un type donne la cible du type dans la nouvelle langue.
 
 ## 12. Raccourcis clavier
 
