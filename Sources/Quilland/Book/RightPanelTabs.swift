@@ -157,7 +157,7 @@ final class WorldTab: PanelListTab {
         let entries = store.entries
         var shown = entries
         if !all {
-            let found = scene.map { Set(ParadigmMatcher(entries: store.nameEntries).matches(in: sceneText($0)).map(\.entry)) } ?? []
+            let found = scene.map { SceneMembers.places(inScene: $0, text: sceneText($0), store: store) } ?? []
             shown = entries.filter { found.contains($0.id ?? "") }
         }
         return shown.compactMap { e in e.id.flatMap { id in e.name.map { (id, $0) } } }

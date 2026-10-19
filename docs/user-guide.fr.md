@@ -61,7 +61,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 
 **Autour du texte**
 
-- **Le panneau de droite** a les onglets *Section*, *Personnages*, *Monde*, *Événements*, *Documentation* et *Discussion*. Il suit le curseur après un court délai ; cochez *Épingler* pour le garder sur un élément. Affichez-le ou masquez-le avec ⌥⌘R.
+- **Le panneau de droite** a les onglets *Section*, *Personnages*, *Monde*, *Événements*, *Documentation* et *Discussion*. Il suit le curseur après un court délai ; cochez *Épingler* pour le garder sur un élément. Affichez-le ou masquez-le avec ⌥⌘R. Un personnage ou un lieu est « dans » la scène quand son nom est dans le texte, ou que la scène figure sur sa fiche (une ligne saisie pour elle ou, pour un personnage, son point de vue) ; le panneau et les fiches suivent la même règle, si bien qu’un narrateur jamais nommé apparaît dans les scènes auxquelles vous l’avez lié.
 - **Le panneau du bas** contient *Recherche*, *Remplacer*, *Relecture*, *Fils perdus* et *Suggestions*. Il s’ouvre depuis les commandes qui l’utilisent.
 - **La barre d’état** indique le nombre de caractères de la scène où se trouve le curseur, celui du livre et la variation du jour, la langue de saisie, et « Enregistré ».
 - **Le mode concentration** (⌃⌘↩, dans la vue Livre) masque tout sauf le texte et garde la ligne que vous tapez au milieu de l’écran.

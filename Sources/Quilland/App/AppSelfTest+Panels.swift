@@ -349,6 +349,25 @@ extension AppSelfTest {
         panel.eventsTab.allBox.state = .on; panel.eventsTab.refresh(scene: here)
         check(panel.eventsTab.rowIDs.contains(tabEvent), "and all of them when asked")
         panel.eventsTab.allBox.state = .off
+        // Who is "in" the scene is the cards' own rule: the name in the text, a line for the scene, or the point of view.
+        let unnamed = try! main.characters.add(name: "Безымянка")
+        let viewpoint = try! main.characters.add(name: "Наблюдатель")
+        let stranger = try! main.characters.add(name: "Чужой")
+        try! main.characters.update(unnamed) { $0.links = [here: ""] }
+        try! main.characters.update(viewpoint) { $0.povScenes = [here] }
+        try! main.characters.update(stranger) { $0.links = [other: "в другой сцене"] }
+        let harbour = try! main.worlds.addEntry(name: "Тайная гавань", world: tabWorld)
+        try! main.worlds.updateEntry(harbour) { $0.links = [here: ""] }
+        panel.showTab(.characters); panel.refresh()
+        check(panel.found.contains(unnamed) && panel.found.contains(viewpoint) && !panel.found.contains(stranger), "a character with a line for the scene, or its point of view, is in it though the name is not in the text; another scene's does not")
+        check(panel.listedCharacterIDs.contains(unnamed) && panel.listedCharacterIDs.contains(viewpoint) && !panel.listedCharacterIDs.contains(stranger), "and the Characters tab lists them", "\(panel.listedCharacterIDs)")
+        check(panel.inSceneText.contains("Безымянка") && panel.inSceneText.contains("Наблюдатель"), "and the Section tab names them", panel.inSceneText)
+        panel.showTab(.world); panel.refresh()
+        check(panel.worldTab.rowIDs.contains(harbour) && panel.placesFound(in: here).contains("Тайная гавань"), "a place with a line for the scene is in it too, in the World tab and the Section tab")
+        panel.showTab(.characters)
+        for id in [unnamed, viewpoint, stranger] { try? main.characters.delete(id) }
+        try? main.worlds.deleteEntry(harbour)
+        panel.refresh()
         for (folderName, id) in [("places", tabPlace), ("worlds", tabWorld), ("events", tabEvent)] { for ext in ["json", "md"] { try? FileManager.default.removeItem(at: main.folder.appendingPathComponent("bible/\(folderName)/\(id).\(ext)")) } }
         main.worlds.reload(); main.eventStore.reload()
         panel.setVisibleTabs([.section, .characters]); panel.refresh()

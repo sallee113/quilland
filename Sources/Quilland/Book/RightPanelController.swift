@@ -80,6 +80,9 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private var selectedCharacter: String?
     /// The characters found in the scene shown.
     private(set) var found: Set<String> = []
+    /// For the checks: the characters the Characters tab lists, and the "In scene" line of the Section tab.
+    var listedCharacterIDs: [String] { listed.compactMap(\.id) }
+    var inSceneText: String { inSceneLabel.stringValue }
 
     // MARK: View
 
@@ -314,7 +317,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             setText(synopsis, record?.string("synopsis") ?? "")
             setText(note, record?.string("note") ?? "")
             synopsis.isEditable = true; note.isEditable = true
-            found = Set(ParadigmMatcher(entries: characterStore.entries).matches(in: sceneText(id)).map(\.entry))
+            found = SceneMembers.characters(inScene: id, text: sceneText(id), store: characterStore)
             let names = characterStore.characters.filter { found.contains($0.id ?? "") }.compactMap(\.name)
             inSceneLabel.stringValue = names.isEmpty ? L("None found") : names.joined(separator: ", ")
             placesLabel.stringValue = placesFound(in: id)
@@ -333,7 +336,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     /// The worlds, places and things whose names are in the scene's text (found in any case form, with or without a capital).
     func placesFound(in scene: String) -> String {
         guard let worldStore else { return "" }
-        let hits = Set(ParadigmMatcher(entries: worldStore.nameEntries).matches(in: sceneText(scene)).map(\.entry))
+        let hits = SceneMembers.places(inScene: scene, text: sceneText(scene), store: worldStore)
         let names = (worldStore.worlds.map { ($0.id, $0.name) } + worldStore.entries.map { ($0.id, $0.name) })
             .filter { hits.contains($0.0 ?? "") }.compactMap(\.1)
         return names.isEmpty ? L("None found") : names.joined(separator: ", ")
@@ -455,7 +458,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     private func refreshAfterCharacterEdit() {
         let all = characterStore.characters
-        found = shownScene.map { Set(ParadigmMatcher(entries: characterStore.entries).matches(in: sceneText($0)).map(\.entry)) } ?? []
+        found = shownScene.map { SceneMembers.characters(inScene: $0, text: sceneText($0), store: characterStore) } ?? []
         listed = allBox.state == .on ? all : all.filter { found.contains($0.id ?? "") }
         table.reloadData()
         if let selected = selectedCharacter, let row = listed.firstIndex(where: { $0.id == selected }) {
