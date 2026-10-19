@@ -57,6 +57,23 @@ extension AppSelfTest {
         main.goBack(); spin(0.4)
         check(main.mode == .characters && main.charactersView?.selected != gone, "a card deleted meanwhile does not stop Back")
 
+        // The status bar names the views before and after this one.
+        let book = app.bookWindows.first { $0.main === main }!
+        main.setMode(.panels); spin(0.3)
+        main.clearHistory()
+        book.refreshStatus()
+        check(book.statusBar.trailText == "●", "with no history the status bar shows only the dot", book.statusBar.trailText)
+        app.modeCharacters(); spin(0.4)
+        book.refreshStatus()
+        check(book.statusBar.trailText == "\(MainAreaController.title(of: .panels)) ‹ ●", "after one change it names the view Back goes to", book.statusBar.trailText)
+        app.modeWorld(); spin(0.4)
+        main.goBack(); spin(0.4)
+        book.refreshStatus()
+        check(book.statusBar.trailText == "\(MainAreaController.title(of: .panels)) ‹ ● › \(MainAreaController.title(of: .world))", "and after a step back both sides are named", book.statusBar.trailText)
+        main.goBack(); spin(0.4)
+        book.refreshStatus()
+        check(book.statusBar.trailText == "● › \(MainAreaController.title(of: .characters))", "at the start of the history only the next view is named", book.statusBar.trailText)
+
         // The history is not endless.
         main.clearHistory()
         for _ in 0..<40 { main.setMode(main.mode == .world ? .events : .world) }

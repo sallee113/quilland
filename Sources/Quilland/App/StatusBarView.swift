@@ -8,17 +8,20 @@ final class StatusBarView: NSView {
     private let left = NSTextField(labelWithString: "")
     private let middle = NSTextField(labelWithString: "")
     private let right = NSTextField(labelWithString: "")
+    private let trail = NSTextField(labelWithString: "")
     private var monitor: Any?
     private(set) var heightConstraint: NSLayoutConstraint
 
     var leftText: String { get { left.stringValue } set { left.stringValue = newValue } }
     var rightText: String { get { right.stringValue } set { right.stringValue = newValue } }
     var middleText: String { middle.stringValue }
+    /// The views before and after this one in the history (Back and Forward), just before the right-hand text.
+    var trailText: String { get { trail.stringValue } set { trail.stringValue = newValue } }
 
     override init(frame: NSRect) {
         heightConstraint = NSLayoutConstraint()
         super.init(frame: frame)
-        for l in [left, middle, right] {
+        for l in [left, middle, trail, right] {
             l.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
             l.textColor = .secondaryLabelColor
             l.lineBreakMode = .byTruncatingTail
@@ -28,12 +31,16 @@ final class StatusBarView: NSView {
         }
         middle.alignment = .center
         right.alignment = .right
+        trail.alignment = .right
+        trail.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(2), for: .horizontal)
         NSLayoutConstraint.activate([
             left.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12), left.centerYAnchor.constraint(equalTo: centerYAnchor),
             middle.centerXAnchor.constraint(equalTo: centerXAnchor), middle.centerYAnchor.constraint(equalTo: centerYAnchor),
             right.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12), right.centerYAnchor.constraint(equalTo: centerYAnchor),
             left.trailingAnchor.constraint(lessThanOrEqualTo: middle.leadingAnchor, constant: -12),
-            middle.trailingAnchor.constraint(lessThanOrEqualTo: right.leadingAnchor, constant: -12),
+            right.widthAnchor.constraint(greaterThanOrEqualToConstant: 64),  // "Saved" and "editing…" do not make the trail move
+            trail.trailingAnchor.constraint(equalTo: right.leadingAnchor, constant: -18), trail.centerYAnchor.constraint(equalTo: centerYAnchor),
+            middle.trailingAnchor.constraint(lessThanOrEqualTo: trail.leadingAnchor, constant: -12),
         ])
         heightConstraint = heightAnchor.constraint(equalToConstant: 22)
         heightConstraint.isActive = true

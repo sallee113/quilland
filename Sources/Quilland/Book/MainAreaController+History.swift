@@ -43,6 +43,34 @@ extension MainAreaController {
         forwardPlaces = []
     }
 
+    /// The name of a view, as the View menu has it.
+    static func title(of mode: Mode) -> String {
+        switch mode {
+        case .panels: return L("Panels")
+        case .book: return L("Book")
+        case .compare: return L("Compare")
+        case .outline: return L("Outline")
+        case .plan: return L("Plan")
+        case .characters: return L("Characters")
+        case .world: return L("World")
+        case .events: return L("Events")
+        case .research: return L("Research")
+        case .reminders: return L("Reminders")
+        }
+    }
+
+    /// For the status bar: the view Back would go to, a dot for this one, and the view Forward would go to: `Characters ‹ ● › Events`.
+    var historyTrail: String {
+        let previous = backPlaces.last.map { Self.title(of: $0.mode) }
+        let next = forwardPlaces.last.map { Self.title(of: $0.mode) }
+        switch (previous, next) {
+        case let (p?, n?): return "\(p) ‹ ● › \(n)"
+        case let (p?, nil): return "\(p) ‹ ●"
+        case let (nil, n?): return "● › \(n)"
+        case (nil, nil): return "●"
+        }
+    }
+
     var canGoBack: Bool { !backPlaces.isEmpty }
     var canGoForward: Bool { !forwardPlaces.isEmpty }
 
