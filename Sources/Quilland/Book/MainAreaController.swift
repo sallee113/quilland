@@ -57,6 +57,11 @@ final class MainAreaController: NSViewController {
     var backPlaces: [ViewPlace] = []
     var forwardPlaces: [ViewPlace] = []
     var isNavigatingHistory = false
+    /// Which side of Compare the author was last in (0 left, 1 right): where a jump to a scene goes.
+    var activeAreaIndex = 0
+    /// The Jump to Scene list when it is shown over the window (the views that have no jump bar of their own).
+    private var jumpPopover: NSPopover?
+    private(set) var jumpListOverWindow: JumpListController?
     /// An interrupted move was finished when the book was opened (the banner says so once the view is there).
     private(set) var finishedInterruptedMove = false
     private var day: LocalBookState
@@ -177,12 +182,16 @@ final class MainAreaController: NSViewController {
     /// Goes to a place in a scene's text and selects it (in the writing mode, which it returns to from the Outline or the Plan).
     func reveal(scene: String, range: NSRange?) {
         guard session.document(scene) != nil else { return }
-        if ![.panels, .book, .compare].contains(mode) { setMode(writingMode) }
+        if ![.panels, .book, .compare].contains(mode) {
+            // The writing view is made again and puts the cursor back where it was: it is told to put it here.
+            pendingCursor = (scene, range?.location ?? 0)
+            setMode(writingMode)
+        }
         if mode == .panels {
             tree?.select(scene, notify: false)
             showScene(scene)
         }
-        guard let c = controllers.first(where: { $0.currentSceneID != nil }) ?? controllers.first else { return }
+        guard let c = activeArea else { return }
         c.focus(sceneID: scene)
         if let tv = c.currentSheet?.textView, let range, NSMaxRange(range) <= tv.string.utf16.count {
             tv.setSelectedRange(range)
@@ -211,7 +220,7 @@ final class MainAreaController: NSViewController {
 
     /// The scene and the place of the cursor now, so that a rebuilt view can put it back.
     func remember() {
-        if let c = controllers.first(where: { $0.currentSceneID != nil }), let id = c.currentSceneID, let tv = c.currentSheet?.textView {
+        if let c = activeArea, let id = c.currentSceneID, let tv = c.currentSheet?.textView {
             pendingCursor = (id, tv.selectedRange().location)
         }
     }
@@ -498,7 +507,8 @@ final class MainAreaController: NSViewController {
 
     /// Where the author left off: that scene, with the cursor at that place, after the first layout.
     private func restoreCursor() {
-        guard let c = controllers.first else { return }
+        // In Compare the cursor goes back to the side it was in.
+        guard let c = controllers.indices.contains(activeAreaIndex) ? controllers[activeAreaIndex] : controllers.first else { return }
         let focusText = focusTextAfterRebuild
         focusTextAfterRebuild = true
         var scene = pendingCursor?.scene ?? session.structure.scenes.first?.id
@@ -548,13 +558,43 @@ final class MainAreaController: NSViewController {
         return panel
     }
 
-    /// ⌘J: the jump list of the area where the cursor is (Book, Compare); in Panels and the Outline the tree takes the focus.
+    /// The writing area the author is in: in Compare the side whose text has the keyboard focus, or else the side they were last in.
+    var activeArea: BookViewController? {
+        if let responder = view.window?.firstResponder as? EditorTextView, let c = controllers.first(where: { $0.stack.sheets.contains { $0.textView === responder } }) { return c }
+        return controllers.indices.contains(activeAreaIndex) ? controllers[activeAreaIndex] : controllers.first
+    }
+
+    /// ⌘J: the list of scenes. Under the jump bar of the area where the cursor is (Book, Compare: in Compare the side that is active changes);
+    /// in every other view, and in Focus Mode, which has no bar, over the top of the window.
     func openJump() {
-        switch mode {
-        case .book, .compare: (controllers.first { $0.currentSceneID != nil } ?? controllers.first)?.openJumpList()
-        case .panels, .outline: tree?.focus()
-        case .characters, .world, .events, .research, .reminders, .plan: break
+        if [.book, .compare].contains(mode), !focusMode, let area = activeArea { area.openJumpList(); return }
+        showJumpListOverWindow()
+    }
+
+    var isJumpListOpen: Bool { jumpPopover?.isShown == true || controllers.contains { $0.isJumpListOpen } }
+
+    private func showJumpListOverWindow() {
+        closeJumpListOverWindow()
+        let list = JumpListController(structure: session.structure, characters: { [session] in session.document($0)?.counts.characters ?? 0 })
+        let pop = NSPopover()
+        pop.behavior = .transient
+        pop.contentViewController = list
+        list.onChoose = { [weak self] id in
+            self?.closeJumpListOverWindow()
+            self?.reveal(scene: id, range: nil)
         }
+        list.onClose = { [weak self] in self?.closeJumpListOverWindow() }
+        jumpPopover = pop
+        jumpListOverWindow = list
+        let bounds = container.bounds
+        pop.show(relativeTo: NSRect(x: bounds.midX - 1, y: bounds.maxY - 1, width: 2, height: 1), of: container, preferredEdge: .minY)
+        list.select(currentSceneID)
+    }
+
+    func closeJumpListOverWindow() {
+        jumpPopover?.close()
+        jumpPopover = nil
+        jumpListOverWindow = nil
     }
 
     /// View ▸ Focus Mode. Typewriter scrolling is on while it lasts and goes back to what it was.
@@ -596,7 +636,8 @@ final class MainAreaController: NSViewController {
             self?.setFocusMode(false)
             return true
         }
-        c.onSelectionChange = { [weak self] doc, position in
+        c.onSelectionChange = { [weak self, weak c] doc, position in
+            if let c, let i = self?.controllers.firstIndex(where: { $0 === c }) { self?.activeAreaIndex = i }
             self?.onCursorMoved?(doc.id, position)
             self?.onChange?()
             self?.scheduleCountsRefresh()

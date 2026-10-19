@@ -30,6 +30,8 @@ final class BookViewController: NSViewController, NSTextViewDelegate, SceneNavig
     /// Book and Compare have a jump bar at the top; the single scene of Panels does not (it has the tree).
     let jumpBar = JumpBarView()
     private var popover: NSPopover?
+    /// The jump list while it is open (for the checks).
+    private(set) var jumpList: JumpListController?
     /// Focus Mode: the jump bar goes, the headers and bands between the sheets become faint.
     var focusChrome = false { didSet { applyFocusChrome() } }
     /// Esc in the text: return true when it was used.
@@ -237,6 +239,7 @@ final class BookViewController: NSViewController, NSTextViewDelegate, SceneNavig
         }
         list.onClose = { [weak self] in self?.closeJumpList() }
         popover = pop
+        jumpList = list
         pop.show(relativeTo: jumpBar.path.bounds, of: jumpBar.path, preferredEdge: .maxY)
         list.select(currentSceneID)
     }
@@ -246,6 +249,7 @@ final class BookViewController: NSViewController, NSTextViewDelegate, SceneNavig
     func closeJumpList() {
         popover?.close()
         popover = nil
+        jumpList = nil
     }
 
     @objc private func previousScene() { step(-1) }

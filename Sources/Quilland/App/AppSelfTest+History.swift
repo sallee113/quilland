@@ -57,6 +57,41 @@ extension AppSelfTest {
         main.goBack(); spin(0.4)
         check(main.mode == .characters && main.charactersView?.selected != gone, "a card deleted meanwhile does not stop Back")
 
+        // Jump to Scene… (⌘J) is a list in every view.
+        let scenes = main.session.structure.scenes.map(\.id)
+        for (name, open) in [("Characters", { self.app.modeCharacters() }), ("World", { self.app.modeWorld() }), ("Events", { self.app.modeEvents() }), ("Research", { self.app.modeResearch() }),
+                             ("Reminders", { self.app.modeReminders() }), ("Outline", { self.app.modeOutline() }), ("Plan", { self.app.modePlan() }), ("Panels", { self.app.modePanels() })] as [(String, () -> Void)] {
+            open(); spin(0.4)
+            app.jumpToScene(); spin(0.3)
+            check(main.isJumpListOpen && main.jumpListOverWindow != nil, "Jump to Scene… opens the list in the \(name) view")
+            let target = scenes[scenes.count - 1]
+            main.jumpListOverWindow?.onChoose?(target); spin(0.5)
+            check(!main.isJumpListOpen && [.panels, .book, .compare].contains(main.mode) && main.currentSceneID == target, "and choosing a scene goes to it in the text (\(name))", "\(main.mode) \(String(describing: main.currentSceneID))")
+        }
+
+        // Compare: the side the cursor is in changes, the other stays.
+        app.modeCompare(); spin(0.5)
+        check(main.controllers.count == 2, "Compare has two sides")
+        main.controllers[0].jump(to: scenes[0]); spin(0.2)
+        main.controllers[1].focus(sceneID: scenes[1]); spin(0.3)
+        check(main.activeArea === main.controllers[1], "the side with the cursor is the active one")
+        app.jumpToScene(); spin(0.3)
+        check(main.controllers[1].isJumpListOpen && !main.controllers[0].isJumpListOpen, "Jump to Scene… opens under the active side's bar")
+        let wanted = scenes[scenes.count - 1]
+        main.controllers[1].jumpList?.onChoose?(wanted); spin(0.4)
+        check(main.controllers[1].currentSceneID == wanted && main.controllers[0].currentSceneID == scenes[0], "the right side goes to the scene and the left side stays", "\(String(describing: main.controllers[0].currentSceneID)) \(String(describing: main.controllers[1].currentSceneID))")
+        main.controllers[0].focus(sceneID: scenes[0]); spin(0.3)
+        app.jumpToScene(); spin(0.3)
+        check(main.controllers[0].isJumpListOpen, "and with the cursor on the left, the list is the left side's")
+        main.controllers[0].closeJumpList()
+        // A link from a card view lands on the side the author was last in.
+        main.controllers[1].focus(sceneID: scenes[1]); spin(0.3)
+        app.modeCharacters(); spin(0.4)
+        main.reveal(scene: scenes[scenes.count - 1], range: nil); spin(0.6)
+        check(main.mode == main.writingMode && main.activeArea?.currentSceneID == scenes[scenes.count - 1], "a link to a scene lands in the active area")
+        if main.mode == .compare { check(main.controllers[1].currentSceneID == scenes[scenes.count - 1], "in Compare, on the side the author was last in", "\(String(describing: main.controllers[1].currentSceneID))") }
+        main.setMode(.panels); spin(0.3)
+
         // The status bar names the views before and after this one.
         let book = app.bookWindows.first { $0.main === main }!
         main.setMode(.panels); spin(0.3)

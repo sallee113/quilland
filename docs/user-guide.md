@@ -64,7 +64,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 - **The status bar** shows the count of the scene where the cursor is, the count of the book and today's change, the input language, and "Saved".
 - **Focus Mode** (⌃⌘↩, in Book view) hides everything but the text and keeps the line you are typing in the middle of the screen.
 - **Typewriter Scrolling** (⌥⌘T) does the same in the ordinary views.
-- **Jump to Scene…** (⌘J) finds a scene by name.
+- **Jump to Scene…** (⌘J) finds a scene by name: a list opens, type to filter, arrows and Return choose, Esc closes. It works in every view; in Book and Compare the list opens under the path bar, and in Compare the side where your cursor is changes while the other stays. From the other views it opens at the top of the window and takes you to the scene in the text. A link to a scene from a card view lands on the side of Compare you were last in.
 - **Back** (⌘[) and **Forward** (⌘]) in the View menu go back and forward between the views you have been in, as in a browser. Every change of the view counts, whether you followed a link (for example from a place to a scene), pressed ⌘1–⌘0 or Esc. Back returns to the same card (the character, place, event, document or section you had chosen) and, in the writing views, to the same scene and cursor. A new change of the view drops the way forward. The status bar shows the trail at its right end, as `Characters ‹ ● › Events`: the view Back would go to, a dot for the view you are in, and the view Forward would go to.
 
 Dragging the borders between panels changes their sizes; Quilland remembers them.
