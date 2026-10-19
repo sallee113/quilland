@@ -993,6 +993,7 @@
     "Take snapshots by themselves while something changes": "Делать снимки самостоятельно, пока что-то меняется",
     "Take the File Off": "Убрать файл",
     "Takes away the line and the point of view of the chosen scene. A scene whose text names the character stays in the list.": "Убирает строку и точку зрения для выбранной сцены. Сцена, в тексте которой назван персонаж, остаётся в списке.",
+    "Takes away the line of the chosen scene. A scene whose text names the place stays in the list.": "Убирает строку выбранной сцены. Сцена, в тексте которой названо место, остаётся в списке.",
     "Takes the typography findings; spelling is always accepted one by one.": "Принимает замечания по типографике; орфография принимается только по одному.",
     "Target": "Цель",
     "Target size": "Желаемый объём",

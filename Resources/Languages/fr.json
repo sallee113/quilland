@@ -893,6 +893,7 @@
     "Take snapshots by themselves while something changes": "Prendre des instantanés automatiquement pendant que quelque chose change",
     "Take the File Off": "Retirer le fichier",
     "Takes away the line and the point of view of the chosen scene. A scene whose text names the character stays in the list.": "Retire la ligne et le point de vue de la scène choisie. Une scène dont le texte nomme le personnage reste dans la liste.",
+    "Takes away the line of the chosen scene. A scene whose text names the place stays in the list.": "Retire la ligne de la scène choisie. Une scène dont le texte nomme le lieu reste dans la liste.",
     "Takes the typography findings; spelling is always accepted one by one.": "Prend les résultats de typographie ; l’orthographe est toujours acceptée un par un.",
     "Target": "Objectif",
     "Target size": "Taille visée",

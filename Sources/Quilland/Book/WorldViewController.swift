@@ -51,6 +51,9 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private var sceneScroll = NSScrollView()
     private let countLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton(title: L("Delete…"), target: nil, action: nil)
+    private let addSceneButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let removeSceneButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
+    private let sceneButtons = NSStackView()
     private let mergeButton = NSButton(title: L("Merge Into…"), target: nil, action: nil)
     private let convertButton = NSButton(title: L("Turn Into a World…"), target: nil, action: nil)
     private var dirty: Set<String> = []
@@ -183,9 +186,15 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         convertButton.bezelStyle = .rounded
         let cardButtons = NSStackView(views: [mergeButton, convertButton, deleteButton])
         cardButtons.spacing = 10
+        addSceneButton.controlSize = .small
+        removeSceneButton.target = self; removeSceneButton.action = #selector(removeSceneLinkPressed)
+        removeSceneButton.controlSize = .small; removeSceneButton.bezelStyle = .rounded
+        removeSceneButton.toolTip = L("Takes away the line of the chosen scene. A scene whose text names the place stays in the list.")
+        sceneButtons.setViews([addSceneButton, removeSceneButton], in: .leading)
+        sceneButtons.spacing = 8
 
         let descBox = box(descriptionView, height: 150), notesBox = box(notesView, height: 80)
-        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, cardButtons] {
+        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
             card.addArrangedSubview(v)
         }
         card.orientation = .vertical; card.alignment = .leading; card.spacing = 8
@@ -437,7 +446,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             countLabel.isHidden = false
             setText(descriptionView, store.text(id))
             setText(notesView, w.notes.joined(separator: "\n"))
-            sceneScroll.isHidden = true; scenesCaption.isHidden = true
+            sceneScroll.isHidden = true; scenesCaption.isHidden = true; sceneButtons.isHidden = true
             rows = []
             deleteButton.title = L("Delete World…")
             convertButton.title = L("Turn Into a Place…")
@@ -452,8 +461,9 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             countLabel.isHidden = true
             setText(descriptionView, store.text(id))
             setText(notesView, e.notes.joined(separator: "\n"))
-            sceneScroll.isHidden = false; scenesCaption.isHidden = false
+            sceneScroll.isHidden = false; scenesCaption.isHidden = false; sceneButtons.isHidden = false
             rebuildRows(for: e)
+            rebuildAddSceneMenu()
             deleteButton.title = L("Delete Place…")
             convertButton.title = L("Turn Into a World…")
             mergeButton.isEnabled = store.entries.count > 1
@@ -478,6 +488,46 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         }
         sceneTable.reloadData()
     }
+
+    // MARK: Adding a scene
+
+    /// The "Add a Scene…" menu: the scenes that are not in the list yet, in the order of the book.
+    private func rebuildAddSceneMenu() {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: L("Add a Scene…"), action: nil, keyEquivalent: ""))
+        let shown = Set(rows.map(\.sceneID))
+        let free = scenes().filter { !shown.contains($0.id) }
+        if free.isEmpty {
+            let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            menu.addItem(none)
+        }
+        for s in free { menu.addItem(ClosureMenuItem(title: s.title) { [weak self] in self?.addScene(s.id) }) }
+        addSceneButton.menu = menu
+    }
+
+    /// Links the place to a scene where its name is not written: the line is empty and the cursor goes to it.
+    func addScene(_ scene: String) {
+        updateSelected(entry: { r in var links = r.links; if links[scene] == nil { links[scene] = "" }; r.links = links })
+        guard let row = rows.firstIndex(where: { $0.sceneID == scene }),
+              let column = sceneTable.tableColumns.firstIndex(where: { $0.identifier.rawValue == "text" }) else { return }
+        sceneTable.scrollRowToVisible(row)
+        sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        sceneTable.editColumn(column, row: row, with: nil, select: false)
+    }
+
+    /// Takes away the line of the scene of this row.
+    func removeSceneLink(row: Int) {
+        guard rows.indices.contains(row) else { return }
+        let scene = rows[row].sceneID
+        updateSelected(entry: { r in var links = r.links; links.removeValue(forKey: scene); r.links = links })
+    }
+
+    @objc private func removeSceneLinkPressed() { removeSceneLink(row: sceneTable.selectedRow) }
+
+    /// For the checks: the scenes in the card's list, and the ones the "Add a Scene…" menu offers.
+    var sceneRowIDs: [String] { rows.map(\.sceneID) }
+    var addableScenes: [String] { (addSceneButton.menu?.items.dropFirst() ?? []).compactMap { $0 is ClosureMenuItem ? $0.title : nil } }
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
 

@@ -49,6 +49,16 @@ extension AppSelfTest {
         check(wv.rows.count == 1 && wv.rows[0].mentions == 1, "the card lists the scenes where the name is", "\(wv.rows)")
         wv.setSceneLine(row: 0, "Первая ночь Анны.")
         check(main.worlds.entry(frankfurt)?.links[sc[0].id] == "Первая ночь Анны.", "and what happens there is saved")
+        // A scene can be linked by hand, where the name is not written, and unlinked again.
+        let other = sc[1].id
+        let otherTitle = main.session.structure.sceneChoices.first { $0.id == other }!.title
+        check(!wv.sceneRowIDs.contains(other) && wv.addableScenes.contains(otherTitle), "a scene without the place is offered by Add a Scene…", "\(wv.addableScenes)")
+        wv.addScene(other)
+        check(main.worlds.entry(frankfurt)?.links[other] == "" && wv.sceneRowIDs.contains(other) && !wv.addableScenes.contains(otherTitle), "adding a scene links it with an empty line, and it leaves the menu")
+        wv.setSceneLine(row: wv.sceneRowIDs.firstIndex(of: other)!, "Пересадка.")
+        check(main.worlds.entry(frankfurt)?.links[other] == "Пересадка.", "and the line for it can be typed")
+        wv.removeSceneLink(row: wv.sceneRowIDs.firstIndex(of: other)!)
+        check(main.worlds.entry(frankfurt)?.links[other] == nil && !wv.sceneRowIDs.contains(other) && main.worlds.entry(frankfurt)?.links[sc[0].id] == "Первая ночь Анны.", "Remove Link takes only that scene away")
         wv.descriptionView.string = "Большой город на реке."
         wv.textDidChange(Notification(name: NSText.didChangeNotification, object: wv.descriptionView))
         wv.commitEdits()
