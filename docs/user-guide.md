@@ -115,7 +115,7 @@ Each section also has a **synopsis** and a **note**, edited in the *Section* tab
 
 These views keep cards: a name, aliases, a description, notes and fields of the kind. Quilland knows the names and aliases, so the right panel shows which characters and places appear in the scene you are writing.
 
-- **Characters** (⌘6): the list on the left, the card on the right. A character has a list of scenes where they appear and a list of relationships.
+- **Characters** (⌘6): the list on the left, the card on the right. A character has a list of scenes where they appear and a list of relationships. The list holds the scenes that name the character, the ones where they are the point of view, and the ones you add by hand with *Add a Scene…* (for a scene where the name is not written); type what the character does there, and *Remove Link* takes the line and the point of view away again.
 - **Relationships** link two characters (for example "sister", "enemy") and can be opened as their own card.
 - **World** (⌘7): worlds and places as a tree, with a card for each.
 - **Events** (⌘8): things that happen in the story, with the scenes and characters they belong to.

@@ -117,7 +117,7 @@ Chaque section a aussi un **synopsis** et une **note**, modifiables dans l’ong
 
 Ces vues conservent des fiches : un nom, des alias, une description, des notes et les champs du type. Quilland connaît les noms et les alias ; le panneau de droite montre donc quels personnages et quels lieux apparaissent dans la scène que vous écrivez.
 
-- **Personnages** (⌘6) : la liste à gauche, la fiche à droite. Un personnage a une liste de scènes où il apparaît et une liste de relations.
+- **Personnages** (⌘6) : la liste à gauche, la fiche à droite. Un personnage a une liste de scènes où il apparaît et une liste de relations. La liste contient les scènes qui nomment le personnage, celles dont il est le point de vue, et celles que vous ajoutez à la main avec *Ajouter une scène…* (pour une scène où le nom n’est pas écrit) ; saisissez ce que fait le personnage, et *Supprimer le lien* enlève la ligne et le point de vue.
 - **Les relations** relient deux personnages (par exemple « sœur », « ennemi ») et peuvent s’ouvrir comme une fiche à part.
 - **Monde** (⌘7) : mondes et lieux sous forme d’arbre, avec une fiche pour chacun.
 - **Événements** (⌘8) : ce qui se passe dans l’histoire, avec les scènes et les personnages concernés.

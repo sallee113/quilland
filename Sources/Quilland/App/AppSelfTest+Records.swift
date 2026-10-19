@@ -22,6 +22,16 @@ extension AppSelfTest {
         cv.aliasField.stringValue = "Петя, Петруша"
         cv.controlTextDidEndEditing(Notification(name: NSControl.textDidEndEditingNotification, object: cv.aliasField))
         check(main.characters.character(petr)?.aliases == ["Петя", "Петруша"], "other names are split at commas")
+        // A scene can be linked by hand, where the name is not written, and unlinked again.
+        let spare = sc[1].id
+        let spareTitle = main.session.structure.sceneChoices.first { $0.id == spare }!.title
+        check(!cv.sceneRowIDs.contains(spare) && cv.addableScenes.contains(spareTitle), "a scene without the character is offered by Add a Scene…", "\(cv.addableScenes)")
+        cv.addScene(spare)
+        check(main.characters.character(petr)?.links[spare] == "" && cv.sceneRowIDs.contains(spare) && !cv.addableScenes.contains(spareTitle), "adding a scene links it with an empty line, and it leaves the menu")
+        cv.setSceneLine(row: cv.sceneRowIDs.firstIndex(of: spare)!, "ждёт на перроне")
+        check(main.characters.character(petr)?.links[spare] == "ждёт на перроне", "and the line for it can be typed")
+        cv.removeSceneLink(row: cv.sceneRowIDs.firstIndex(of: spare)!)
+        check(main.characters.character(petr)?.links[spare] == nil && !cv.sceneRowIDs.contains(spare), "Remove Link takes the scene away again")
         cv.mainBox.performClick(nil)
         check(main.characters.character(petr)?.main == true && cv.shownNames.first == "Пётр", "a main character goes to the top of the list")
         cv.nameField.stringValue = "Пётр Иванович"
