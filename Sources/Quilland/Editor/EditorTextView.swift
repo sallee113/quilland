@@ -31,6 +31,18 @@ final class EditorTextView: NSTextView {
         NSSpellChecker.shared.setIgnoredWords(words, inSpellDocumentWithTag: spellCheckerDocumentTag)
     }
 
+    /// How many times the whole text was checked again after the dictionary changed (for the checks).
+    private(set) var spellRechecks = 0
+
+    /// A word was added to the dictionary: the underlines already drawn are not taken back by the checker by itself, so the check is made again from the start.
+    func recheckSpelling() {
+        guard isContinuousSpellCheckingEnabled else { return }
+        spellRechecks += 1
+        isContinuousSpellCheckingEnabled = false
+        isContinuousSpellCheckingEnabled = true
+        checkTextInDocument(nil)
+    }
+
     /// The typing corrections: a typed quote, dash or dot may be replaced by what the author's rules say (one undo step takes it back).
     override func insertText(_ string: Any, replacementRange: NSRange) {
         if hasGhost { discardGhost() }

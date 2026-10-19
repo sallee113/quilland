@@ -179,7 +179,12 @@ extension AppSelfTest {
             typer.setSelectedRange((typer.string as NSString).range(of: "Сосновце-на-Реке"))
             if let item = learnMenu.items.first, let target = item.target as? NSObject, let action = item.action { _ = target.perform(action, with: item) }
             check(BookDictionary.load(book: stFolder).contains("сосновце-на-реке") && bs.words.contains("сосновце-на-реке"), "Learn Spelling in the text adds the word to the book's dictionary, and Book Settings lists it", "\(BookDictionary.load(book: stFolder))")
+            let before = typer.spellRechecks
+            typer.isContinuousSpellCheckingEnabled = true
             stMain.addToDictionary("добавленное")
+            check(typer.spellRechecks == before + 1 && typer.isContinuousSpellCheckingEnabled, "a word added to the dictionary makes the text checked again, so its underline goes", "\(typer.spellRechecks) \(before)")
+            stMain.addToDictionary("добавленное")
+            check(typer.spellRechecks == before + 1, "and adding the same word again does not")
             bs.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification))
             check(bs.words.contains("добавленное"), "a word added elsewhere shows when the window is looked at again")
             bs.removeWord("добавленное"); bs.removeWord("сосновце-на-реке")

@@ -231,7 +231,11 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
 
     /// The words of the book's dictionary: the spell checker accepts them in every view of this text.
     var dictionaryWords: [String] = [] {
-        didSet { for v in views.allObjects { v.setIgnoredWords(dictionaryWords) } }
+        didSet {
+            for v in views.allObjects { v.setIgnoredWords(dictionaryWords) }
+            // A word that is new to the dictionary is still underlined where it stands until the text is checked again.
+            if dictionaryWords != oldValue { for v in views.allObjects { v.recheckSpelling() } }
+        }
     }
 
     /// A setting changed: the views take it, and the text is drawn again with the font and spacing now chosen.
