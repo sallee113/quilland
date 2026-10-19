@@ -277,6 +277,7 @@
     "Add your first character": "Ajoutez votre premier personnage",
     "Add your first event": "Ajoutez votre premier événement",
     "Add your first research document": "Ajoutez votre premier document",
+    "Add “{word}” to the Dictionary": "Ajouter « {word} » au dictionnaire",
     "Added after this snapshot. The text now:": "Ajouté après cet instantané. Le texte actuel :",
     "Add…": "Ajouter…",
     "After a short word (в, и, на, не…) the space becomes a non-breaking one, so that the word is never left alone at the end of a line. The change cannot be seen in the text.": "Après un mot court (в, и, на, не…), l’espace devient insécable pour que le mot ne reste jamais seul en fin de ligne. Le changement ne se voit pas dans le texte.",

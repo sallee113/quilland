@@ -86,7 +86,7 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 
 **Typing corrections.** For Russian, English and French (French books get « » quotes), Quilland can replace typed characters as you write: quotes, dashes in dialogue, and so on. The ellipsis is left as three dots. You can switch each correction in *Settings ▸ Writing*.
 
-**Spelling.** The system spell checker underlines mistakes. Right-click a word to see the corrections. *Add to Dictionary* in the proofreading panel teaches a word to the book only.
+**Spelling.** The system spell checker underlines mistakes. Right-click a word to see the corrections. *Add to Dictionary* in the proofreading panel teaches a word to the book only, and so does *Learn Spelling* in the right-click menu of a word. The words are listed (and can be removed) in *Book Settings ▸ Dictionary* and kept in `dictionary.json`. Words that an earlier version of Quilland taught to the system itself (through *Learn Spelling*) are in the system's own dictionary, which macOS does not let an application read: add them here again if you want them to travel with the book.
 
 **The right-click menu** is short: Cut, Copy, Paste, Paste and Match Style, Spelling and Grammar, and the AI submenu. The rest of the system's text menu (fonts, substitutions, speech and so on) is left out on purpose.
 

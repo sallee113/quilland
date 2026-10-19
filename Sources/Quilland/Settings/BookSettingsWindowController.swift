@@ -46,7 +46,15 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
     func show() { window.makeKeyAndOrderFront(nil) }
     func windowWillClose(_ notification: Notification) { onClose?() }
     /// The book goes on growing while this window is open: coming back to it shows the size now.
-    func windowDidBecomeKey(_ notification: Notification) { showValues() }
+    func windowDidBecomeKey(_ notification: Notification) { reloadWords(); showValues() }
+
+    /// Words may have been added from the text or the proofreading panel while this window was open.
+    func reloadWords() {
+        let fresh = BookDictionary.load(book: folder)
+        guard fresh != words else { return }
+        words = fresh
+        showValues()
+    }
 
     // MARK: Building
 

@@ -221,6 +221,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         controller.show()
     }
 
+    /// "Learn Spelling" in a text: the word goes into the dictionary of the book whose window it was asked in.
+    func learnWord(_ word: String, from window: NSWindow?) {
+        guard let book = bookWindows.first(where: { $0.window === window }) ?? keyBook else { return }
+        book.main.addToDictionary(word)
+        bookSettingsController(for: book.folder)?.reloadWords()
+    }
+
     @objc func showBookSettings() {
         guard let book = keyBook else { return }
         let key = book.folder.standardizedFileURL.path

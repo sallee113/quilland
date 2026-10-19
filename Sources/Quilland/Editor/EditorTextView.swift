@@ -52,6 +52,66 @@ final class EditorTextView: NSTextView {
     /// Esc: the owner may use it (Focus Mode is left with it); return true when it did.
     var onEscape: (() -> Bool)?
 
+    /// Where the menu was asked for: "Learn Spelling" teaches the word that is there.
+    private var contextIndex: Int?
+
+    /// The word "Learn Spelling" is about: the selection, or the word under the pointer when the menu was opened.
+    func wordToLearn() -> String? {
+        let ns = string as NSString
+        var range = selectedRange()
+        if range.length == 0, let i = contextIndex, i <= ns.length, let storage = textStorage, storage.length > 0 {
+            range = storage.doubleClick(at: min(i, ns.length - 1))
+        }
+        guard range.length > 0, NSMaxRange(range) <= ns.length else { return nil }
+        let word = ns.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        return word.isEmpty || word.contains(" ") ? nil : word
+    }
+
+    /// The system's "Learn Spelling" item would teach the whole system (and its action may not even come to this view): it is pointed at this view's own.
+    @discardableResult
+    func rewireLearn(_ menu: NSMenu) -> Bool {
+        var found = false
+        var learnItems: [NSMenuItem] = []
+        for item in menu.items {
+            if item.identifier == Self.addWordItem { found = true }
+            // The system's item is `_learnSpellingFromMenu:` (its title is in the system's language, so the action is what tells it).
+            let name = item.action.map(NSStringFromSelector) ?? ""
+            if name.localizedCaseInsensitiveContains("learn") || item.title == "Learn Spelling" || item.title == L("Learn Spelling") {
+                learnItems.append(item)
+            }
+            if let sub = item.submenu, rewireLearn(sub) { found = true }
+        }
+        for item in learnItems {
+            item.target = self
+            item.action = #selector(learnSpelling(_:))
+            item.isEnabled = wordToLearn() != nil
+            found = true
+        }
+        // One is enough: the system may offer two (the word and the spelling) and both come here.
+        for extra in learnItems.dropFirst() { menu.removeItem(extra) }
+        // The system did not offer it (or it is not found): the menu gets an item of its own for a misspelled word.
+        if !found, menu === topMenu, let word = wordToLearn(), NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: document?.language ?? documentLanguage(), wrap: false, inSpellDocumentWithTag: spellCheckerDocumentTag, wordCount: nil).location != NSNotFound,
+           !(document?.dictionaryWords.contains(word.lowercased()) ?? false) {
+            let item = NSMenuItem(title: L("Add “{word}” to the Dictionary", ["word": word]), action: #selector(learnSpelling(_:)), keyEquivalent: "")
+            item.target = self
+            item.identifier = Self.addWordItem
+            let at = menu.items.firstIndex { $0.isSeparatorItem } ?? menu.items.count
+            menu.insertItem(item, at: at)
+            found = true
+        }
+        return found
+    }
+
+    private static let addWordItem = NSUserInterfaceItemIdentifier("quilland.addWord")
+    /// The menu that is being shown (the top of the tree that `rewireLearn` walks).
+    weak var topMenu: NSMenu?
+
+    /// The menu's "Learn Spelling" teaches the word to this book (its dictionary, which Book Settings shows and Git keeps), not to the whole system.
+    @objc func learnSpelling(_ sender: Any?) {
+        guard let word = wordToLearn() else { return }
+        (NSApp.delegate as? AppDelegate)?.learnWord(word, from: window)
+    }
+
     /// The usual menu, and under it what the model can do here.
     override func menu(for event: NSEvent) -> NSMenu? {
         // A Control-click comes here without passing the mouse handlers, and the system would show its own menu: ours is shown instead.
@@ -63,6 +123,7 @@ final class EditorTextView: NSTextView {
     }
 
     private func makeMenu(for event: NSEvent) -> NSMenu? {
+        contextIndex = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
         let menu = super.menu(for: event) ?? NSMenu()
         guard AIService.shared.isEnabled, let delegate = NSApp.delegate as? AppDelegate else { return menu }
         menu.addItem(.separator())
@@ -135,9 +196,11 @@ final class EditorTextView: NSTextView {
 
     /// The system adds some of its items (AutoFill, Services) after the menu is handed over, so the menu is trimmed again as it opens.
     private final class MenuTrimmer: NSObject, NSMenuDelegate {
+        weak var view: EditorTextView?
         func menuWillOpen(_ menu: NSMenu) {
             EditorTextView.trim(menu)
-            DispatchQueue.main.async { EditorTextView.trim(menu) }
+            view?.rewireLearn(menu)
+            DispatchQueue.main.async { [weak self] in EditorTextView.trim(menu); self?.view?.rewireLearn(menu) }
         }
     }
     private static let trimmer = MenuTrimmer()
@@ -145,6 +208,9 @@ final class EditorTextView: NSTextView {
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
         Self.trim(menu)
+        topMenu = menu
+        rewireLearn(menu)
+        Self.trimmer.view = self
         menu.delegate = Self.trimmer
     }
 
@@ -157,6 +223,8 @@ final class EditorTextView: NSTextView {
     private func showOwnMenu(_ event: NSEvent) {
         guard window != nil, let menu = makeMenu(for: event) else { return }
         Self.trim(menu)
+        topMenu = menu
+        rewireLearn(menu)
         guard !menu.items.isEmpty else { return }
         menu.popUp(positioning: nil, at: convert(event.locationInWindow, from: nil), in: self)
     }
