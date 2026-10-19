@@ -410,6 +410,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         add(view, L("Research"), #selector(modeResearch), "9", target: self)
         add(view, L("Reminders"), #selector(modeReminders), "0", target: self)
         view.addItem(.separator())
+        add(view, L("Back"), #selector(historyBack), "[", target: self)
+        add(view, L("Forward"), #selector(historyForward), "]", target: self)
+        view.addItem(.separator())
         add(view, L("Jump to Scene…"), #selector(jumpToScene), "j", target: self)
         add(view, L("Right Panel"), #selector(toggleRightPanel), "r", [.command, .option], target: self)
         add(view, L("Focus Mode"), #selector(toggleFocusMode), "\r", [.command, .control], target: self)
@@ -529,6 +532,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func findNextAction() { keyBook?.main.searchStep(1) }
     @objc func findPreviousAction() { keyBook?.main.searchStep(-1) }
     @objc func modeEvents() { keyBook?.main.setMode(.events); keyBook?.refreshStatus() }
+    @objc func historyBack() { keyBook?.main.goBack(); keyBook?.refreshStatus() }
+    @objc func historyForward() { keyBook?.main.goForward(); keyBook?.refreshStatus() }
     @objc func modeReminders() { keyBook?.main.setMode(.reminders); keyBook?.refreshStatus() }
     @objc func modeResearch() { keyBook?.main.setMode(.research); keyBook?.refreshStatus() }
     @objc func modeWorld() { keyBook?.main.setMode(.world); keyBook?.refreshStatus() }
@@ -563,6 +568,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(showBookSettings) { return keyBook != nil }
+        if item.action == #selector(historyBack) { return keyBook?.main.canGoBack ?? false }
+        if item.action == #selector(historyForward) { return keyBook?.main.canGoForward ?? false }
         // The view in use and the right panel are ticked.
         let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeCompare), .compare), (#selector(modeOutline), .outline),
                                                             (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events), (#selector(modeResearch), .research), (#selector(modeReminders), .reminders)]

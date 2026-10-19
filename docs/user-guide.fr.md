@@ -67,6 +67,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 - **Le mode concentration** (⌃⌘↩, dans la vue Livre) masque tout sauf le texte et garde la ligne que vous tapez au milieu de l’écran.
 - **Le défilement machine à écrire** (⌥⌘T) fait de même dans les vues ordinaires.
 - **Aller à la scène…** (⌘J) trouve une scène par son nom.
+- **Précédent** (⌘[) et **Suivant** (⌘]) du menu Présentation reviennent aux vues où vous êtes passé et avancent de nouveau, comme dans un navigateur. Chaque changement de vue compte, que vous ayez suivi un lien (par exemple d’un lieu vers une scène), appuyé sur ⌘1–⌘0 ou sur Échap. Précédent revient à la même fiche (le personnage, le lieu, l’événement, le document ou la section choisis) et, dans les vues d’écriture, à la même scène et au même curseur. Un nouveau changement de vue supprime le chemin vers l’avant.
 
 Faire glisser les bordures entre les panneaux change leur taille ; Quilland s’en souvient.
 
@@ -242,6 +243,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | ⌘1 ⌘2 ⌘3 | Panneaux, Livre, Comparer |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation, Rappels |
 | ⌘J | Aller à la scène |
+| ⌘[ ⌘] | Précédent, Suivant entre les vues |
 | ⌥⌘R | Afficher ou masquer le panneau de droite |
 | ⌃⌘↩ | Mode concentration |
 | ⌥⌘T | Défilement machine à écrire |

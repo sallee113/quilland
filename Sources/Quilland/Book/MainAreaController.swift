@@ -53,6 +53,10 @@ final class MainAreaController: NSViewController {
     /// After a rebuild the text takes the focus, except when the author was working in the tree.
     var focusTextAfterRebuild = true
     var pendingTreeSelection: String?
+    /// Back and Forward between views (`+History`).
+    var backPlaces: [ViewPlace] = []
+    var forwardPlaces: [ViewPlace] = []
+    var isNavigatingHistory = false
     /// An interrupted move was finished when the book was opened (the banner says so once the view is there).
     private(set) var finishedInterruptedMove = false
     private var day: LocalBookState
@@ -198,6 +202,7 @@ final class MainAreaController: NSViewController {
     func setMode(_ new: Mode) {
         guard new != mode else { return }
         if focusMode { setFocusMode(false) }
+        recordViewChange()
         remember()
         if [.panels, .book, .compare].contains(mode) { writingMode = mode }
         mode = new

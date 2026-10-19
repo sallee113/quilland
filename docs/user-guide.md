@@ -65,6 +65,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 - **Focus Mode** (⌃⌘↩, in Book view) hides everything but the text and keeps the line you are typing in the middle of the screen.
 - **Typewriter Scrolling** (⌥⌘T) does the same in the ordinary views.
 - **Jump to Scene…** (⌘J) finds a scene by name.
+- **Back** (⌘[) and **Forward** (⌘]) in the View menu go back and forward between the views you have been in, as in a browser. Every change of the view counts, whether you followed a link (for example from a place to a scene), pressed ⌘1–⌘0 or Esc. Back returns to the same card (the character, place, event, document or section you had chosen) and, in the writing views, to the same scene and cursor. A new change of the view drops the way forward.
 
 Dragging the borders between panels changes their sizes; Quilland remembers them.
 
@@ -240,6 +241,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | ⌘1 ⌘2 ⌘3 | Panels, Book, Compare |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Outline, Plan, Characters, World, Events, Research, Reminders |
 | ⌘J | Jump to Scene |
+| ⌘[ ⌘] | Back, Forward between views |
 | ⌥⌘R | Show or hide the right panel |
 | ⌃⌘↩ | Focus Mode |
 | ⌥⌘T | Typewriter Scrolling |

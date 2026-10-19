@@ -92,6 +92,7 @@ My Book/
   - `MainAreaController.swift`: state, modes, `rebuild()` and one builder per mode, saving.
   - `+Structure`, `+Undo`: every change to the structure goes through `restructure(...)` (a snapshot before and after, the stores reloaded, the views rebuilt); Undo and Redo restore those snapshots.
   - `+Records`, `+Outline`, `+SectionState`: merges and conversions of records, the Outline's data, what the Section menu can do now.
+  - `+History`: Back and Forward between views (the view and the card or scene chosen in it, kept at each change of the view).
   - `+Search`, `+Proofreading`, `+Chat`, `+Continue`, `+Synopsis`: the bottom panel and the AI commands.
 - `BookSession` holds one `SceneDocument` per scene, however many views show it. `SceneDocument` keeps the text styled, saves it shortly after the last key, keeps another program's version of the file in the trash before overwriting it, and reports a failed save.
 
