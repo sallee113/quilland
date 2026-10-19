@@ -124,6 +124,49 @@ final class EditorTextView: NSTextView {
         (NSApp.delegate as? AppDelegate)?.learnWord(word, from: window)
     }
 
+    // MARK: Names found in the text
+
+    /// The book this view is in (its window's).
+    private var main: MainAreaController? { (NSApp.delegate as? AppDelegate)?.bookMain(for: window) }
+
+    /// With a few words selected that are not yet a name of anything: make a character or a place of them, or add them as another name of a card.
+    func recordItems() -> [NSMenuItem] {
+        guard let main, let scene = document?.id, selectedRange().length > 0,
+              let name = MainAreaController.nameFromSelection((string as NSString).substring(with: selectedRange())) else { return [] }
+        let isCharacter = !SceneMembers.named(entries: main.characters.entries, in: name).isEmpty
+        let isPlace = !SceneMembers.named(entries: main.worlds.nameEntries, in: name).isEmpty
+        var items: [NSMenuItem] = []
+        func item(_ title: String, _ run: @escaping () -> Void) -> NSMenuItem {
+            let i = ClosureMenuItem(title: title, action: run)
+            i.identifier = Self.recordMenuItem
+            return i
+        }
+        if !isCharacter { items.append(item(L("Make a Character from “{name}”", ["name": name])) { [weak main] in main?.makeCharacter(named: name, linkedTo: scene) }) }
+        if !isPlace { items.append(item(L("Make a Place from “{name}”", ["name": name])) { [weak main] in main?.makePlace(named: name, linkedTo: scene) }) }
+        if !isCharacter && !isPlace {
+            let parent = NSMenuItem(title: L("Add “{name}” as a Name of", ["name": name]), action: nil, keyEquivalent: "")
+            parent.identifier = Self.recordMenuItem
+            let sub = NSMenu()
+            let who = NSMenuItem(title: L("Character"), action: nil, keyEquivalent: ""), whoMenu = NSMenu()
+            for c in main.characters.characters { if let id = c.id { whoMenu.addItem(ClosureMenuItem(title: c.name ?? "") { [weak main] in main?.addName(name, toCharacter: id) }) } }
+            who.submenu = whoMenu; who.isEnabled = whoMenu.items.isEmpty == false
+            let where_ = NSMenuItem(title: L("Place"), action: nil, keyEquivalent: ""), whereMenu = NSMenu()
+            for p in main.worlds.entries { if let id = p.id { whereMenu.addItem(ClosureMenuItem(title: main.worlds.path(of: id).dropFirst().joined(separator: " › ")) { [weak main] in main?.addName(name, toPlace: id) }) } }
+            where_.submenu = whereMenu; where_.isEnabled = whereMenu.items.isEmpty == false
+            sub.addItem(who); sub.addItem(where_)
+            parent.submenu = sub
+            items.append(parent)
+        }
+        return items
+    }
+
+    private func addRecordItems(to menu: NSMenu) {
+        let items = recordItems()
+        guard !items.isEmpty else { return }
+        menu.addItem(.separator())
+        for i in items { menu.addItem(i) }
+    }
+
     /// The usual menu, and under it what the model can do here.
     override func menu(for event: NSEvent) -> NSMenu? {
         // A Control-click comes here without passing the mouse handlers, and the system would show its own menu: ours is shown instead.
@@ -137,6 +180,7 @@ final class EditorTextView: NSTextView {
     private func makeMenu(for event: NSEvent) -> NSMenu? {
         contextIndex = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
         let menu = super.menu(for: event) ?? NSMenu()
+        addRecordItems(to: menu)
         guard AIService.shared.isEnabled, let delegate = NSApp.delegate as? AppDelegate else { return menu }
         menu.addItem(.separator())
         let ai = NSMenuItem(title: L("AI"), action: nil, keyEquivalent: "")
@@ -158,11 +202,12 @@ final class EditorTextView: NSTextView {
     }
 
     static let aiMenuItem = NSUserInterfaceItemIdentifier("quilland.ai")
+    static let recordMenuItem = NSUserInterfaceItemIdentifier("quilland.record")
 
     /// What stays of the system's menu: editing, the spelling (its suggestions and its submenu) and our own AI. Fonts, substitutions, speech,
     /// layout, translation, sharing, web search, services and the like have no use in a book (the text's look comes from Markdown).
     static func keeps(_ item: NSMenuItem) -> Bool {
-        if item.isSeparatorItem || item.identifier == aiMenuItem { return true }
+        if item.isSeparatorItem || item.identifier == aiMenuItem || item.identifier == recordMenuItem { return true }
         if item.submenu?.items.first?.identifier?.rawValue == "__NSTextViewContextSubmenuIdentifierSpellingAndGrammar" || item.identifier?.rawValue == "__NSTextViewContextSubmenuIdentifierSpellingAndGrammar" { return true }
         guard let action = item.action else { return false }
         let name = NSStringFromSelector(action)

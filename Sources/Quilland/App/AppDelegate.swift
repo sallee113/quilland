@@ -221,6 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         controller.show()
     }
 
+    /// The book whose window this is.
+    func bookMain(for window: NSWindow?) -> MainAreaController? { (bookWindows.first { $0.window === window } ?? keyBook)?.main }
+
     /// "Learn Spelling" in a text: the word goes into the dictionary of the book whose window it was asked in.
     func learnWord(_ word: String, from window: NSWindow?) {
         guard let book = bookWindows.first(where: { $0.window === window }) ?? keyBook else { return }

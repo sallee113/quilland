@@ -6,6 +6,8 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
     let allBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     let table = Hover.rows(NSTableView())
     let openButton = NSButton(title: "", target: nil, action: nil)
+    let sceneLinkButton = NSButton(title: "", target: nil, action: nil)
+    private var sceneLinkRun: (() -> Void)?
     let heading = NSTextField(labelWithString: "")
     let detail = NSTextField(wrappingLabelWithString: "")
     let notes = NSTextView()
@@ -55,12 +57,15 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         notesScroll.borderType = .bezelBorder
         notesScroll.translatesAutoresizingMaskIntoConstraints = false
         notesScroll.heightAnchor.constraint(equalToConstant: 110).isActive = true
+        sceneLinkButton.bezelStyle = .rounded; sceneLinkButton.controlSize = .small
+        sceneLinkButton.target = self; sceneLinkButton.action = #selector(sceneLinkPressed)
+        sceneLinkButton.isHidden = true
         let row = NSStackView(views: [allBox, openButton])
         row.distribution = .equalSpacing
         let caption = NSTextField(labelWithString: L("Notes"))
         caption.font = .systemFont(ofSize: 11, weight: .semibold)
         caption.textColor = .secondaryLabelColor
-        stack.setViews([row, scroll, heading, detail, caption, notesScroll], in: .leading)
+        stack.setViews([row, scroll, sceneLinkButton, heading, detail, caption, notesScroll], in: .leading)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
@@ -80,6 +85,8 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
     func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] { [] }
     func card(for id: String) -> (title: String, detail: String, notes: String)? { nil }
     func saveNotes(_ text: String, for id: String) {}
+    /// For a subclass: a button that links the chosen row to the scene, or takes the link away (nil: none for this row).
+    func sceneLink(for id: String, scene: String) -> (title: String, run: () -> Void)? { nil }
 
     func refresh(scene: String?) {
         shownScene = scene
@@ -122,8 +129,29 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         let text = card?.notes ?? ""
         if notes.string != text { notes.string = text }
         notes.undoManager?.removeAllActions()
+        updateSceneLink()
         cardShown()
     }
+
+    private func updateSceneLink() {
+        if let id = selectedID, let scene = shownScene, let link = sceneLink(for: id, scene: scene) {
+            sceneLinkButton.title = link.title
+            sceneLinkRun = link.run
+            sceneLinkButton.isHidden = false
+        } else {
+            sceneLinkRun = nil
+            sceneLinkButton.isHidden = true
+        }
+    }
+
+    @objc private func sceneLinkPressed() {
+        sceneLinkRun?()
+        refresh(scene: shownScene)
+        onChange?()
+    }
+
+    /// For the checks: the title of the button under the list, or nil when there is none.
+    var sceneLinkTitle: String? { sceneLinkButton.isHidden ? nil : sceneLinkButton.title }
 
     /// For a subclass: the card of the chosen row has just been filled in.
     func cardShown() {}
@@ -161,6 +189,14 @@ final class WorldTab: PanelListTab {
             shown = entries.filter { found.contains($0.id ?? "") }
         }
         return shown.compactMap { e in e.id.flatMap { id in e.name.map { (id, $0) } } }
+    }
+
+    override func sceneLink(for id: String, scene: String) -> (title: String, run: () -> Void)? {
+        guard let e = store.entry(id), !SceneMembers.named(entries: store.nameEntries, in: sceneText(scene)).contains(id) else { return nil }
+        if e.links[scene] != nil {
+            return (L("Remove from This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; l.removeValue(forKey: scene); $0.links = l } })
+        }
+        return (L("Add to This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; if l[scene] == nil { l[scene] = "" }; $0.links = l } })
     }
 
     override func card(for id: String) -> (title: String, detail: String, notes: String)? {

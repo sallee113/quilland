@@ -72,6 +72,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private let allBox = NSButton(checkboxWithTitle: L("All characters"), target: nil, action: nil)
     private let addButton = NSButton(title: L("New Character"), target: nil, action: nil)
     private let table = Hover.rows(NSTableView())
+    private let sceneLinkButton = NSButton(title: "", target: nil, action: nil)
     private let nameField = NSTextField()
     private let aliasField = NSTextField()
     private let mainBox = NSButton(checkboxWithTitle: L("Main character"), target: nil, action: nil)
@@ -216,10 +217,12 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         for f in [nameField, aliasField] { f.delegate = self; f.target = self }
         mainBox.target = self; mainBox.action = #selector(mainChanged)
         characterNotes.setAccessibilityLabel(L("Notes"))
+        sceneLinkButton.target = self; sceneLinkButton.action = #selector(sceneLinkPressed)
+        sceneLinkButton.controlSize = .small; sceneLinkButton.bezelStyle = .rounded
         let row = NSStackView(views: [allBox, addButton])
         row.orientation = .horizontal
         row.distribution = .equalSpacing
-        stack([row, scroll, label(L("Name")), nameField, label(L("Also called")), aliasField, mainBox, label(L("Notes")), boxed(characterNotes, height: 120)], in: charactersView)
+        stack([row, scroll, sceneLinkButton, label(L("Name")), nameField, label(L("Also called")), aliasField, mainBox, label(L("Notes")), boxed(characterNotes, height: 120)], in: charactersView)
         row.translatesAutoresizingMaskIntoConstraints = false
         row.widthAnchor.constraint(equalTo: charactersView.widthAnchor, constant: -20).isActive = true
     }
@@ -420,6 +423,57 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         aliasField.stringValue = record?.aliases.joined(separator: ", ") ?? ""
         mainBox.state = record?.main == true ? .on : .off
         setText(characterNotes, record?.notes.joined(separator: "\n") ?? "")
+        updateSceneLinkButton()
+    }
+
+    // MARK: Linking the chosen character to the scene by hand
+
+    /// What the button under the list does for the chosen character: the name is in the text (nothing to do), it is linked by hand (take that away),
+    /// or it is not in the scene (link it).
+    private enum SceneLinkAction { case add, remove }
+    private var sceneLinkAction: SceneLinkAction?
+
+    private func updateSceneLinkButton() {
+        sceneLinkAction = nil
+        if let scene = shownScene, let id = selectedCharacter, let c = characterStore.character(id) {
+            let byName = SceneMembers.named(entries: characterStore.entries, in: sceneText(scene)).contains(id)
+            if !byName { sceneLinkAction = (c.links[scene] != nil || c.povScenes.contains(scene)) ? .remove : .add }
+        }
+        sceneLinkButton.isHidden = sceneLinkAction == nil
+        sceneLinkButton.title = sceneLinkAction == .remove ? L("Remove from This Scene") : L("Add to This Scene")
+    }
+
+    /// For the checks: the title of the button under the list, or nil when there is none.
+    var sceneLinkTitle: String? { sceneLinkButton.isHidden ? nil : sceneLinkButton.title }
+
+    @objc private func sceneLinkPressed() {
+        guard let scene = shownScene, let id = selectedCharacter else { return }
+        switch sceneLinkAction {
+        case .add?: try? characterStore.update(id) { var l = $0.links; if l[scene] == nil { l[scene] = "" }; $0.links = l }
+        case .remove?: try? characterStore.update(id) { var l = $0.links; l.removeValue(forKey: scene); $0.links = l; $0.povScenes = $0.povScenes.filter { $0 != scene } }
+        case nil: return
+        }
+        refresh()
+        onChange?()
+    }
+
+    /// Shows the Characters tab with this character chosen.
+    func selectCharacter(_ id: String) {
+        guard visibleTabs.contains(.characters) else { return }
+        showTab(.characters)
+        // Not in the scene (yet): the whole list is shown, so that the character is in it.
+        let inScene = shownScene.map { SceneMembers.characters(inScene: $0, text: sceneText($0), store: characterStore).contains(id) } ?? false
+        allBox.state = inScene ? .off : .on
+        selectedCharacter = id
+        refresh()
+    }
+
+    /// Shows the World tab with this place chosen.
+    func selectPlace(_ id: String) {
+        guard visibleTabs.contains(.world) else { return }
+        showTab(.world)
+        worldTab.selectedID = id
+        worldTab.refresh(scene: shownScene)
     }
 
     @objc private func allChanged() { reloadCharacters() }
