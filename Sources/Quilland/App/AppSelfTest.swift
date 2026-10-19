@@ -115,6 +115,7 @@ final class AppSelfTest {
         if let code = reminders() { return code }
         if let code = history() { return code }
         if let code = newRecords() { return code }
+        if let code = compareSearch() { return code }
         if let code = structure() { return code }
         if let code = files() { return code }
         if let code = settings() { return code }

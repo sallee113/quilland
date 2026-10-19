@@ -60,7 +60,7 @@ extension MainAreaController {
         }
         switch scope {
         case .selection:
-            let area = controllers.first { $0.currentSceneID == current } ?? controllers.first
+            let area = activeArea
             if let tv = area?.currentSheet?.textView, tv.selectedRange().length > 0 {
                 return ([current], [], (current, tv.selectedRange()))
             }

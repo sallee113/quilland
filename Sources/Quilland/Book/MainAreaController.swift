@@ -155,7 +155,7 @@ final class MainAreaController: NSViewController {
     /// ⌘F opens Search, ⌥⌘F Replace; the field is focused and takes the selected word. Focus Mode ends first.
     func showSearch(_ mode: SearchPanelController.Mode) {
         if focusMode { setFocusMode(false) }
-        let selected = (controllers.first { $0.currentSceneID != nil } ?? controllers.first)?.currentSheet.flatMap { sheet -> String? in
+        let selected = activeArea?.currentSheet.flatMap { sheet -> String? in
             let r = sheet.textView.selectedRange()
             return r.length > 0 && r.length < 120 ? (sheet.textView.string as NSString).substring(with: r) : nil
         }
@@ -168,7 +168,7 @@ final class MainAreaController: NSViewController {
 
     func hideSearch() {
         bottomItem?.isCollapsed = true
-        (controllers.first { $0.currentSceneID != nil } ?? controllers.first).map { c in
+        activeArea.map { c in
             if let id = c.currentSceneID, let tv = c.currentSheet?.textView { _ = id; view.window?.makeFirstResponder(tv) }
         }
     }
@@ -751,7 +751,8 @@ final class MainAreaController: NSViewController {
         commitPendingEdits()
     }
 
-    var currentSceneID: String? { controllers.compactMap(\.currentSceneID).first }
+    /// The scene of the area the author is in (in Compare, the side with the cursor).
+    var currentSceneID: String? { activeArea?.currentSceneID ?? controllers.compactMap(\.currentSceneID).first }
     var currentDocument: SceneDocument? { currentSceneID.flatMap { session.document($0) } }
 
     /// The state to keep in `.quilland/state.json`.

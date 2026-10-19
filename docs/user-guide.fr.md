@@ -45,7 +45,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 | --- | --- | --- |
 | Panneaux | ⌘1 | La disposition classique : l’arborescence de la structure à gauche, une scène au milieu, un panneau à onglets à droite. |
 | Livre | ⌘2 | Les scènes les unes après les autres dans un seul défilement, comme le manuscrit. Un bandeau fin entre les scènes indique le titre, le statut et le nombre de caractères. Chaque scène reste son propre fichier. |
-| Comparer | ⌘3 | Deux vues Livre côte à côte, toutes deux modifiables. On peut ouvrir la même scène dans les deux : c’est un seul texte avec un seul historique d’annulation. |
+| Comparer | ⌘3 | Deux vues Livre côte à côte, toutes deux modifiables. On peut ouvrir la même scène dans les deux : c’est un seul texte avec un seul historique d’annulation. La recherche suit le côté où se trouve votre curseur : un résultat ne fait défiler que ce côté, et « Cette scène », « Chapitre » et « Partie » partent de sa scène. |
 
 **Vues en pleine fenêtre**
 

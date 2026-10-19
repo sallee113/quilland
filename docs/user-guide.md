@@ -43,7 +43,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 | --- | --- | --- |
 | Panels | ⌘1 | The classic layout: the structure tree on the left, one scene in the middle, a tabbed panel on the right. |
 | Book | ⌘2 | The scenes one after another in a single scroll, like the manuscript. A thin header between scenes shows the title, the status and the count. Each scene is still its own file. |
-| Compare | ⌘3 | Two Book views side by side, both editable. You can open the same scene in both: it is one text with one undo history. |
+| Compare | ⌘3 | Two Book views side by side, both editable. You can open the same scene in both: it is one text with one undo history. Search follows the side where your cursor is: a result scrolls only that side, and "This scene", "Chapter" and "Part" start from its scene. |
 
 **Full-window views**
 
