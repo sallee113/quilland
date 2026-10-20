@@ -211,7 +211,7 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
         view.isAutomaticDataDetectionEnabled = false
         view.smartInsertDeleteEnabled = true
         view.textContainerInset = NSSize(width: Self.sideInset, height: 30)
-        view.font = Fonts.base(size: Fonts.baseSize)
+        // Not `view.font = …`: in a rich text view that sets the font of all the text and wipes italic, bold and the sizes of headings.
         view.typingAttributes = Styler.attributes(kind: BlockKind.body)
         view.documentLanguage = { [weak self] in self?.language ?? "ru" }
         views.add(view)
@@ -245,7 +245,6 @@ final class SceneDocument: NSObject, NSTextStorageDelegate {
         Styler.style(storage, range: NSRange(location: 0, length: storage.length))
         isStyling = false
         for v in views.allObjects {
-            v.font = Fonts.base(size: Fonts.baseSize)
             v.typingAttributes = Styler.attributes(kind: BlockKind.body)
             v.needsDisplay = true
         }
