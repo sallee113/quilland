@@ -106,6 +106,12 @@
       "one": "{n} символ",
       "other": "{n} символа"
     },
+    "{n} chosen": {
+      "few": "выбрано {n}",
+      "many": "выбрано {n}",
+      "one": "выбран {n}",
+      "other": "выбрано {n}"
+    },
     "{n} contradictions found": {
       "few": "найдено {n} противоречия",
       "many": "найдено {n} противоречий",
@@ -732,6 +738,7 @@
     "New shortcut for “{action}”": "Новое сочетание для «{action}»",
     "New {kind}": "Новая {kind}",
     "Next scene": "Следующая сцена",
+    "No Color": "Без цвета",
     "No Recent Books": "Нет недавних книг",
     "No characters yet. Type a name at the bottom left.": "Персонажей пока нет. Введите имя внизу слева.",
     "No connection": "Нет связи",

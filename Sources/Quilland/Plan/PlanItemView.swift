@@ -28,6 +28,29 @@ enum PlanColors {
         default: return .systemIndigo
         }
     }
+
+    /// The colours to choose from, with their names in the interface language.
+    static var palette: [(name: String, title: String)] {
+        [("teal", L("Teal")), ("pink", L("Pink")), ("amber", L("Amber")), ("green", L("Green")), ("purple", L("Purple")), ("blue", L("Blue")), ("red", L("Red")), ("indigo", L("Indigo"))]
+    }
+
+    /// A small rounded square in the colour (an empty one for "no colour"), to put before a name in a menu. It is drawn when it is shown, so it follows light and dark.
+    static func swatch(_ name: String?) -> NSImage {
+        let image = NSImage(size: NSSize(width: 14, height: 14), flipped: false) { rect in
+            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3)
+            if let name {
+                color(name).setFill()
+                path.fill()
+            } else {
+                NSColor.tertiaryLabelColor.setStroke()
+                path.lineWidth = 1
+                path.stroke()
+            }
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
 }
 
 protocol PlanItemViewDelegate: AnyObject {
@@ -46,6 +69,8 @@ final class PlanItemView: NSView {
     /// The pointer is over it (only the upper layer reacts: it is the one that can be taken).
     private(set) var isHovered = false { didSet { if isHovered != oldValue { needsDisplay = true } } }
     weak var delegate: PlanItemViewDelegate?
+    /// The keys held at the last click (⌘ and Shift add to the chosen ones).
+    private(set) var clickModifiers: NSEvent.ModifierFlags = []
     private var dragOffset = NSPoint.zero
     private var didDrag = false
     private(set) var dragStartFrame = NSRect.zero
@@ -85,22 +110,41 @@ final class PlanItemView: NSView {
         let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
         let accent = PlanColors.color(item.colorName)
         let lit = isHovered && isTopLayer
+        // What is chosen is plain to see: a tint of its colour, a heavy outline and a check mark (a hover is only a lighter touch).
+        let chosen = isSelected && isTopLayer
+        let chosenColor = item.kind == .event && item.colorName == nil ? NSColor.controlAccentColor : accent
         if item.kind == .card {
             (isTopLayer ? NSColor.controlBackgroundColor : NSColor.controlBackgroundColor.withAlphaComponent(0.55)).setFill()
             path.fill()
+            if chosen { chosenColor.withAlphaComponent(0.2).setFill(); path.fill() }
             if lit { NSColor.labelColor.withAlphaComponent(0.09).setFill(); path.fill() }
             (isTopLayer ? accent : NSColor.tertiaryLabelColor).setStroke()
-            path.lineWidth = isSelected || lit ? 2 : 1
+            path.lineWidth = chosen ? 3 : (lit ? 2 : 1)
             path.stroke()
             accent.withAlphaComponent(isTopLayer ? 1 : 0.4).setFill()
             NSRect(x: 0, y: 14, width: 4, height: bounds.height - 28).fill()
         } else {
             (isTopLayer ? NSColor.controlBackgroundColor : NSColor.windowBackgroundColor.withAlphaComponent(0.7)).setFill()
             path.fill()
+            if chosen { chosenColor.withAlphaComponent(0.2).setFill(); path.fill() }
             if lit { NSColor.labelColor.withAlphaComponent(0.09).setFill(); path.fill() }
-            (lit ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor).setStroke()
-            path.lineWidth = isSelected || lit ? 2 : 1
+            // An event with a colour is drawn in it, as a card is; without one it keeps the plain look.
+            let hasColor = item.colorName != nil
+            (chosen ? chosenColor : (hasColor && isTopLayer ? accent : (lit ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor))).setStroke()
+            path.lineWidth = chosen ? 3 : (lit ? 2 : 1)
             path.stroke()
+            if hasColor {
+                accent.withAlphaComponent(isTopLayer ? 1 : 0.4).setFill()
+                NSRect(x: 0, y: 8, width: 4, height: max(0, bounds.height - 16)).fill()
+            }
+        }
+        if chosen {
+            let size: CGFloat = 16
+            let badge = NSRect(x: bounds.width - size - 6, y: 6, width: size, height: size)
+            if let symbol = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)?
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.white, chosenColor])) {
+                symbol.draw(in: badge, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+            }
         }
         if isTopLayer {
             let titleColor: NSColor = .labelColor
@@ -121,6 +165,7 @@ final class PlanItemView: NSView {
     // MARK: Dragging
 
     override func mouseDown(with event: NSEvent) {
+        clickModifiers = event.modifierFlags
         didDrag = false
         dragStartFrame = frame
         let local = superview?.convert(event.locationInWindow, from: nil) ?? .zero

@@ -15,6 +15,8 @@ public final class PlanStore {
     public private(set) var cards: [String: PlanCardRecord] = [:]
     /// The real events (their titles), read from `bible/events/`.
     public private(set) var events: [String: String] = [:]
+    /// The colour of each real event that has one (kept in the event's own file).
+    public private(set) var eventColors: [String: String] = [:]
     /// The scenes (and fragments) each event is linked to.
     public private(set) var eventLinks: [String: [String]] = [:]
     public private(set) var problems: [String] = []
@@ -31,6 +33,7 @@ public final class PlanStore {
         problems = []
         cards = [:]
         events = [:]
+        eventColors = [:]
         eventLinks = [:]
         canvas = TimelineFile(object: ["format": .int(1)])
         let fm = FileManager.default
@@ -51,6 +54,7 @@ public final class PlanStore {
         for name in ((try? fm.contentsOfDirectory(atPath: eventsFolder.path)) ?? []).sorted() where name.hasSuffix(".json") {
             if let data = try? Data(contentsOf: eventsFolder.appendingPathComponent(name)), let o = try? JSONParser.parseObject(data), let id = o.string("id") {
                 events[id] = o.string("title") ?? ""
+                if let color = o.string("color") { eventColors[id] = color }
                 eventLinks[id] = Array((o.stringMap("links") ?? [:]).keys)
             }
         }
@@ -62,9 +66,10 @@ public final class PlanStore {
     public struct State: Sendable {
         var canvas: JSONObject
         var cards: [String: JSONObject]
+        var eventColors: [String: String]
     }
 
-    public func captureState() -> State { State(canvas: canvas.object, cards: cards.mapValues(\.object)) }
+    public func captureState() -> State { State(canvas: canvas.object, cards: cards.mapValues(\.object), eventColors: eventColors) }
 
     /// Puts the plan back as it was: the canvas file is rewritten, cards that are gone are written again, cards that did not exist are removed.
     public func restore(_ state: State) throws {
@@ -74,6 +79,19 @@ public final class PlanStore {
         try saveCanvas()
         for id in now.subtracting(state.cards.keys) { try? FileManager.default.removeItem(at: cardURL(id)) }
         for id in state.cards.keys { try saveCard(id) }
+        for id in Set(eventColors.keys).union(state.eventColors.keys) where eventColors[id] != state.eventColors[id] { try setEventColor(id, to: state.eventColors[id]) }
+    }
+
+    // MARK: Colours of real events
+
+    /// Gives a real event a colour on the Plan, or takes it away (nil). It is written in the event's own file (`bible/events/<id>.json`), everything else there kept.
+    public func setEventColor(_ id: String, to color: String?) throws {
+        guard events[id] != nil else { return }
+        let url = folder.appendingPathComponent("bible/events/\(id).json")
+        var object = try JSONParser.parseObject(Data(contentsOf: url))
+        object.setString("color", color)
+        try AtomicFile.write(JSONWriter.data(object), to: url)
+        if let color { eventColors[id] = color } else { eventColors.removeValue(forKey: id) }
     }
 
     // MARK: Lines

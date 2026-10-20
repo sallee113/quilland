@@ -69,6 +69,10 @@
       "one": "{n} character||text",
       "other": "{n} characters||text"
     },
+    "{n} chosen": {
+      "one": "{n} chosen",
+      "other": "{n} chosen"
+    },
     "{n} contradictions found": {
       "one": "{n} contradiction found",
       "other": "{n} contradictions found"
@@ -629,6 +633,7 @@
     "New shortcut for “{action}”": "",
     "New {kind}": "",
     "Next scene": "",
+    "No Color": "",
     "No Recent Books": "",
     "No characters yet. Type a name at the bottom left.": "",
     "No connection": "",

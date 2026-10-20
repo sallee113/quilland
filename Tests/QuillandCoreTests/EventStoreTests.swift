@@ -53,3 +53,38 @@ struct EventStoreTests {
         #expect(files.sorted() == ["\(id).json", "\(id).md"])
     }
 }
+
+@Suite("Colours of events on the Plan")
+struct EventColorTests {
+    @Test("a colour is kept in the event's own file with everything else there, read again, and put back or taken away with the plan's state")
+    func colors() throws {
+        let parent = try NewBookTests.folder()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let book = try BookCreator.create(NewBookRequest(title: "Дом", language: "ru", parentFolder: parent))
+        let events = EventStore(book: book)
+        let a = try events.add(title: "Приезд"), b = try events.add(title: "Отъезд")
+        try events.update(a) { $0.date = "весна"; $0.notes = ["важно"] }
+        let plan = try PlanStore(folder: book)
+        #expect(plan.eventColors.isEmpty)
+        let before = plan.captureState()
+        try plan.setEventColor(a, to: "teal")
+        try plan.setEventColor(b, to: "red")
+        #expect(plan.eventColors == [a: "teal", b: "red"])
+        // Read again, with the rest of the event untouched.
+        let again = try PlanStore(folder: book)
+        #expect(again.eventColors == [a: "teal", b: "red"])
+        let reloaded = EventStore(book: book)
+        #expect(reloaded.event(a)?.color == "teal" && reloaded.event(a)?.date == "весна" && reloaded.event(a)?.notes == ["важно"])
+        // Undo: the state before brings back no colours; the one after brings them again.
+        let after = plan.captureState()
+        try plan.restore(before)
+        #expect(plan.eventColors.isEmpty && EventStore(book: book).event(a)?.color == nil && EventStore(book: book).event(a)?.date == "весна")
+        try plan.restore(after)
+        #expect(plan.eventColors == [a: "teal", b: "red"])
+        try plan.setEventColor(a, to: nil)
+        #expect(plan.eventColors == [b: "red"] && EventStore(book: book).event(a)?.color == nil)
+        // An event that does not exist is left alone.
+        try plan.setEventColor("no-such-event", to: "pink")
+        #expect(plan.eventColors == [b: "red"])
+    }
+}

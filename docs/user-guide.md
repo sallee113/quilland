@@ -136,6 +136,7 @@ Names are matched by rules that handle Russian endings (an "Анне" is found a
 
 The Plan (⌘5) is a canvas. A **card** is an idea for something that will happen. Cards stand on **plot lines**, the horizontal lanes with a name and a colour. Drag a card along or between lines. Events that are already written appear on the same canvas in grey, so you can see what is done and what is still planned.
 
+- **Colours of cards and events.** Click a card or an event, and ⌘-click (or Shift-click) more of them to choose several. A chosen one is tinted, has a heavy outline and a check mark, and the toolbar says how many are chosen; a click on empty canvas clears the choice. Right-click one of the chosen ones and pick *Color ▸* a colour, shown with a small swatch beside its name: all the chosen cards and events get it at once, and one Undo takes it back. *No Color* (offered when an event is among them) gives an event its plain look again. A card's colour can also be set in its window (double-click). An event's colour is kept in the event's own file.
 - Double-click a line's title to edit it, or right-click it for *Edit…*, colour, move and delete.
 - *Show from* limits the plan to part of the book.
 - ⌘+ and ⌘− zoom the canvas, ⇧⌘0 fits it to the window.

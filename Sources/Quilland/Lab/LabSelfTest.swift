@@ -354,6 +354,110 @@ final class LabSelfTest {
         plan.itemClicked(card("He leaves the bay"))
         check(plan.mode == .plan, "clicking a plan card switches back to Plan mode")
 
+        // Colours: several cards and events at once, from the right-click menu's Color submenu.
+        let colorCards = [card("He leaves the bay"), card("Captain wakes on the yacht")]
+        plan.click(colorCards[0], extending: false)
+        plan.click(colorCards[1], extending: true)
+        check(plan.selection == Set(colorCards.map { $0.item.id }), "⌘-click adds a card to the chosen ones")
+        check(canvas.itemViews.filter(\.isSelected).count == 2, "and both are drawn as chosen")
+        plan.click(colorCards[1], extending: true)
+        check(plan.selection == [colorCards[0].item.id], "and ⌘-click on a chosen one takes it out")
+        plan.click(colorCards[1], extending: true)
+        let colorMenu = plan.colorMenuItem(for: plan.selection)
+        let entries = colorMenu.submenu?.items.filter { !$0.isSeparatorItem } ?? []
+        check(entries.map(\.title) == PlanColors.palette.map(\.title) && entries.allSatisfy { $0.image != nil }, "the Color submenu lists the colours, each with its swatch", entries.map(\.title).joined(separator: ","))
+        check(!(colorMenu.submenu?.items.contains { $0.title == "No Color" } ?? false), "there is no No Color for cards alone")
+        plan.setColor("red", for: plan.selection)
+        check(disk().cards[colorCards[0].item.id]?.color == "red" && disk().cards[colorCards[1].item.id]?.color == "red", "choosing a colour gives it to every chosen card, in the card files")
+        check(card("He leaves the bay").item.colorName == "red", "and the canvas draws it")
+        check(plan.colorMenuItem(for: plan.selection).submenu?.items.first { $0.state == .on }?.title == "Red", "the colour they share is ticked")
+        plan.undo()
+        check(disk().cards[colorCards[0].item.id]?.color != "red" && disk().cards[colorCards[1].item.id]?.color != "red", "one Undo takes the colours back from all of them")
+        plan.redo()
+        check(disk().cards[colorCards[0].item.id]?.color == "red", "and Redo gives them again")
+
+        // The choice is plain to see, and the keys come from the click itself.
+        func pixels(_ v: PlanItemView) -> [UInt8] {
+            guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return [] }
+            v.cacheDisplay(in: v.bounds, to: rep)
+            return Array(UnsafeBufferPointer(start: rep.bitmapData, count: rep.bytesPerRow * rep.pixelsHigh))
+        }
+        let probe = PlanItemView(item: PlanItem(kind: .card, id: "probe", title: "Проба", text: "", colorName: "teal", lineIndex: nil, start: nil, floatingAt: nil), frame: NSRect(x: 0, y: 0, width: PlanLayout.columnWidth, height: PlanLayout.cardHeight))
+        let plainPixels = pixels(probe)
+        probe.isSelected = true
+        let chosenPixels = pixels(probe)
+        let differing = zip(plainPixels, chosenPixels).filter { $0 != $1 }.count
+        check(!plainPixels.isEmpty && differing > 400, "a chosen card is drawn clearly differently from a plain one (tint, heavy outline, check mark)", "\(differing) bytes differ")
+        let eventProbe = PlanItemView(item: PlanItem(kind: .event, id: "probe-e", title: "Событие", text: "", colorName: nil, lineIndex: 0, start: 1, floatingAt: nil), frame: NSRect(x: 0, y: 0, width: PlanLayout.columnWidth, height: PlanLayout.eventHeight))
+        let eventPlain = pixels(eventProbe)
+        eventProbe.isSelected = true
+        check(zip(eventPlain, pixels(eventProbe)).filter { $0 != $1 }.count > 300, "and so is a chosen event, even with no colour")
+        func mouse(_ flags: NSEvent.ModifierFlags) -> NSEvent {
+            NSEvent.mouseEvent(with: .leftMouseDown, location: NSPoint(x: 5, y: 5), modifierFlags: flags, timestamp: 0, windowNumber: plan.view.window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        plan.clearSelection()
+        let first = card("He leaves the bay"), second = card("Captain wakes on the yacht")
+        first.mouseDown(with: mouse([])); first.mouseUp(with: mouse([]))
+        second.mouseDown(with: mouse(.command)); second.mouseUp(with: mouse(.command))
+        check(plan.selection == [first.item.id, second.item.id], "a click with ⌘ held, as the system delivers it, adds the card")
+        check(plan.selectionNote == "2 chosen", "the toolbar says how many are chosen", "\(String(describing: plan.selectionNote))")
+        let third = card("Old harbour master")
+        third.mouseDown(with: mouse(.shift)); third.mouseUp(with: mouse(.shift))
+        check(plan.selection.count == 3 && plan.selectionNote == "3 chosen", "a click with Shift adds one more")
+        plan.canvas.mouseDown(with: mouse(.command))
+        check(plan.selection.count == 3, "a click with ⌘ on empty canvas keeps the choice")
+        plan.canvas.mouseDown(with: mouse([]))
+        check(plan.selection.isEmpty && plan.selectionNote == nil && canvas.itemViews.allSatisfy { !$0.isSelected }, "a plain click on empty canvas clears it, and the note goes")
+        plan.click(first, extending: false)
+        check(plan.selectionNote == nil && plan.selection == [first.item.id], "one chosen shows no count")
+
+        // The right-click menu itself: a right click on a chosen card is about all the chosen ones.
+        func fire(_ menu: NSMenu?, color: String) {
+            guard let sub = menu?.items.first(where: { $0.title == "Color" })?.submenu, let entry = sub.items.first(where: { $0.title == color }), let action = entry.action else { check(false, "the menu has a Color submenu with \(color)"); return }
+            _ = NSApp.sendAction(action, to: entry.target, from: entry)
+        }
+        plan.clearSelection()
+        let rc = [card("He leaves the bay"), card("Captain wakes on the yacht"), card("Old harbour master")]
+        plan.click(rc[0], extending: false); plan.click(rc[1], extending: true); plan.click(rc[2], extending: true)
+        let menuOnChosen = plan.menu(at: .zero, over: rc[1])
+        check(plan.selection == Set(rc.map { $0.item.id }), "a right click on one of three chosen cards leaves all three chosen")
+        fire(menuOnChosen, color: "Amber")
+        check(rc.allSatisfy { disk().cards[$0.item.id]?.color == "amber" }, "and the colour goes to all three, not only to the card under the pointer", rc.map { disk().cards[$0.item.id]?.color ?? "-" }.joined(separator: ","))
+        // A right click on a card that is not chosen chooses just that one.
+        let unchosen = card("A dog on board?")
+        _ = plan.menu(at: .zero, over: unchosen)
+        check(plan.selection == [unchosen.item.id], "a right click on a card that is not chosen chooses only it")
+        // Cards and events together.
+        plan.click(card("He leaves the bay"), extending: false)
+        plan.click(events()[0], extending: true)
+        let mixedEvent = events()[0]
+        let mixedMenu = plan.menu(at: .zero, over: mixedEvent)
+        check(plan.selection.count == 2 && mixedMenu?.items.first?.title == "Color", "a right click on a chosen event keeps a chosen card with it")
+        fire(mixedMenu, color: "Green")
+        check(disk().cards[card("He leaves the bay").item.id]?.color == "green" && disk().eventColors[mixedEvent.item.id] == "green", "and the colour goes to both the card and the event")
+        plan.undo()
+        plan.click(card("He leaves the bay"), extending: false)
+
+        // Events have a colour too, kept in the event's own file.
+        let colorEvents = [events()[0], events()[1]]
+        var changed = 0
+        plan.onEventsChanged = { changed += 1 }
+        plan.click(colorEvents[0], extending: false)
+        plan.click(colorEvents[1], extending: true)
+        let withEvents = plan.colorMenuItem(for: plan.selection)
+        check(withEvents.submenu?.items.contains { $0.title == "No Color" } == true, "with events among them the menu has No Color")
+        plan.setColor("teal", for: plan.selection)
+        check(disk().eventColors[colorEvents[0].item.id] == "teal" && disk().eventColors[colorEvents[1].item.id] == "teal" && changed == 1, "events get the colour in their own files, and whoever holds the events is told")
+        check(events().first { $0.item.id == colorEvents[0].item.id }?.item.colorName == "teal", "and the canvas draws the event in it")
+        plan.setColor(nil, for: plan.selection)
+        check(disk().eventColors[colorEvents[0].item.id] == nil, "No Color takes it away")
+        plan.undo()
+        check(disk().eventColors[colorEvents[0].item.id] == "teal" && disk().eventColors[colorEvents[1].item.id] == "teal", "Undo puts the colour back")
+        plan.undo()
+        check(disk().eventColors.isEmpty, "and again, the events are plain as they were")
+        plan.click(card("He leaves the bay"), extending: false)
+        check(plan.mode == .plan, "the next plain click chooses one again")
+
         // A real drag: onto another line, level with a row.
         let colGirl = plan.canvas.layout.columnX(1) + PlanLayout.columnWidth / 2
         let row300 = plan.canvas.layout.row(forStart: 300)!

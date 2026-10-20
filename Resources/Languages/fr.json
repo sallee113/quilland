@@ -72,6 +72,10 @@
       "one": "{n} caractère",
       "other": "{n} caractères"
     },
+    "{n} chosen": {
+      "one": "{n} choisi",
+      "other": "{n} choisis"
+    },
     "{n} contradictions found": {
       "one": "{n} contradiction trouvée",
       "other": "{n} contradictions trouvées"
@@ -632,6 +636,7 @@
     "New shortcut for “{action}”": "Nouveau raccourci pour « {action} »",
     "New {kind}": "Nouveau / nouvelle {kind}",
     "Next scene": "Scène suivante",
+    "No Color": "Aucune couleur",
     "No Recent Books": "Aucun livre récent",
     "No characters yet. Type a name at the bottom left.": "Aucun personnage pour l’instant. Saisissez un nom en bas à gauche.",
     "No connection": "Pas de connexion",

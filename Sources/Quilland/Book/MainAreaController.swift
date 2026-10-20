@@ -450,6 +450,7 @@ final class MainAreaController: NSViewController {
             return PlanFilter.hidden(store: plan.store, sceneOrder: self.session.structure.scenes.map(\.id), from: scene)
         }
         plan.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
+        plan.onEventsChanged = { [weak self] in self?.eventStore.reload() }
         plan.onShowFromChanged = { [weak self] id in self?.planFrom = id }
         plan.showFrom = planFrom.flatMap { id in plan.sectionChoices.contains { $0.id == id } ? id : nil }
         plan.onChange = { [weak self] in self?.onChange?() }

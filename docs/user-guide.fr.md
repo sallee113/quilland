@@ -138,6 +138,7 @@ Les noms sont repérés par des règles qui gèrent les terminaisons russes (« 
 
 Le Plan (⌘5) est une toile. Une **carte** est l’idée de quelque chose qui va se passer. Les cartes se placent sur des **lignes narratives**, des couloirs horizontaux qui ont un nom et une couleur. Faites glisser une carte le long d’une ligne ou d’une ligne à l’autre. Les événements déjà écrits apparaissent sur la même toile en gris : on voit ce qui est fait et ce qui reste prévu.
 
+- **Couleurs des cartes et des événements.** Cliquez sur une carte ou un événement, et ⌘-cliquez (ou Maj-cliquez) sur d’autres pour en choisir plusieurs. Un élément choisi est teinté, entouré d’un trait épais et marqué d’une coche, et la barre d’outils indique combien sont choisis ; un clic sur la toile vide annule le choix. Faites un clic droit sur l’un des éléments choisis et choisissez *Couleur ▸* une couleur, montrée par un petit carré à côté de son nom : toutes les cartes et tous les événements choisis la reçoivent d’un coup, et un seul Annuler la retire. *Aucune couleur* (proposé quand un événement est parmi eux) rend à un événement son aspect neutre. La couleur d’une carte peut aussi se régler dans sa fenêtre (double-clic). La couleur d’un événement est conservée dans le fichier de l’événement.
 - Double-cliquez sur le titre d’une ligne pour le modifier, ou faites un clic droit pour *Modifier…*, la couleur, le déplacement et la suppression.
 - *Afficher à partir de* limite le plan à une partie du livre.
 - ⌘+ et ⌘− zooment la toile, ⇧⌘0 l’ajuste à la fenêtre.

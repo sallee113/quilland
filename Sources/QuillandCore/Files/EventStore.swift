@@ -5,6 +5,8 @@ public struct EventRecord: Equatable, Sendable {
     public init(object: JSONObject) { self.object = object }
     public var id: String? { get { object.string("id") } set { object.setString("id", newValue) } }
     public var title: String? { get { object.string("title") } set { object.setString("title", newValue) } }
+    /// The colour the event has on the Plan (a name such as `teal`); none is the plain look.
+    public var color: String? { get { object.string("color") } set { object.setString("color", newValue) } }
     /// Free text ("spring, year 214", "several years later"); never read as a date.
     public var date: String { get { object.string("date") ?? "" } set { object.setString("date", newValue.isEmpty ? nil : newValue) } }
     public var notes: [String] { get { object.strings("notes") ?? [] } set { object.setStrings("notes", newValue) } }

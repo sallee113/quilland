@@ -77,7 +77,7 @@ final class PlanCanvasView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    func reload(store: PlanStore, mode: PlanMode, selected: String?, hidden: Set<String> = [], delegate: PlanItemViewDelegate) {
+    func reload(store: PlanStore, mode: PlanMode, selected: Set<String>, hidden: Set<String> = [], delegate: PlanItemViewDelegate) {
         layout = PlanLayout.make(from: store, hidden: hidden)
         headers.forEach { $0.removeFromSuperview() }
         itemViews.forEach { $0.removeFromSuperview() }
@@ -117,7 +117,7 @@ final class PlanCanvasView: NSView {
         }
         for entry in store.entries {
             guard let event = entry.event, !hidden.contains(event), let li = lineIndex(entry.lane), let s = entry.start, let row = layout.row(forStart: s) else { continue }
-            let item = PlanItem(kind: .event, id: event, title: store.events[event] ?? "(event)", text: "", colorName: nil, lineIndex: li, start: s, floatingAt: nil)
+            let item = PlanItem(kind: .event, id: event, title: store.events[event] ?? "(event)", text: "", colorName: store.eventColors[event], lineIndex: li, start: s, floatingAt: nil)
             let v = PlanItemView(item: item, frame: NSRect(x: layout.columnX(li), y: row.y, width: PlanLayout.columnWidth, height: PlanLayout.eventHeight))
             eventViews.append(v)
         }
@@ -129,7 +129,7 @@ final class PlanCanvasView: NSView {
         for v in lower { v.isTopLayer = false }
         for v in lower + upper {
             v.delegate = delegate
-            v.isSelected = v.item.id == selected
+            v.isSelected = selected.contains(v.item.id)
             addSubview(v)
             itemViews.append(v)
         }
@@ -186,7 +186,13 @@ final class PlanCanvasView: NSView {
         if event.keyCode == 51 || event.keyCode == 117 { deleteKeyHandler?() } else { super.keyDown(with: event) }
     }
 
-    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self) }
+    /// A click on empty canvas (a click with ⌘ or Shift is not a clearing one).
+    var backgroundClickHandler: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        if event.modifierFlags.intersection([.command, .shift]).isEmpty { backgroundClickHandler?() }
+    }
 
     @objc func undo(_ sender: Any?) { undoHandler?() }
     @objc func redo(_ sender: Any?) { redoHandler?() }
@@ -198,8 +204,15 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     let scrollView = NSScrollView()
     let canvas = PlanCanvasView()
     private(set) var mode = PlanMode.plan
-    private(set) var selectedID: String?
+    /// The card or event the author acted on last; a click on another makes it the only one chosen, ⌘- or Shift-click adds to the choice.
+    private(set) var selectedID: String? {
+        didSet { if !changingSelection { selection = selectedID.map { [$0] } ?? [] } }
+    }
+    private(set) var selection: Set<String> = []
+    private var changingSelection = false
     var onChange: (() -> Void)?
+    /// The colour of a real event is kept in the event's own file: whoever holds the events reads them again.
+    var onEventsChanged: (() -> Void)?
     /// Over the canvas: the mode, + Line, + Card and the zoom (the Plan view of the application; the Lab has its own).
     var showsControls = false
     private let modeControl = Hover.segments(NSSegmentedControl(labels: [L("Plan"), L("Events")], trackingMode: .selectOne, target: nil, action: nil))
@@ -228,8 +241,12 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         scrollView.drawsBackground = true
         scrollView.backgroundColor = .underPageBackgroundColor
         scrollView.documentView = canvas
+        selectionNoteLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        selectionNoteLabel.textColor = .secondaryLabelColor
+        selectionNoteLabel.isHidden = true
         canvas.contextMenuProvider = { [weak self] point, view in self?.menu(at: point, over: view) }
         canvas.deleteKeyHandler = { [weak self] in self?.deleteSelected() }
+        canvas.backgroundClickHandler = { [weak self] in self?.clearSelection() }
         canvas.undoHandler = { [weak self] in self?.undo() }
         canvas.redoHandler = { [weak self] in self?.redo() }
         let container = NSView()
@@ -255,7 +272,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             modeControl.selectedSegment = mode == .plan ? 0 : 1
             let bar = NSStackView(views: [modeControl, button(L("+ Line"), #selector(addLineAction)), button(L("+ Card"), #selector(addCardAction)),
                                           button("−", #selector(zoomOutAction)), button("+", #selector(zoomInAction)), button(L("Fit"), #selector(fitAction)),
-                                          linesButton, NSTextField(labelWithString: L("Show from")), fromPopup])
+                                          linesButton, NSTextField(labelWithString: L("Show from")), fromPopup, selectionNoteLabel])
             fromPopup.target = self; fromPopup.action = #selector(fromChanged)
             fillFromPopup()
             bar.spacing = 8
@@ -321,7 +338,9 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         }
         fillLinesMenu()
         if let id = selectedID, hidden.contains(id) { selectedID = nil }
-        canvas.reload(store: store, mode: mode, selected: selectedID, hidden: hidden, delegate: self)
+        selection = selection.filter { !hidden.contains($0) && (store.cards[$0] != nil || store.events[$0] != nil) }
+        canvas.reload(store: store, mode: mode, selected: selection, hidden: hidden, delegate: self)
+        updateSelectionNote()
         onChange?()
     }
 
@@ -341,8 +360,9 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         guard let last = undoStack.popLast() else { return }
         redoStack.append((last.label, store.captureState()))
         attempt { try store.restore(last.state) }
-        if let id = selectedID, store.cards[id] == nil { selectedID = nil }
+        if let id = selectedID, store.cards[id] == nil, store.events[id] == nil { selectedID = nil }
         hideBanner()
+        onEventsChanged?()
         reload()
     }
 
@@ -351,6 +371,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         undoStack.append((next.label, store.captureState()))
         attempt { try store.restore(next.state) }
         hideBanner()
+        onEventsChanged?()
         reload()
     }
 
@@ -420,9 +441,9 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         scroll.documentView = textView
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
-        let colors: [(String, String)] = [("teal", L("Teal")), ("pink", L("Pink")), ("amber", L("Amber")), ("green", L("Green")), ("purple", L("Purple")), ("blue", L("Blue")), ("red", L("Red")), ("indigo", L("Indigo"))]
+        let colors = PlanColors.palette
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 8, width: 160, height: 26), pullsDown: false)
-        for (name, title) in colors { popup.addItem(withTitle: title); popup.lastItem?.representedObject = name }
+        for (name, title) in colors { popup.addItem(withTitle: title); popup.lastItem?.representedObject = name; popup.lastItem?.image = PlanColors.swatch(name) }
         popup.selectItem(at: colors.firstIndex { $0.0 == (card.color ?? "indigo") } ?? colors.count - 1)
         let box = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 178))
         [titleField, scroll, popup].forEach(box.addSubview)
@@ -441,12 +462,54 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     }
 
     func itemClicked(_ view: PlanItemView) {
-        selectedID = view.item.id
+        let flags = view.clickModifiers
+        click(view, extending: flags.contains(.command) || flags.contains(.shift))
+    }
+
+    /// A click on a card or an event: it becomes the chosen one, or with ⌘ or Shift it is added to the chosen ones (or taken out of them).
+    func click(_ view: PlanItemView, extending: Bool) {
+        let id = view.item.id
+        if extending {
+            if selection.contains(id) {
+                setSelection(selection.subtracting([id]), primary: selection.subtracting([id]).first)
+            } else {
+                setSelection(selection.union([id]), primary: id)
+            }
+        } else {
+            setSelection([id], primary: id)
+        }
         // The mode follows what is clicked: a card means the plan, an event means the real events.
         let wanted: PlanMode = view.item.kind == .card ? .plan : .events
-        if wanted != mode { mode = wanted; modeControl.selectedSegment = mode == .plan ? 0 : 1; reload() } else { canvas.itemViews.forEach { $0.isSelected = $0.item.id == selectedID } }
+        if wanted != mode { mode = wanted; modeControl.selectedSegment = mode == .plan ? 0 : 1; reload() } else { canvas.itemViews.forEach { $0.isSelected = selection.contains($0.item.id) } }
         view.window?.makeFirstResponder(canvas)
     }
+
+    private func setSelection(_ ids: Set<String>, primary: String?) {
+        changingSelection = true
+        selectedID = primary
+        selection = ids
+        changingSelection = false
+        updateSelectionNote()
+    }
+
+    /// A click on empty canvas: nothing is chosen.
+    func clearSelection() {
+        guard !selection.isEmpty || selectedID != nil else { return }
+        setSelection([], primary: nil)
+        canvas.itemViews.forEach { $0.isSelected = false }
+    }
+
+    private let selectionNoteLabel = NSTextField(labelWithString: "")
+
+    /// "3 chosen" in the toolbar while two or more are chosen.
+    private func updateSelectionNote() {
+        let n = selection.count
+        selectionNoteLabel.stringValue = n >= 2 ? Lp("{n} chosen", "{n} chosen", n) : ""
+        selectionNoteLabel.isHidden = n < 2
+    }
+
+    /// For the checks: the note in the toolbar, or nil when it is not shown.
+    var selectionNote: String? { selectionNoteLabel.isHidden ? nil : selectionNoteLabel.stringValue }
 
     func itemDragged(_ view: PlanItemView) {
         // Shows where the item would go if it were let go now: the line it would join, level with a row or in a new row between two.
@@ -598,8 +661,9 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         menu.addItem(ClosureMenuItem(title: L("Edit…")) { [weak self] in self?.editLine(id) })
         let colorItem = NSMenuItem(title: L("Color"), action: nil, keyEquivalent: "")
         let colors = NSMenu()
-        for (name, title) in [("teal", L("Teal")), ("pink", L("Pink")), ("amber", L("Amber")), ("green", L("Green")), ("purple", L("Purple")), ("blue", L("Blue")), ("red", L("Red")), ("indigo", L("Indigo"))] {
+        for (name, title) in PlanColors.palette {
             let item = ClosureMenuItem(title: title) { [weak self] in self?.setLineColor(id, to: name) }
+            item.image = PlanColors.swatch(name)
             item.state = (current ?? "indigo") == name ? .on : .off
             colors.addItem(item)
         }
@@ -675,7 +739,8 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
 
     // MARK: Context menus
 
-    private func menu(at point: NSPoint, over view: NSView?) -> NSMenu? {
+    /// The right-click menu at a point of the canvas, over a view (a card, an event, a line header) or nothing.
+    func menu(at point: NSPoint, over view: NSView?) -> NSMenu? {
         let menu = NSMenu()
         func add(_ title: String, _ action: @escaping () -> Void) {
             let item = ClosureMenuItem(title: title, action: action)
@@ -683,9 +748,18 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         }
         var target: NSView? = view
         while let t = target, !(t is PlanItemView), !(t is PlanLineHeaderView), t !== canvas { target = t.superview }
-        if let card = target as? PlanItemView, card.item.kind == .card {
+        // A right click on one of the chosen ones is about all of them; on another it chooses that one alone.
+        if let clicked = target as? PlanItemView, !selection.contains(clicked.item.id) {
+            setSelection([clicked.item.id], primary: clicked.item.id)
+            canvas.itemViews.forEach { $0.isSelected = selection.contains($0.item.id) }
+        }
+        if let event = target as? PlanItemView, event.item.kind == .event {
+            menu.addItem(colorMenuItem(for: selection))
+        } else if let card = target as? PlanItemView, card.item.kind == .card {
             let id = card.item.id
-            selectedID = id
+            // (The choice is not set here: a right click on a chosen card is about all the chosen ones, and the lines above chose this one if it was not.)
+            menu.addItem(colorMenuItem(for: selection))
+            menu.addItem(.separator())
             if card.item.lineIndex != nil {
                 add(L("Make Floating")) { [weak self] in
                     guard let self else { return }
@@ -702,6 +776,48 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             add(L("New Line")) { [weak self] in self?.addLine() }
         }
         return menu
+    }
+
+    // MARK: Colours of the chosen cards and events
+
+    /// "Color ▸" for the chosen cards and events: each colour with its swatch, ticked when all of them have it; "No Color" when an event is among them.
+    func colorMenuItem(for ids: Set<String>) -> NSMenuItem {
+        let item = NSMenuItem(title: L("Color"), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let current = Set(ids.compactMap { id -> String?? in
+            if let card = store.cards[id] { return .some(card.color ?? "indigo") }
+            if store.events[id] != nil { return .some(store.eventColors[id]) }
+            return nil
+        })
+        let common: String?? = current.count == 1 ? current.first : nil
+        for (name, title) in PlanColors.palette {
+            let entry = ClosureMenuItem(title: title) { [weak self] in self?.setColor(name, for: ids) }
+            entry.image = PlanColors.swatch(name)
+            if let common, common == name { entry.state = .on }
+            sub.addItem(entry)
+        }
+        if ids.contains(where: { store.events[$0] != nil }) {
+            sub.addItem(.separator())
+            let none = ClosureMenuItem(title: L("No Color")) { [weak self] in self?.setColor(nil, for: ids) }
+            none.image = PlanColors.swatch(nil)
+            if let common, common == nil { none.state = .on }
+            sub.addItem(none)
+        }
+        item.submenu = sub
+        return item
+    }
+
+    /// Gives every chosen card and event the colour (nil takes an event's colour away; a card then has the usual one). One Undo takes it all back.
+    func setColor(_ name: String?, for ids: Set<String>) {
+        let targets = ids.filter { store.cards[$0] != nil || store.events[$0] != nil }
+        guard !targets.isEmpty else { return }
+        registerUndo(L("Color"))
+        for id in targets {
+            if store.cards[id] != nil { attempt { try store.updateCard(id) { $0.color = name } } }
+            else { attempt { try store.setEventColor(id, to: name) } }
+        }
+        if targets.contains(where: { store.events[$0] != nil }) { onEventsChanged?() }
+        reload()
     }
 
     /// Puts a card on a line at the end (after the last row).
