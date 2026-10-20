@@ -369,6 +369,7 @@ final class MainAreaController: NSViewController {
         view.onChange = { [weak self] in self?.charactersChanged() }
         view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        view.relationFilter.source = relationFilterSource()
         _ = view.view
         charactersView = view
         return Built(view: view.view, controller: nil)
@@ -386,6 +387,7 @@ final class MainAreaController: NSViewController {
         view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
         view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        view.relationFilter.source = relationFilterSource()
         _ = view.view
         worldView = view
         return Built(view: view.view, controller: nil)
@@ -404,6 +406,7 @@ final class MainAreaController: NSViewController {
         view.onShowPlan = { [weak self] in self?.setMode(.plan) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        view.relationFilter.source = relationFilterSource()
         _ = view.view
         eventsView = view
         return Built(view: view.view, controller: nil)
@@ -761,7 +764,7 @@ final class MainAreaController: NSViewController {
     private(set) var planFrom: String?
 
     /// Every part, chapter and scene, in the book's order, for the Plan view's "Show from" choice.
-    private func planSectionChoices() -> [(id: String, title: String, depth: Int)] {
+    func planSectionChoices() -> [(id: String, title: String, depth: Int)] {
         var out: [(id: String, title: String, depth: Int)] = []
         func walk(_ nodes: [BookStructure.Node], _ depth: Int) {
             for n in nodes { out.append((n.id, n.title, depth)); walk(n.children, depth + 1) }

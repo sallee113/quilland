@@ -56,6 +56,20 @@ extension AppSelfTest {
         // The order of the other scenes is untouched by moves in this one.
         check(EventStore(book: main.folder).event(third)?.order == nil, "the events of another scene were not numbered")
 
+        // Editing the chosen event's card must not move the choice to another event (the list has headings above it).
+        let helper = try! main.characters.add(name: "Помощник")
+        let spot = try! main.worlds.addEntry(name: "Помощь-град", world: main.worlds.worlds[0].id!)
+        for (what, act) in [("adding a character", { ev.addCharacter(helper) }), ("adding a place", { ev.addPlace(spot) }), ("adding a scene", { ev.addScene(scenes[scenes.count - 1]) })] as [(String, () -> Void)] {
+            ev.select(alone)
+            act(); spin(0.2)
+            check(ev.selected == alone, "\(what) to the event keeps the same event chosen", "\(String(describing: ev.selected)) instead of \(alone)")
+        }
+        ev.select(alone)
+        ev.removeConnection(row: 0); spin(0.2)
+        check(ev.selected == alone, "and so does taking a link away")
+        try? main.characters.delete(helper)
+        try? main.worlds.deleteEntry(spot)
+
         // A filter turns ordering off.
         ev.filterField.stringValue = "Перв"
         ev.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: ev.filterField))

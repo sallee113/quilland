@@ -39,6 +39,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
 
     // List
     let filterField = NSSearchField()
+    /// "Filter by…": the characters of a section, an event or a place.
+    let relationFilter = RelationFilter(kind: .character)
     let addField = NSTextField()
     private let list = Hover.rows(NSTableView())
     private let emptyLabel = NSTextField(labelWithString: L("Add your first character"))
@@ -135,11 +137,14 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         let relCaption = caption(L("Relationships"))
         addRelationshipButton.bezelStyle = .rounded; addRelationshipButton.controlSize = .small
         addRelationshipButton.target = self; addRelationshipButton.action = #selector(addRelationshipPressed)
-        for v in [filterField, scroll, addField, emptyLabel, relCaption, relScroll, addRelationshipButton] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
+        relationFilter.onChange = { [weak self] in self?.reload(keepingRelations: true) }
+        for v in [filterField, relationFilter.view, scroll, addField, emptyLabel, relCaption, relScroll, addRelationshipButton] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             filterField.topAnchor.constraint(equalTo: root.topAnchor, constant: 10), filterField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             filterField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
-            scroll.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 8), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            relationFilter.view.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 6), relationFilter.view.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            relationFilter.view.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -10),
+            scroll.topAnchor.constraint(equalTo: relationFilter.view.bottomAnchor, constant: 6), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: addField.topAnchor, constant: -8),
             addField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10), addField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             addField.bottomAnchor.constraint(equalTo: relCaption.topAnchor, constant: -14),
@@ -271,11 +276,14 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     // MARK: The list
 
     /// Reads the list again (after a change from outside), keeping the chosen character when it is still there.
-    func reload() {
+    func reload(keepingRelations: Bool = false) {
         guard isViewLoaded else { return }
+        if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
         reloadRelationships()
         let needle = filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
-        shown = store.characters.filter { needle.isEmpty || ($0.name ?? "").lowercased().contains(needle) || $0.aliases.contains { $0.lowercased().contains(needle) } }
+        let allowed = relationFilter.allowed()
+        shown = store.characters.filter { (needle.isEmpty || ($0.name ?? "").lowercased().contains(needle) || $0.aliases.contains { $0.lowercased().contains(needle) }) && (allowed == nil || allowed!.contains($0.id ?? "")) }
+        relationFilter.setCount(shown: shown.count, of: store.characters.count)
         list.reloadData()
         emptyLabel.isHidden = !store.characters.isEmpty
         if let id = selected, let row = shown.firstIndex(where: { $0.id == id }) {
@@ -458,7 +466,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     func reloadRelationships() {
         guard isViewLoaded else { return }
         relationships.reload()
-        shownRelationships = relationships.relationships.sorted { relationshipTitle($0).localizedLowercase < relationshipTitle($1).localizedLowercase }
+        let allowed = relationFilter.allowed()
+        shownRelationships = relationships.relationships.filter { r in allowed == nil || r.characters.allSatisfy { allowed!.contains($0) } }.sorted { relationshipTitle($0).localizedLowercase < relationshipTitle($1).localizedLowercase }
         relList.reloadData()
         if let id = selectedRelationship, let row = shownRelationships.firstIndex(where: { $0.id == id }) {
             relList.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
@@ -593,7 +602,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        if (obj.object as? NSSearchField) === filterField { reload() }
+        if (obj.object as? NSSearchField) === filterField { reload(keepingRelations: true) }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {

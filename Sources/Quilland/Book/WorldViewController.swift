@@ -32,6 +32,8 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private static let dragType = NSPasteboard.PasteboardType("com.quilland.place")
 
     let filterField = NSSearchField()
+    /// "Filter by…": the places of a section, a character or an event.
+    let relationFilter = RelationFilter(kind: .place)
     let addField = NSTextField()
     private let outline = Hover.rows(NSOutlineView())
     private let newWorldButton = NSButton(title: L("New World"), target: nil, action: nil)
@@ -108,12 +110,15 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         scroll.drawsBackground = false
         emptyLabel.font = .systemFont(ofSize: 15)
         emptyLabel.textColor = .secondaryLabelColor
-        for v in [filterField, newWorldButton, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
+        relationFilter.onChange = { [weak self] in self?.reload(keepingRelations: true) }
+        for v in [filterField, newWorldButton, relationFilter.view, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             filterField.topAnchor.constraint(equalTo: root.topAnchor, constant: 10), filterField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             newWorldButton.leadingAnchor.constraint(equalTo: filterField.trailingAnchor, constant: 6), newWorldButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             newWorldButton.centerYAnchor.constraint(equalTo: filterField.centerYAnchor),
-            scroll.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 8), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            relationFilter.view.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 6), relationFilter.view.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            relationFilter.view.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -10),
+            scroll.topAnchor.constraint(equalTo: relationFilter.view.bottomAnchor, constant: 6), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: addField.topAnchor, constant: -8),
             addField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10), addField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             addField.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -10),
@@ -227,30 +232,34 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
 
     private func buildNodes() -> [Node] {
         let needle = filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
+        let allowed = relationFilter.allowed()
         func entryNode(_ e: PlaceRecord) -> Node? {
             let kids = store.children(of: e.id, in: e.world ?? "").compactMap(entryNode)
-            let own = needle.isEmpty || (e.name ?? "").lowercased().contains(needle) || e.aliases.contains { $0.lowercased().contains(needle) }
+            let own = (needle.isEmpty || (e.name ?? "").lowercased().contains(needle) || e.aliases.contains { $0.lowercased().contains(needle) }) && (allowed == nil || allowed!.contains(e.id ?? ""))
             guard own || !kids.isEmpty else { return nil }
             return Node(id: e.id ?? "", isWorld: false, name: e.name ?? "", children: kids)
         }
         return store.worlds.compactMap { w in
             guard let id = w.id else { return nil }
             let kids = store.children(of: nil, in: id).compactMap(entryNode)
-            let own = needle.isEmpty || (w.name ?? "").lowercased().contains(needle)
+            // With a filter on, a world is shown for the places in it that match (it is only their container).
+            let own = (needle.isEmpty || (w.name ?? "").lowercased().contains(needle)) && allowed == nil
             guard own || !kids.isEmpty else { return nil }
             return Node(id: id, isWorld: true, name: w.name ?? "", children: kids)
         }
     }
 
     /// Reads the tree again, keeping what was chosen and what was open.
-    func reload() {
+    func reload(keepingRelations: Bool = false) {
         guard isViewLoaded else { return }
+        if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
         let open = Set(byID.values.filter { outline.isItemExpanded($0) }.map(\.id))
         let firstTime = byID.isEmpty
         roots = buildNodes()
         byID = [:]
         func index(_ n: Node) { byID[n.id] = n; n.children.forEach(index) }
         roots.forEach(index)
+        relationFilter.setCount(shown: byID.values.filter { !$0.isWorld }.count, of: store.entries.count)
         outline.reloadData()
         let filtering = !filterField.stringValue.isEmpty
         for n in byID.values where !n.children.isEmpty && (firstTime || filtering || open.contains(n.id)) { outline.expandItem(n) }
@@ -611,7 +620,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        if (obj.object as? NSSearchField) === filterField { reload() }
+        if (obj.object as? NSSearchField) === filterField { reload(keepingRelations: true) }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {

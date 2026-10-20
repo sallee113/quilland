@@ -34,6 +34,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     private(set) var connections: [EventConnection] = []
 
     let filterField = NSSearchField()
+    /// "Filter by…": the events of a section, a character or a place.
+    let relationFilter = RelationFilter(kind: .event)
     let addField = NSTextField()
     private let list = Hover.rows(EventListTable())
     private let emptyLabel = NSTextField(labelWithString: L("Add your first event"))
@@ -102,11 +104,14 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         menu.addItem(ClosureMenuItem(title: L("Move Up")) { [weak self] in self?.move(by: -1) })
         menu.addItem(ClosureMenuItem(title: L("Move Down")) { [weak self] in self?.move(by: 1) })
         list.menu = menu
-        for v in [filterField, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
+        relationFilter.onChange = { [weak self] in self?.reload(keepingRelations: true) }
+        for v in [filterField, relationFilter.view, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             filterField.topAnchor.constraint(equalTo: root.topAnchor, constant: 10), filterField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             filterField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
-            scroll.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 8), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            relationFilter.view.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 6), relationFilter.view.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            relationFilter.view.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -10),
+            scroll.topAnchor.constraint(equalTo: relationFilter.view.bottomAnchor, constant: 6), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: addField.topAnchor, constant: -8),
             addField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10), addField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             addField.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -10),
@@ -211,7 +216,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     /// The rows of the list: a heading for each scene (the first one an event is linked to) and its events beneath it, in the order of the book.
     private func makeRows(needle: String) {
-        func matches(_ e: EventRecord) -> Bool { needle.isEmpty || (e.title ?? "").lowercased().contains(needle) }
+        let allowed = relationFilter.allowed()
+        func matches(_ e: EventRecord) -> Bool { (needle.isEmpty || (e.title ?? "").lowercased().contains(needle)) && (allowed == nil || allowed!.contains(e.id ?? "")) }
         let titles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
         listRows = []
         for group in events.groups(sceneOrder: sceneOrder) {
@@ -227,9 +233,11 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         listRows.firstIndex { if case .event(let e) = $0 { return e.id == id } else { return false } }
     }
 
-    func reload() {
+    func reload(keepingRelations: Bool = false) {
         guard isViewLoaded else { return }
+        if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
         makeRows(needle: filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased())
+        relationFilter.setCount(shown: shown.count, of: events.events.count)
         list.reloadData()
         emptyLabel.isHidden = !events.events.isEmpty
         if let id = selected, let row = row(of: id) {
@@ -580,7 +588,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         reload()
         selected = keep
         showCard()
-        if let keep, let row = shown.firstIndex(where: { $0.id == keep }) { list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
+        // (A row of the list, not a place among the events: the headings of the scenes are rows too.)
+        if let keep, let row = row(of: keep) { list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
         onChange?()
     }
 
@@ -627,7 +636,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        if (obj.object as? NSSearchField) === filterField { reload() }
+        if (obj.object as? NSSearchField) === filterField { reload(keepingRelations: true) }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
