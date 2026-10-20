@@ -458,16 +458,41 @@ final class LabSelfTest {
         plan.click(card("He leaves the bay"), extending: false)
         check(plan.mode == .plan, "the next plain click chooses one again")
 
-        // A real drag: onto another line, level with a row.
+        // A real drag: onto another line, level with a row that is free on that line.
         let colGirl = plan.canvas.layout.columnX(1) + PlanLayout.columnWidth / 2
-        let row300 = plan.canvas.layout.row(forStart: 300)!
+        let row200 = plan.canvas.layout.row(forStart: 200)!
         let id = card("He leaves the bay").item.id
-        drag(card("He leaves the bay"), to: NSPoint(x: colGirl, y: row300.y + row300.height / 2), in: canvas)
+        drag(card("He leaves the bay"), to: NSPoint(x: colGirl, y: row200.y + row200.height / 2), in: canvas)
         spin(0.05)
         let girl = plan.store.lines[1].id
-        check(plan.store.cards[id]?.line == girl && plan.store.cards[id]?.start == 300, "dragged level with a row on another line: it takes that line and that position", "\(String(describing: plan.store.cards[id]?.line)) \(String(describing: plan.store.cards[id]?.start))")
-        check(disk().cards[id]?.line == girl && disk().cards[id]?.start == 300, "and it is on disk at once")
-        check(Set(cards().filter { $0.item.start == 300 }.map { $0.frame.minY }).count == 1, "now level with the other card at 300")
+        check(plan.store.cards[id]?.line == girl && plan.store.cards[id]?.start == 200, "dragged level with a row that is free on another line: it takes that line and that position", "\(String(describing: plan.store.cards[id]?.line)) \(String(describing: plan.store.cards[id]?.start))")
+        check(disk().cards[id]?.line == girl && disk().cards[id]?.start == 200, "and it is on disk at once")
+        check(Set(cards().filter { $0.item.start == 200 }.map { $0.frame.minY }).count == 1, "now level with the other card at 200 (another line: the same moment)")
+
+        // Two cards never share a line and a row: dropped on a cell that is taken, it goes to a new row just after it.
+        let girlTaken = plan.store.cards.values.first { $0.line == girl && $0.start == 300 }!
+        let row300 = plan.canvas.layout.row(forStart: 300)!
+        let rowsBefore = plan.store.rowStarts
+        drag(card("He leaves the bay"), to: NSPoint(x: colGirl, y: row300.y + row300.height / 2), in: canvas)
+        spin(0.05)
+        let moved = plan.store.cards[id]!
+        check(moved.line == girl && moved.start! > 300 && moved.start! < (rowsBefore.first { $0 > 300 } ?? Int.max) && girlTaken.start == 300, "dropped on a taken cell of the line, it goes to a new row just after it, and the other card stays", "\(String(describing: moved.start))")
+        let girlStarts = plan.store.cards.values.filter { $0.line == girl }.compactMap(\.start)
+        check(Set(girlStarts).count == girlStarts.count, "no two cards of that line share a row")
+        // The same for an event on its line.
+        plan.setMode(.events)
+        let evA = events()[0], evB = events().first { $0.item.id != evA.item.id && $0.item.lineIndex == evA.item.lineIndex } ?? events()[1]
+        if evB.item.lineIndex == evA.item.lineIndex, let lineID = plan.store.visibleLines[evA.item.lineIndex ?? 0].id, let startA = plan.store.entry(forEvent: evA.item.id)?.start {
+            plan.apply(drop: NSRect(x: plan.canvas.layout.columnX(evA.item.lineIndex ?? 0), y: plan.canvas.layout.row(forStart: startA)!.y, width: PlanLayout.columnWidth, height: PlanLayout.eventHeight), of: evB.item)
+            let startB = plan.store.entry(forEvent: evB.item.id)?.start
+            check(plan.store.entry(forEvent: evB.item.id)?.lane == lineID && startB != startA, "an event dropped on a taken cell of its line goes to a new row too", "\(String(describing: startB)) \(startA)")
+        }
+        plan.setMode(.plan)
+        // Floating cards do not cover one another.
+        let f1 = plan.store.cards.values.first { $0.isFloating }!
+        let freeSpot = plan.freeFloatingOrigin(NSPoint(x: f1.x.map(CGFloat.init) ?? 0, y: f1.y.map(CGFloat.init) ?? 0), excluding: nil)
+        check(freeSpot.y > CGFloat(f1.y ?? 0), "a floating card wanted where another floats is moved down to a free spot")
+        check(plan.freeFloatingOrigin(NSPoint(x: 2000, y: 2000), excluding: nil) == NSPoint(x: 2000, y: 2000), "and one wanted on free canvas stays")
 
         // Between two rows: a new position between their numbers.
         let layout = plan.canvas.layout
@@ -477,7 +502,7 @@ final class LabSelfTest {
         plan.apply(drop: NSRect(x: layout.columnX(0), y: (r1.y + r1.height + r2.y) / 2 - 46, width: PlanLayout.columnWidth, height: PlanLayout.cardHeight), of: card("He finds the letter").item)
         let placed = plan.store.cards[movingID]?.start ?? 0
         check(placed > 100 && placed < 200 && plan.store.cards[movingID]?.line == captainLine, "dropped between two rows: a new position between theirs", "\(placed)")
-        check(plan.canvas.layout.rows.count == layout.rows.count + 1 || layout.rows.contains { $0.start == 400 } == false || plan.canvas.layout.rows.count >= layout.rows.count, "a row is made for it")
+        check(plan.store.rowStarts.contains(placed) && plan.canvas.layout.row(forStart: placed) != nil, "a row is made for it")
 
         // No room: everything is renumbered and keeps its order.
         let tight = plan.store.cards[movingID]!.start!

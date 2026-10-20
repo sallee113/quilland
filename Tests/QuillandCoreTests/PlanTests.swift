@@ -139,3 +139,55 @@ struct PlanTests {
         #expect(try PlanStore(folder: dir).cards[extra] == nil)
     }
 }
+
+@Suite("Room on a line")
+struct PlanRoomTests {
+    @Test("two cards, or two events, never share a line and a row; other lines and the other kind may")
+    func noStacking() throws {
+        let folder = try PlanTests.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let plan = try PlanStore(folder: folder)
+        let a = try plan.addLine(name: "A"), b = try plan.addLine(name: "B")
+        // Two cards: the second asks for the first one's place and goes to a new row after it.
+        let c1 = try plan.addCard(title: "один", line: a, start: 100)
+        let c2 = try plan.addCard(title: "два", line: a, start: 300)
+        let c3 = try plan.addCard(title: "три", line: b, start: 100)
+        try plan.placeCard(c3, onLine: a, start: 100)
+        #expect(plan.cards[c3]?.line == a && plan.cards[c3]?.start == 200, "between 100 and the next row, 300")
+        #expect(plan.cards[c1]?.start == 100 && plan.cards[c2]?.start == 300, "nothing else moved")
+        // The same row on another line is fine: it is the same moment.
+        let c4 = try plan.addCard(title: "четыре", line: b, start: 300)
+        try plan.placeCard(c4, onLine: b, start: 100)
+        #expect(plan.cards[c4]?.start == 100 && plan.cards[c3]?.line == a, "a different line may use the row")
+        // A card may stand where an event stands, and the other way round.
+        let events = EventStore(book: folder)
+        let e1 = try events.add(title: "событие 1"), e2 = try events.add(title: "событие 2")
+        try plan.reload()
+        try plan.placeEvent(e1, onLine: a, start: 100)
+        #expect(plan.entry(forEvent: e1)?.start == 100, "an event under a card is two layers")
+        try plan.placeEvent(e2, onLine: a, start: 100)
+        #expect(plan.entry(forEvent: e2)?.start == 150 && plan.entry(forEvent: e1)?.start == 100, "a second event on the line goes to a new row just after the first (the next row is 200)")
+        try plan.placeEvent(e2, onLine: a, start: 150)
+        #expect(plan.entry(forEvent: e2)?.start == 150, "an item put where it already is stays")
+        try plan.placeCard(c1, onLine: a, start: 100)
+        #expect(plan.cards[c1]?.start == 100, "a card is not its own neighbour")
+        // After the last row there is room too.
+        let c6 = try plan.addCard(title: "шесть", line: b, start: 500)
+        try plan.placeCard(c6, onLine: a, start: 300)
+        #expect(plan.cards[c6]?.line == a && plan.cards[c6]?.start == 400, "between 300 and the next row, 500")
+    }
+
+    @Test("when there is no room between two rows everything is renumbered, and the item still gets its own row")
+    func noRoom() throws {
+        let folder = try PlanTests.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let plan = try PlanStore(folder: folder)
+        let a = try plan.addLine(name: "A")
+        let first = try plan.addCard(title: "один", line: a, start: 100)
+        let second = try plan.addCard(title: "два", line: a, start: 101)
+        let third = try plan.addCard(title: "три", line: a, start: 500)
+        try plan.placeCard(third, onLine: a, start: 100)
+        let starts = [first, second, third].map { plan.cards[$0]?.start ?? -1 }
+        #expect(Set(starts).count == 3 && starts[0] < starts[2] && starts[2] < starts[1], "three distinct rows in the order one, three, two")
+    }
+}

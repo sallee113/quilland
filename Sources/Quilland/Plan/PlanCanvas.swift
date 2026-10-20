@@ -540,11 +540,12 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             if let li = layout.lineIndex(atX: center.x), center.y >= layout.rowsTop - 20, let line = store.visibleLines[li].id {
                 let start = try store.resolve(layout.dropTarget(atY: center.y))
                 switch item.kind {
-                case .card: try store.updateCard(item.id) { $0.place(onLine: line, start: start) }
+                case .card: try store.placeCard(item.id, onLine: line, start: start)
                 case .event: try store.placeEvent(item.id, onLine: line, start: start)
                 }
             } else if item.kind == .card {
-                try store.updateCard(item.id) { $0.float(x: max(0, Int(frame.minX)), y: max(0, Int(frame.minY))) }
+                let spot = freeFloatingOrigin(NSPoint(x: max(0, frame.minX), y: max(0, frame.minY)), excluding: item.id)
+                try store.updateCard(item.id) { $0.float(x: Int(spot.x), y: Int(spot.y)) }
             }
         } catch { NSSound.beep() }
         reload()
@@ -566,7 +567,8 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     func addCard(at point: NSPoint? = nil) -> String? {
         registerUndo(L("New Card"))
         mode = .plan
-        let spot = point ?? NSPoint(x: canvas.layout.columnsRight + 60, y: scrollView.contentView.bounds.origin.y + 60)
+        let wanted = point ?? NSPoint(x: canvas.layout.columnsRight + 60, y: scrollView.contentView.bounds.origin.y + 60)
+        let spot = freeFloatingOrigin(wanted, excluding: nil)
         let id = attempt { try store.addCard(title: L("New card"), x: max(0, Int(spot.x)), y: max(0, Int(spot.y))) }
         selectedID = id
         reload()
@@ -825,8 +827,22 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         registerUndo(L("Link to Line"))
         let layout = PlanLayout.make(from: store, excluding: id, hidden: hidden)
         let start = (try? store.resolve(.between(layout.rows.last?.start, nil))) ?? PlanPositions.step
-        attempt { try store.updateCard(id) { $0.place(onLine: line, start: start) } }
+        attempt { try store.placeCard(id, onLine: line, start: start) }
         reload()
+    }
+
+    /// A place for a floating card that does not cover another floating one: the place wanted, or else the first free one below it.
+    func freeFloatingOrigin(_ wanted: NSPoint, excluding id: String?) -> NSPoint {
+        let others = store.cards.filter { $0.key != id && $0.value.line == nil && !hidden.contains($0.key) }.map {
+            NSRect(x: CGFloat($0.value.x ?? 0), y: CGFloat($0.value.y ?? 0), width: PlanLayout.columnWidth, height: PlanLayout.cardHeight)
+        }
+        var spot = wanted
+        for _ in 0..<200 {
+            let here = NSRect(origin: spot, size: NSSize(width: PlanLayout.columnWidth, height: PlanLayout.cardHeight))
+            if !others.contains(where: { $0.intersects(here) }) { return spot }
+            spot.y += PlanLayout.cardHeight + 12
+        }
+        return spot
     }
 }
 

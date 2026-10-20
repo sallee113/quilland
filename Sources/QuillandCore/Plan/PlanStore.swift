@@ -218,6 +218,7 @@ public final class PlanStore {
 
     /// Places a real event on a line at a position (its own entry changes, nothing else).
     public func placeEvent(_ id: String, onLine line: String, start: Int) throws {
+        let start = try freeStart(forEvent: id, onLine: line, wanted: start)
         var all = canvas.entries
         if let i = all.firstIndex(where: { $0.event == id }) {
             all[i].lane = line
@@ -229,6 +230,32 @@ public final class PlanStore {
         }
         canvas.entries = all
         try saveCanvas()
+    }
+
+    // MARK: Room on a line
+
+    /// Two events, or two cards, never share a line and a row: one that is wanted where another of its kind already stands goes to a new row just after
+    /// that place (between it and the next row, so nothing else moves). A card and an event may share a cell (two layers), and so may items of
+    /// different lines (the same row there means the same moment).
+    func freeStart(forEvent id: String, onLine line: String, wanted start: Int) throws -> Int {
+        let taken = Set(canvas.entries.filter { $0.lane == line && $0.event != id }.compactMap(\.start))
+        return try nextFree(from: start, taken: taken)
+    }
+
+    func freeStart(forCard id: String, onLine line: String, wanted start: Int) throws -> Int {
+        let taken = Set(cards.values.filter { $0.line == line && $0.id != id }.compactMap(\.start))
+        return try nextFree(from: start, taken: taken)
+    }
+
+    private func nextFree(from start: Int, taken: Set<Int>) throws -> Int {
+        guard taken.contains(start) else { return start }
+        return try resolve(.between(start, rowStarts.first { $0 > start }))
+    }
+
+    /// Puts a card on a line at a position; if that place is taken by another card of the line, at a new row just after it.
+    public func placeCard(_ id: String, onLine line: String, start: Int) throws {
+        let start = try freeStart(forCard: id, onLine: line, wanted: start)
+        try updateCard(id) { $0.place(onLine: line, start: start) }
     }
 
     // MARK: Positions
