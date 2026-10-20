@@ -167,7 +167,7 @@ public final class BookCache {
             switch block {
             case .paragraph(let list), .heading(_, let list): lines.append(inlines(list))
             case .quote(let paragraphs): for p in paragraphs { lines.append(inlines(p)) }
-            case .sceneBreak, .fragment: break
+            case .sceneBreak, .fragment, .emptyLine: break
             }
         }
         return lines.joined(separator: "\n")

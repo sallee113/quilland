@@ -50,6 +50,8 @@ public enum Block: Equatable, Sendable {
     /// A set-off block: epigraph, letter, poem. One level, paragraphs only.
     case quote([[Inline]])
     case sceneBreak
+    /// An empty paragraph kept on purpose (a pause), written as a paragraph of `&nbsp;`. One at the very start or end of a text is dropped.
+    case emptyLine
     /// A hidden fragment marker, `<!-- fragment: <uuid> -->`. The id is a lowercase UUID.
     case fragment(String)
 }

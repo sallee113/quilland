@@ -11,7 +11,8 @@ import Foundation
 ///   (a closing marker may not follow a space);
 /// - ASCII spaces at the start and end of each line are removed (indentation is
 ///   never used); trailing line breaks are removed;
-/// - empty paragraphs, headings and quotes disappear; neighbouring quote blocks
+/// - empty headings and quotes disappear; an empty paragraph is an `emptyLine`, kept between blocks
+///   and dropped at the very start and end of the text; neighbouring quote blocks
 ///   are one block; fragment ids are lowercase.
 public enum Normalizer {
     public static func normalize(_ document: Document) -> Document {
@@ -20,7 +21,7 @@ public enum Normalizer {
             switch block {
             case .paragraph(let inlines):
                 let normalized = normalizeInlines(inlines)
-                if !normalized.isEmpty { out.append(.paragraph(normalized)) }
+                out.append(normalized.isEmpty ? .emptyLine : .paragraph(normalized))
             case .heading(let level, let inlines):
                 let normalized = normalizeInlines(inlines, allowBreaks: false)
                 if !normalized.isEmpty { out.append(.heading(min(max(level, 1), 3), normalized)) }
@@ -34,10 +35,15 @@ public enum Normalizer {
                 }
             case .sceneBreak:
                 out.append(.sceneBreak)
+            case .emptyLine:
+                out.append(.emptyLine)
             case .fragment(let id):
                 out.append(.fragment(id.lowercased()))
             }
         }
+        // A pause means something only between two blocks.
+        while case .emptyLine? = out.first { out.removeFirst() }
+        while case .emptyLine? = out.last { out.removeLast() }
         return Document(out)
     }
 

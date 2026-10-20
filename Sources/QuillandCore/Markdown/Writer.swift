@@ -54,6 +54,8 @@ public enum MarkdownWriter {
         switch block {
         case .sceneBreak:
             return ("* * *", true)
+        case .emptyLine:
+            return ("&nbsp;", true)
         case .fragment(let id):
             return ("<!-- fragment: \(id) -->", true)
         case .paragraph, .heading, .quote:

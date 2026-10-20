@@ -81,6 +81,8 @@ private struct Fb2Builder {
             return s + "</cite>"
         case .sceneBreak:
             return book.options.sceneBreak == .mark ? "<subtitle>* * *</subtitle>" : "<empty-line/>"
+        case .emptyLine:
+            return "<empty-line/>"
         case .fragment:
             return ""
         }
@@ -99,7 +101,7 @@ private struct Fb2Builder {
                 s += hasLineBreak(i) ? poem(i) : "<p>\(inline(i))</p>"
             case .heading(_, let i):
                 s += "<p><strong>\(inline(i))</strong></p>"
-            case .sceneBreak, .fragment:
+            case .sceneBreak, .fragment, .emptyLine:
                 break
             }
         }

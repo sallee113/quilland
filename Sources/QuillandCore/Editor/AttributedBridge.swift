@@ -58,6 +58,8 @@ public enum AttributedBridge {
                 add(paragraph(inlines, kind: "h\(level)"))
             case .quote(let paragraphs):
                 for inlines in paragraphs { add(paragraph(inlines, kind: BlockKind.quote)) }
+            case .emptyLine:
+                add(NSAttributedString(string: ""))
             case .sceneBreak:
                 add(NSAttributedString(string: "* * *", attributes: [.quillandBlock: BlockKind.sceneBreak]))
             case .fragment(let id):
@@ -112,7 +114,12 @@ public enum AttributedBridge {
             while end < text.length, text.character(at: end) != 0x0A { end += 1 }
             let range = NSRange(location: start, length: end - start)
             start = end + 1
-            if range.length == 0 { continue }
+            if range.length == 0 {
+                // An empty paragraph is a pause (one at the very start or end is dropped when the document is made canonical).
+                flushQuote()
+                blocks.append(.emptyLine)
+                continue
+            }
 
             let kind = attributed.attribute(.quillandBlock, at: range.location, effectiveRange: nil) as? String ?? BlockKind.body
             switch kind {

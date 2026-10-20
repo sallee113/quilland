@@ -185,6 +185,7 @@ func compact(_ block: Block) -> String {
     case .heading(let l, let i): return "H\(l)(" + compact(i) + ")"
     case .quote(let ps): return "Q(" + ps.map { compact($0) }.joined(separator: " // ") + ")"
     case .sceneBreak: return "SB"
+    case .emptyLine: return "EL"
     case .fragment(let id): return "F(\(id.prefix(4)))"
     }
 }

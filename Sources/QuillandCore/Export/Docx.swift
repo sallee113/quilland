@@ -106,6 +106,8 @@ private struct DocxBuilder {
             if let author { body += paragraph(style: "QuoteAuthor", content: runs(author)) }
         case .sceneBreak:
             sceneSeparator(typed: true)
+        case .emptyLine:
+            body += paragraph(style: nil, content: "")
         case .fragment:
             break
         }
@@ -150,7 +152,7 @@ private struct DocxBuilder {
                 case .paragraph(let i): body += paragraph(style: "TitlePageText", content: runs(i))
                 case .heading(_, let i): body += paragraph(style: "Title", content: runs(i))
                 case .quote(let ps): for p in ps { body += paragraph(style: "TitlePageText", content: runs(p)) }
-                case .sceneBreak, .fragment: break
+                case .sceneBreak, .fragment, .emptyLine: break
                 }
             }
         } else {

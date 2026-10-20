@@ -18,6 +18,11 @@ public enum MarkdownParser {
                 i += 1
                 continue
             }
+            if line == "&nbsp;" {
+                blocks.append(.emptyLine)
+                i += 1
+                continue
+            }
             if let id = fragmentID(in: line) {
                 blocks.append(.fragment(id))
                 i += 1

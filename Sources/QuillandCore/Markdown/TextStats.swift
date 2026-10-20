@@ -34,7 +34,7 @@ public enum TextStats {
             switch block {
             case .paragraph(let inlines), .heading(_, let inlines): total = total + count(inlines)
             case .quote(let paragraphs): for p in paragraphs { total = total + count(p) }
-            case .sceneBreak, .fragment: break
+            case .sceneBreak, .fragment, .emptyLine: break
             }
         }
         return total

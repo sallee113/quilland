@@ -75,6 +75,8 @@ struct WebBuilder {
             return s + "</blockquote>\n"
         case .sceneBreak:
             return book.options.sceneBreak == .mark ? "<p class=\"break\">* * *</p>\n" : "<p class=\"gap\">&#160;</p>\n"
+        case .emptyLine:
+            return "<p class=\"gap\">&#160;</p>\n"
         case .fragment:
             return ""
         }
@@ -250,6 +252,7 @@ public enum TxtExporter {
                 case .heading(_, let i): s += text(i, &notes) + "\n\n"
                 case .quote(let ps): for p in ps { s += "    " + text(p, &notes).replacingOccurrences(of: "\n", with: "\n    ") + "\n\n" }
                 case .sceneBreak: s += (options.sceneBreak == .mark ? "* * *" : "") + "\n\n"
+                case .emptyLine: s += "\n"
                 case .fragment: break
                 }
             }

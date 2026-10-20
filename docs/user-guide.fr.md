@@ -89,6 +89,8 @@ Il n’y a pas de barre d’outils de mise en forme. Utilisez le clavier ou le m
 
 **Corrections de frappe.** Pour le russe, l’anglais et le français (les livres français reçoivent des guillemets « »), Quilland peut remplacer des caractères pendant que vous écrivez : guillemets, tirets de dialogue, etc. Les points de suspension restent trois points. Chaque correction se règle dans *Réglages ▸ Écriture*.
 
+**Une pause.** Une ligne vide saisie entre deux paragraphes (une pause après une épigraphe, par exemple) est conservée : elle est enregistrée dans le fichier comme un paragraphe `&nbsp;` et se retrouve à l’ouverture du livre. Une ligne vide au tout début ou à la toute fin d’une scène n’est pas conservée. Les lignes vides ne sont pas comptées comme du texte et apparaissent comme un blanc à l’export.
+
 **Orthographe.** Le correcteur du système souligne les fautes. Faites un clic droit sur un mot pour voir les corrections. *Ajouter au dictionnaire* dans le panneau de relecture apprend un mot au livre seul, tout comme *Apprendre l’orthographe* dans le menu contextuel d’un mot. Les mots sont listés (et peuvent être retirés) dans *Réglages du livre ▸ Dictionnaire* et conservés dans `dictionary.json`. Les mots qu’une version antérieure de Quilland a appris au système lui-même (par *Apprendre l’orthographe*) sont dans le dictionnaire du système, que macOS ne laisse pas lire à une application : ajoutez-les de nouveau ici si vous voulez qu’ils suivent le livre.
 
 **Le menu du clic droit** est court : Couper, Copier, Coller, Coller et adapter le style, Orthographe et grammaire, et le sous-menu IA. Le reste du menu de texte du système (polices, substitutions, voix, etc.) est volontairement omis.
