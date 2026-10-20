@@ -196,10 +196,6 @@
       "one": "{n} trop court",
       "other": "{n} trop courts"
     },
-    "{n} unchanged scenes skipped": {
-      "one": "{n} scène inchangée ignorée",
-      "other": "{n} scènes inchangées ignorées"
-    },
     "{n} words": {
       "one": "{n} mot",
       "other": "{n} mots"
@@ -753,7 +749,6 @@
     "Quit Quilland": "Quitter Quilland",
     "Quotes": "Guillemets",
     "Quotes by the book's language: «…» for Russian, “…” for English": "Guillemets selon la langue du livre : « … » pour le russe, “…” pour l’anglais",
-    "Read again the scenes that were already read and have not changed": "Relire les scènes déjà lues et qui n’ont pas changé",
     "Reading part {n} of {total}…": "Lecture de la partie {n} sur {total}…",
     "Reading width of a sheet": "Largeur de lecture d’une feuille",
     "Reading…": "Lecture…",
@@ -1139,7 +1134,6 @@
     "{n} author's sheets": "{n} feuillets d’auteur",
     "{n} sections chosen": "{n} sections choisies",
     "{n} sections: {size}": "{n} sections : {size}",
-    "{n} unchanged scenes are skipped.": "{n} scènes inchangées sont ignorées.",
     "{parts}, {chapters}, {scenes}, {size}": "{parts}, {chapters}, {scenes}, {size}",
     "{percent}% of the target": "{percent} % de l’objectif",
     "{places} in {sections}": "{places} dans {sections}",

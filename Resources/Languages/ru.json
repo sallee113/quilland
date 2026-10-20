@@ -292,12 +292,6 @@
       "one": "{n} слишком короткая",
       "other": "{n} слишком короткие"
     },
-    "{n} unchanged scenes skipped": {
-      "few": "Пропущено {n} не менявшиеся сцены",
-      "many": "Пропущено {n} не менявшихся сцен",
-      "one": "Пропущена {n} не менявшаяся сцена",
-      "other": "Пропущено {n} не менявшиеся сцены"
-    },
     "{n} words": {
       "few": "{n} слова",
       "many": "{n} слов",
@@ -855,7 +849,6 @@
     "Quit Quilland": "Завершить Quilland",
     "Quotes": "Кавычки",
     "Quotes by the book's language: «…» for Russian, “…” for English": "Кавычки по языку книги: «…» для русского, “…” для английского",
-    "Read again the scenes that were already read and have not changed": "Прочитать заново сцены, которые уже читались и не менялись",
     "Reading part {n} of {total}…": "Читаю часть {n} из {total}…",
     "Reading width of a sheet": "Ширина листа для чтения",
     "Reading…": "Читаю…",
@@ -1241,7 +1234,6 @@
     "{n} author's sheets": "{n} авт. л.",
     "{n} sections chosen": "Выбрано разделов: {n}",
     "{n} sections: {size}": "Разделов: {n}, всего {size}",
-    "{n} unchanged scenes are skipped.": "Не менявшихся сцен пропущено: {n}.",
     "{parts}, {chapters}, {scenes}, {size}": "{parts}, {chapters}, {scenes}, {size}",
     "{percent}% of the target": "{percent}% от желаемого объёма",
     "{places} in {sections}": "{places}; {sections}",

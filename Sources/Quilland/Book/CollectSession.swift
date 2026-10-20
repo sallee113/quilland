@@ -46,8 +46,20 @@ final class CollectSession {
 
     // MARK: Running
 
-    /// Reads the scenes of the scope with the model. The findings come in as they are made; Stop keeps them.
-    func start(kinds: Set<CollectKind>, scope: SearchScope, reanalyse: Bool) {
+    /// A new run starts from an empty list: what an earlier run found (and what was left waiting) goes, so the list shows what the scope asked for now.
+    func beginNewRun() {
+        collected = CollectedSet()
+        findings = []
+        checked = []
+        summary = nil
+        progress = nil
+        message = ""
+        onChange?()
+    }
+
+    /// Reads every scene of the scope with the model (a run is a fresh look: nothing is skipped because an earlier run read it). The findings come in
+    /// as they are made; Stop keeps them.
+    func start(kinds: Set<CollectKind>, scope: SearchScope) {
         guard let main, !running else { return }
         guard let client = AIService.shared.client() else {
             let alert = NSAlert()
@@ -56,6 +68,7 @@ final class CollectSession {
             alert.runModal()
             return
         }
+        beginNewRun()
         main.saveAll()
         let scenes = main.proofreadingTargets(scope).map { CollectScene(id: $0.id, title: $0.title.isEmpty ? $0.id : $0.title, text: $0.text) }
         var request = CollectRequest(kinds: kinds, scenes: scenes)
@@ -63,13 +76,11 @@ final class CollectSession {
         request.knownCharacters = main.characters.characters.compactMap(\.name)
         request.knownPlaces = main.worlds.entries.compactMap(\.name)
         request.context = AIService.shared.context
-        request.analysed = AnalysedScenes.load(book: main.folder)
-        request.reanalyse = reanalyse
+        request.reanalyse = true
         running = true
         progress = nil; summary = nil
         message = L("Reading…")
         onChange?()
-        let folder = main.folder
         let me = self
         task = Task {
             let result = await CollectJob.run(request, client: client, progress: { p in
@@ -78,7 +89,6 @@ final class CollectSession {
                 DispatchQueue.main.async { me.collected.merge(items); me.onChange?() }
             })
             await MainActor.run {
-                AnalysedScenes.remember(result.analysed, book: folder)
                 me.running = false
                 me.summary = result
                 me.progress = nil
@@ -92,7 +102,6 @@ final class CollectSession {
     static func summaryText(_ s: CollectSummary, found: Int) -> String {
         if let error = s.error { return error }
         var parts = [s.stopped ? L("Stopped") : L("Done"), Lp("{n} scene read", "{n} scenes read", s.scenesDone)]
-        if s.scenesSkipped > 0 { parts.append(Lp("{n} unchanged scene skipped", "{n} unchanged scenes skipped", s.scenesSkipped)) }
         if s.scenesTooShort > 0 { parts.append(Lp("{n} too short", "{n} too short", s.scenesTooShort)) }
         if s.failedPieces > 0 { parts.append(Lp("{n} part could not be read", "{n} parts could not be read", s.failedPieces)) }
         if s.droppedUnverified > 0 { parts.append(Lp("{n} finding left out: its quote is not in the text", "{n} findings left out: their quotes are not in the text", s.droppedUnverified)) }
@@ -125,6 +134,7 @@ final class CollectSession {
             alert.runModal()
             return
         }
+        beginNewRun()
         main.saveAll()
         let targets = main.searchTargets(scope)
         let context = AIService.shared.context

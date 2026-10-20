@@ -3,12 +3,11 @@ import QuillandCore
 
 /// The small window of Collect from the Book: what to look for, where, and how much that is.
 final class CollectSheet: NSObject {
-    struct Choice { var kinds: Set<CollectKind>; var scope: SearchScope; var reanalyse: Bool }
+    struct Choice { var kinds: Set<CollectKind>; var scope: SearchScope }
 
     private weak var main: MainAreaController?
     private var boxes: [CollectKind: NSButton] = [:]
     private let scope = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let reanalyse = NSButton(checkboxWithTitle: L("Read again the scenes that were already read and have not changed"), target: nil, action: nil)
     private let size = NSTextField(wrappingLabelWithString: "")
     static let scopes: [SearchScope] = [.book, .part, .chapter, .scene]
     static let titles: [(CollectKind, String)] = [(.characters, L("Characters")), (.places, L("Places and things")), (.events, L("Events")), (.relationships, L("Relationships")), (.observations, L("Observations about characters and places"))]
@@ -23,20 +22,20 @@ final class CollectSheet: NSObject {
     private func updateSize() {
         guard let main else { return }
         let targets = main.proofreadingTargets(chosenScope)
-        let analysed = AnalysedScenes.load(book: main.folder)
-        let kinds = chosenKinds
-        let fresh = reanalyse.state == .on ? targets : targets.filter { analysed[$0.id] != CollectJob.fingerprint($0.text, kinds: kinds) }
-        let characters = fresh.reduce(0) { $0 + $1.text.count }
-        let pieces = fresh.reduce(0) { $0 + max(1, $1.text.count / CollectJob.pieceSize(context: AIService.shared.context) + 1) }
-        size.stringValue = L("{scenes} to read, about {size} of text, in about {pieces} requests to the model.", ["scenes": Lp("{n} scene", "{n} scenes", fresh.count),
-                             "size": Lp("{n} character||text", "{n} characters||text", characters), "pieces": pieces]) + (targets.count > fresh.count ? " " + L("{n} unchanged scenes are skipped.", ["n": targets.count - fresh.count]) : "")
+        let characters = targets.reduce(0) { $0 + $1.text.count }
+        let pieces = targets.reduce(0) { $0 + max(1, $1.text.count / CollectJob.pieceSize(context: AIService.shared.context) + 1) }
+        size.stringValue = L("{scenes} to read, about {size} of text, in about {pieces} requests to the model.", ["scenes": Lp("{n} scene", "{n} scenes", targets.count),
+                             "size": Lp("{n} character||text", "{n} characters||text", characters), "pieces": pieces])
     }
 
-    /// Asks. Nil when the author cancels.
-    func run() -> Choice? {
-        let alert = NSAlert()
-        alert.messageText = L("Collect from the Book")
-        alert.informativeText = L("The model reads the scenes and suggests cards. Nothing is added until you accept it in the Suggestions tab, and every suggestion shows the words it comes from.")
+    /// Where a run reads unless the author says otherwise: the scene they are in, or the whole book when there is none.
+    static func defaultScope(hasCurrentScene: Bool) -> SearchScope { hasCurrentScene ? .scene : .book }
+
+    /// What the window is set to now (for the checks).
+    var currentChoice: Choice { Choice(kinds: chosenKinds, scope: chosenScope) }
+
+    /// Builds the controls, set to what they start with.
+    func prepare() -> NSStackView {
         var views: [NSView] = []
         for (kind, title) in Self.titles {
             let b = NSButton(checkboxWithTitle: title, target: self, action: #selector(changed))
@@ -45,23 +44,30 @@ final class CollectSheet: NSObject {
             views.append(b)
         }
         for s in Self.scopes { scope.addItem(withTitle: s == .book ? L("The whole book") : L("The current {part}", ["part": s.title.lowercased()])) }
-        scope.selectItem(at: 0)
+        scope.selectItem(at: Self.scopes.firstIndex(of: Self.defaultScope(hasCurrentScene: main?.currentSceneID != nil)) ?? 0)
         scope.target = self; scope.action = #selector(changed)
-        reanalyse.target = self; reanalyse.action = #selector(changed)
-        reanalyse.font = .systemFont(ofSize: 11)
         size.font = .systemFont(ofSize: 11); size.textColor = .secondaryLabelColor
         size.preferredMaxLayoutWidth = 380
-        let stack = NSStackView(views: views + [scope, reanalyse, size])
+        let stack = NSStackView(views: views + [scope, size])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
         stack.frame = NSRect(x: 0, y: 0, width: 400, height: 230)
         stack.setFrameSize(stack.fittingSize)
+        updateSize()
+        return stack
+    }
+
+    /// Asks. Nil when the author cancels.
+    func run() -> Choice? {
+        let alert = NSAlert()
+        alert.messageText = L("Collect from the Book")
+        alert.informativeText = L("The model reads the scenes and suggests cards. Nothing is added until you accept it in the Suggestions tab, and every suggestion shows the words it comes from.")
+        let stack = prepare()
         alert.accessoryView = stack
         alert.addButton(withTitle: L("Start"))
         alert.addButton(withTitle: L("Cancel"))
-        updateSize()
         stack.setFrameSize(stack.fittingSize)
         guard alert.runModal() == .alertFirstButtonReturn, !chosenKinds.isEmpty else { return nil }
-        return Choice(kinds: chosenKinds, scope: chosenScope, reanalyse: reanalyse.state == .on)
+        return Choice(kinds: chosenKinds, scope: chosenScope)
     }
 }
 
@@ -78,7 +84,7 @@ extension MainAreaController {
         guard !collect.running else { showSearch(.suggestions); return }
         guard let choice = CollectSheet(main: self).run() else { return }
         showSearch(.suggestions)
-        collect.start(kinds: choice.kinds, scope: choice.scope, reanalyse: choice.reanalyse)
+        collect.start(kinds: choice.kinds, scope: choice.scope)
     }
 }
 

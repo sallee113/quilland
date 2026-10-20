@@ -180,7 +180,7 @@ Le menu IA affiche l’état de la connexion en haut. Tout ce que propose le mod
 | --- | --- | --- |
 | Continuer l’écriture | menu IA, ⌃⌘G ; clic droit ▸ IA | Écrit le paragraphe suivant en texte estompé. **Tab** l’accepte, **Échap** l’abandonne. *…avec une direction* (⇧⌃⌘G) permet d’indiquer où aller. |
 | Écrire un synopsis | menu IA, ⌃⌘Y ; le bouton *Écrire avec l’IA* de l’onglet Section | Écrit un court résumé de la scène dans un synopsis vide. |
-| Recueillir depuis le livre… | menu IA, ⌥⌘K | Lit les scènes et propose des personnages, des lieux, des événements et des relations, avec les citations dont ils proviennent. Les scènes déjà analysées sont ignorées la fois suivante. |
+| Recueillir depuis le livre… | menu IA, ⌥⌘K | Lit les scènes et propose des personnages, des lieux, des événements et des relations, avec les citations dont ils proviennent. La fenêtre s’ouvre sur la scène courante (le livre entier si aucune n’est courante) ; choisissez le chapitre, la partie ou le livre entier pour lire davantage. Chaque lancement lit toutes les scènes de la portée choisie et repart d’une liste de suggestions vide : ce qu’un lancement précédent avait trouvé, et ce qui attendait encore, est retiré. |
 | Vérifier la cohérence… | menu IA, ⌥⌘Y ; clic droit ▸ IA | Cherche des contradictions entre les scènes (couleur des yeux, âge, qui sait quoi). Chaque résultat cite les deux passages. |
 | Vérifier la grammaire | menu IA, ⌥⇧⌘G ; le panneau Relecture | Propose des corrections de grammaire. |
 | Discussion | l’onglet *Discussion* du panneau de droite | Posez des questions sur votre livre. Joignez la scène, les personnages, les lieux ou le plan avec **@**. Le modèle ne fait que répondre ; il ne change rien. |

@@ -193,10 +193,6 @@
       "one": "{n} too short",
       "other": "{n} too short"
     },
-    "{n} unchanged scenes skipped": {
-      "one": "{n} unchanged scene skipped",
-      "other": "{n} unchanged scenes skipped"
-    },
     "{n} words": {
       "one": "{n} word",
       "other": "{n} words"
@@ -750,7 +746,6 @@
     "Quit Quilland": "",
     "Quotes": "",
     "Quotes by the book's language: «…» for Russian, “…” for English": "",
-    "Read again the scenes that were already read and have not changed": "",
     "Reading part {n} of {total}…": "",
     "Reading width of a sheet": "",
     "Reading…": "",
@@ -1136,7 +1131,6 @@
     "{n} author's sheets": "",
     "{n} sections chosen": "",
     "{n} sections: {size}": "",
-    "{n} unchanged scenes are skipped.": "",
     "{parts}, {chapters}, {scenes}, {size}": "",
     "{percent}% of the target": "",
     "{places} in {sections}": "",

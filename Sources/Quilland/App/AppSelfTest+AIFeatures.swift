@@ -153,6 +153,14 @@ extension AppSelfTest {
             var rel = CollectedItem(kind: .relationships, name: ""); rel.members = ["Сборкин", "Тестовая Аня"]; rel.type = "знакомые"; rel.evidence = [evidence("встреча")]
             var lonely = CollectedItem(kind: .relationships, name: ""); lonely.members = ["Сборкин", "Никто"]; lonely.type = "враги"; lonely.evidence = [evidence("x")]
             var obs = CollectedItem(kind: .observations, name: ""); obs.about = "Сборкин"; obs.detail = "Носит шляпу."; obs.evidence = [evidence("шляпа")]
+            // The Collect window opens on the current scene.
+            let modeBefore = main.mode
+            main.reveal(scene: sceneID, range: nil); spin(0.3)
+            let sheet = CollectSheet(main: main)
+            _ = sheet.prepare()
+            check(main.currentSceneID != nil && sheet.currentChoice.scope == .scene, "the Collect window starts on the current scene", "\(sheet.currentChoice.scope) \(main.mode)")
+            if main.mode != modeBefore { main.setMode(modeBefore); spin(0.3) }
+            check(CollectSheet.defaultScope(hasCurrentScene: false) == .book, "and on the whole book when there is no current scene")
             main.collect.inject([c, again, town, square, event, rel, lonely, obs])
             main.showSearch(.suggestions); spin(0.3)
             let sv = main.searchPanel.suggestView
@@ -198,6 +206,14 @@ extension AppSelfTest {
             check(sv.findingCount == 1 && sv.itemCount == 0, "a contradiction waits in the Suggestions tab")
             sv.checkAll()
             check(sv.acceptChecked() == nil, "a contradiction cannot be accepted: there is nothing to apply")
+            // A new run starts from an empty list: what an earlier run found and what was left waiting goes.
+            var leftover = CollectedItem(kind: .characters, name: "Остаток"); leftover.evidence = [CollectedEvidence(scene: sceneID, quote: "x", range: NSRange(location: 0, length: 1), note: "")]
+            main.collect.inject([leftover])
+            check(sv.itemCount == 1 && sv.findingCount == 1, "an earlier run's findings and contradictions are waiting")
+            main.collect.beginNewRun(); spin(0.2)
+            check(sv.itemCount == 0 && sv.findingCount == 0 && main.collect.items.isEmpty && main.collect.findings.isEmpty && main.collect.summary == nil, "a new run starts from an empty list")
+            // (Put the contradiction back for the checks that follow.)
+            main.collect.injectFindings([finding]); spin(0.2); sv.checkAll()
             sv.selectFirstFinding(); sv.openSource(); spin(0.4)
             check(main.mode == .characters && main.charactersView?.selected == card, "Open the Card goes to the card it conflicts with")
             main.setMode(.plan); spin(0.3)
