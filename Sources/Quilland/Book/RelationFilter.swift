@@ -76,7 +76,29 @@ final class RelationFilter: NSObject {
     func invalidate() { computed = false; cached = nil }
 
     func setCount(shown: Int, of total: Int) {
-        note.stringValue = isActive ? L("{n} of {total}", ["n": shown, "total": total]) : ""
+        guard isActive else { note.stringValue = ""; return }
+        note.stringValue = shown == 0 ? emptyMessage : L("{n} of {total}", ["n": shown, "total": total])
+    }
+
+    /// What to say when the filters leave nothing: for the connections that go through events, why that can be so.
+    private var emptyMessage: String {
+        if kind == .character, anchors.contains(where: { Self.kind(of: $0) == .place }) { return L("No character is linked to an event held at this place.") }
+        if kind == .place, anchors.contains(where: { Self.kind(of: $0) == .character }) { return L("This character is not linked to an event that has a place.") }
+        return L("Nothing matches the filters.")
+    }
+
+    /// What a filter means, for its chip's tooltip.
+    private func meaning(of anchor: RelationIndex.Anchor) -> String {
+        switch (kind, anchor) {
+        case (.character, .place): return L("Characters who take part in events held at this place")
+        case (.place, .character): return L("Places of the events this character takes part in")
+        case (.character, .section), (.place, .section), (.event, .section): return L("What is in the scenes of this section")
+        case (.character, .event): return L("Characters linked to this event")
+        case (.place, .event): return L("Places of this event")
+        case (.event, .character): return L("Events this character takes part in")
+        case (.event, .place): return L("Events held at this place")
+        default: return L("Take this filter off")
+        }
     }
 
     private static func kind(of anchor: RelationIndex.Anchor) -> AnchorKind {
@@ -170,7 +192,7 @@ final class RelationFilter: NSObject {
             chip.bezelStyle = .inline
             chip.controlSize = .small
             chip.lineBreakMode = .byTruncatingTail
-            chip.toolTip = L("Take this filter off")
+            chip.toolTip = meaning(of: anchor) + ". " + L("Click to take this filter off.")
             chip.widthAnchor.constraint(lessThanOrEqualToConstant: 220).isActive = true
             chips.addArrangedSubview(chip)
         }

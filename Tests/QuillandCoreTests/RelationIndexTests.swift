@@ -70,11 +70,12 @@ struct RelationIndexTests {
         // The event's file holds its places: places of an event, and events at a place.
         #expect(i.matching(.place, anchors: [.event(id["arrival"]!)]) == [id["manor"]!])
         #expect(i.matching(.event, anchors: [.place(id["port"]!)]) == [id["departure"]!])
-        // A character and a place go together by the scenes they share.
-        #expect(i.matching(.place, anchors: [.character(id["anna"]!)]) == [id["manor"]!])
-        #expect(i.matching(.place, anchors: [.character(id["lev"]!)]) == [id["port"]!])
-        #expect(i.matching(.character, anchors: [.place(id["manor"]!)]) == [id["anna"]!, id["narrator"]!])
-        #expect(i.matching(.character, anchors: [.place(id["port"]!)]) == [id["lev"]!])
+        // A character has been at a place when they take part in an event held there; sharing a scene with it is not enough.
+        #expect(i.matching(.character, anchors: [.place(id["port"]!)]) == [id["lev"]!], "Lev takes part in the departure, held at the spaceport")
+        #expect(i.matching(.place, anchors: [.character(id["lev"]!)]) == [id["port"]!], "and the spaceport is a place of his events")
+        #expect(i.matching(.character, anchors: [.place(id["manor"]!)]) == [], "Anna is in the scene of the arrival at the manor, but no link makes her part of the event")
+        #expect(i.matching(.place, anchors: [.character(id["anna"]!)]) == [], "so the manor is not a place of hers")
+        #expect(i.matching(.place, anchors: [.character(id["narrator"]!)]) == [], "nor of the narrator, who is in that scene by a line only")
     }
 
     @Test("several anchors must all match; an anchor of the kind asked for does nothing; none means no filter")
@@ -84,7 +85,9 @@ struct RelationIndexTests {
         let i = f.index, id = f.ids
         #expect(i.matching(.character, anchors: []) == nil)
         #expect(i.matching(.character, anchors: [.section("ch1"), .event(id["departure"]!)]) == [id["lev"]!], "in chapter 1 AND in the departure")
-        #expect(i.matching(.character, anchors: [.section("ch2"), .place(id["manor"]!)]) == [], "nobody is in chapter 2 and at the manor")
+        #expect(i.matching(.character, anchors: [.section("ch2"), .place(id["port"]!)]) == [id["lev"]!], "in chapter 2 AND at the spaceport")
+        #expect(i.matching(.character, anchors: [.section("ch1"), .place(id["port"]!)]) == [id["lev"]!], "Lev is in chapter 1 (scene 2) and went to the spaceport")
+        #expect(i.matching(.character, anchors: [.section("s1"), .place(id["port"]!)]) == [], "nobody in scene 1 went to the spaceport")
         #expect(i.matching(.character, anchors: [.character(id["anna"]!)]) == nil, "a character is not filtered by a character")
         #expect(i.matching(.character, anchors: [.character(id["anna"]!), .section("s1")]) == [id["anna"]!, id["narrator"]!], "the useless anchor is left out")
         #expect(i.matching(.event, anchors: [.section("p1"), .place(id["manor"]!), .character(id["lev"]!)]) == [], "the arrival is not Lev's, the departure is not at the manor")

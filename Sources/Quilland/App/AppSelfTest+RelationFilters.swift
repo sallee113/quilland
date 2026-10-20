@@ -45,6 +45,12 @@ extension AppSelfTest {
         check(cv.shownNames.isEmpty, "and a word that matches nothing in them shows nothing")
         cv.filterField.stringValue = ""
         cv.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: cv.filterField))
+        // Sharing a scene with a place is not having been there: only the events held there count.
+        try! main.worlds.updateEntry(elsewhere) { $0.links = [first: ""] }
+        cv.relationFilter.set(.place(elsewhere)); spin(0.2)
+        check(cv.shownNames.isEmpty, "a character who is in a scene where the place has a line is not at the place", "\(cv.shownNames)")
+        check(cv.relationFilter.noteText == "No character is linked to an event held at this place.", "and the list says why it is empty", cv.relationFilter.noteText)
+        check(cv.relationFilter.chipTexts.count == 2 || cv.relationFilter.chipTexts.count == 1, "the chip is there to take off")
         cv.relationFilter.clear(); spin(0.2)
         check(cv.shownNames.contains("Фёкла") && cv.shownNames.contains("Борислав") && cv.relationFilter.chipTexts.isEmpty, "taking the filters off lists everyone again")
 
