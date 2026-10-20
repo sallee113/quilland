@@ -27,11 +27,15 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     private(set) var selected: String?
     private var shown: [EventRecord] = []
+    private enum ListRow { case heading(String), event(EventRecord) }
+    private var listRows: [ListRow] = []
+    private var draggedID: String?
+    private static let rowType = NSPasteboard.PasteboardType("com.quilland.event-row")
     private(set) var connections: [EventConnection] = []
 
     let filterField = NSSearchField()
     let addField = NSTextField()
-    private let list = Hover.rows(NSTableView())
+    private let list = Hover.rows(EventListTable())
     private let emptyLabel = NSTextField(labelWithString: L("Add your first event"))
 
     private let cardScroll = NSScrollView()
@@ -91,6 +95,13 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         scroll.drawsBackground = false
         emptyLabel.font = .systemFont(ofSize: 15)
         emptyLabel.textColor = .secondaryLabelColor
+        list.registerForDraggedTypes([Self.rowType])
+        list.draggingDestinationFeedbackStyle = .gap
+        (list as? EventListTable)?.moveHandler = { [weak self] by in self?.move(by: by) }
+        let menu = NSMenu()
+        menu.addItem(ClosureMenuItem(title: L("Move Up")) { [weak self] in self?.move(by: -1) })
+        menu.addItem(ClosureMenuItem(title: L("Move Down")) { [weak self] in self?.move(by: 1) })
+        list.menu = menu
         for v in [filterField, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             filterField.topAnchor.constraint(equalTo: root.topAnchor, constant: 10), filterField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
@@ -198,17 +209,34 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     private var sceneOrder: [String] { scenes().map(\.id) }
 
+    /// The rows of the list: a heading for each scene (the first one an event is linked to) and its events beneath it, in the order of the book.
+    private func makeRows(needle: String) {
+        func matches(_ e: EventRecord) -> Bool { needle.isEmpty || (e.title ?? "").lowercased().contains(needle) }
+        let titles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
+        listRows = []
+        for group in events.groups(sceneOrder: sceneOrder) {
+            let members = group.events.filter(matches)
+            guard !members.isEmpty else { continue }
+            listRows.append(.heading(group.scene.flatMap { titles[$0] } ?? L("not in a scene yet")))
+            listRows += members.map { .event($0) }
+        }
+        shown = listRows.compactMap { if case .event(let e) = $0 { return e } else { return nil } }
+    }
+
+    private func row(of id: String) -> Int? {
+        listRows.firstIndex { if case .event(let e) = $0 { return e.id == id } else { return false } }
+    }
+
     func reload() {
         guard isViewLoaded else { return }
-        let needle = filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
-        shown = events.ordered(sceneOrder: sceneOrder).filter { needle.isEmpty || ($0.title ?? "").lowercased().contains(needle) }
+        makeRows(needle: filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased())
         list.reloadData()
         emptyLabel.isHidden = !events.events.isEmpty
-        if let id = selected, let row = shown.firstIndex(where: { $0.id == id }) {
+        if let id = selected, let row = row(of: id) {
             list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        } else if selected == nil || events.event(selected ?? "") == nil, let first = shown.first, let id = first.id {
+        } else if selected == nil || events.event(selected ?? "") == nil, let first = shown.first, let id = first.id, let row = row(of: id) {
             selected = id
-            list.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         } else if shown.isEmpty { selected = nil }
         showCard()
     }
@@ -217,27 +245,32 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         commitEdits()
         selected = id
         filterField.stringValue = ""
-        shown = events.ordered(sceneOrder: sceneOrder)
+        makeRows(needle: "")
         list.reloadData()
-        if let row = shown.firstIndex(where: { $0.id == id }) { list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false); list.scrollRowToVisible(row) }
+        if let row = row(of: id) { list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false); list.scrollRowToVisible(row) }
         showCard()
     }
 
     var shownTitles: [String] { shown.compactMap(\.title) }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { tableView === list ? shown.count : connections.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { tableView === list ? listRows.count : connections.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         if tableView === list {
-            let e = shown[row]
-            let titles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
-            let firstScene = sceneOrder.first { e.links[$0] != nil }
-            let s = NSMutableAttributedString(string: e.title ?? "", attributes: [.font: NSFont.systemFont(ofSize: 13)])
-            let hint = firstScene.flatMap { titles[$0] } ?? L("not in a scene yet")
-            s.append(NSAttributedString(string: "\n" + hint, attributes: [.font: NSFont.systemFont(ofSize: 10.5), .foregroundColor: NSColor.secondaryLabelColor]))
-            let l = NSTextField(labelWithAttributedString: s)
+            guard listRows.indices.contains(row) else { return nil }
+            if case .heading(let title) = listRows[row] {
+                let l = NSTextField(labelWithString: title)
+                l.font = .systemFont(ofSize: 11, weight: .semibold)
+                l.textColor = .secondaryLabelColor
+                l.lineBreakMode = .byTruncatingTail
+                return CenteredCell(l, leading: 2)
+            }
+            guard case .event(let e) = listRows[row] else { return nil }
+            // The scene is the heading above: the row is the title alone.
+            let l = NSTextField(labelWithString: e.title ?? "")
+            l.font = .systemFont(ofSize: 13)
             l.lineBreakMode = .byTruncatingTail
-            return CenteredCell(l)
+            return CenteredCell(l, leading: 14)
         }
         guard connections.indices.contains(row), let id = tableColumn?.identifier.rawValue else { return nil }
         let c = connections[row]
@@ -267,10 +300,116 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     func tableViewSelectionDidChange(_ notification: Notification) {
         guard (notification.object as? NSTableView) === list else { return }
         let row = list.selectedRow
-        guard row >= 0, shown.indices.contains(row), shown[row].id != selected else { return }
+        guard row >= 0, listRows.indices.contains(row), case .event(let e) = listRows[row], e.id != selected else { return }
         commitEdits()
-        selected = shown[row].id
+        selected = e.id
         showCard()
+    }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        guard tableView === list, listRows.indices.contains(row) else { return tableView.rowHeight }
+        if case .heading = listRows[row] { return 24 }
+        return 26
+    }
+
+    func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
+        tableView === list && listRows.indices.contains(row) && { if case .heading = listRows[row] { return true } else { return false } }()
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        guard tableView === list else { return true }
+        return listRows.indices.contains(row) && { if case .event = listRows[row] { return true } else { return false } }()
+    }
+
+    // MARK: Putting the events in order by hand
+
+    /// Ordering by hand is off while the list is filtered (the rows are not the whole story then).
+    private var canReorder: Bool { filterField.stringValue.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// The events among which the chosen one is put in order: the events of its scene.
+    private func sequence(containing id: String) -> [String] {
+        guard let r = row(of: id) else { return [] }
+        var start = r, end = r
+        while start > 0, case .event = listRows[start - 1] { start -= 1 }
+        while end + 1 < listRows.count, case .event = listRows[end + 1] { end += 1 }
+        return listRows[start...end].compactMap { if case .event(let e) = $0 { return e.id } else { return nil } }
+    }
+
+    /// Moves the chosen event up (-1) or down (+1) among the events it is put in order with.
+    func move(by delta: Int) {
+        guard canReorder, let id = selected else { return }
+        var ids = sequence(containing: id)
+        guard let i = ids.firstIndex(of: id), ids.indices.contains(i + delta) else { NSSound.beep(); return }
+        ids.swapAt(i, i + delta)
+        commitEdits()
+        try? events.reorder(ids)
+        reload()
+        onChange?()
+    }
+
+    /// For the checks: moves an event to a place among those it is put in order with (an index in that sequence).
+    func moveEvent(_ id: String, toIndex target: Int) {
+        var ids = sequence(containing: id)
+        guard let from = ids.firstIndex(of: id) else { return }
+        ids.remove(at: from)
+        ids.insert(id, at: min(max(0, target), ids.count))
+        try? events.reorder(ids)
+        reload()
+        onChange?()
+    }
+
+    /// For the checks: what each row of the list shows.
+    var rowTexts: [String] { listRows.indices.map { ((list.view(atColumn: 0, row: $0, makeIfNecessary: true) as? NSTableCellView)?.textField?.stringValue) ?? "" } }
+
+    /// For the checks: the titles in the order of the list, headings included (marked with "—").
+    var listTitles: [String] { listRows.map { if case .heading(let t) = $0 { return "— " + t } else if case .event(let e) = $0 { return e.title ?? "" } else { return "" } } }
+
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+        guard tableView === list, canReorder, listRows.indices.contains(row), case .event(let e) = listRows[row], let id = e.id else { return nil }
+        draggedID = id
+        let item = NSPasteboardItem()
+        item.setString(id, forType: Self.rowType)
+        return item
+    }
+
+    func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        guard tableView === list, let id = draggedID ?? info.draggingPasteboard.string(forType: Self.rowType), dropAllowed(id, aboveRow: row) else { return [] }
+        tableView.setDropRow(row, dropOperation: .above)
+        return .move
+    }
+
+    /// May the event be dropped above this row? Only inside its scene's group (the row after the last event of the group counts): an event does not change
+    /// its scene by being moved, its links decide that.
+    func dropAllowed(_ id: String, aboveRow row: Int) -> Bool {
+        guard canReorder, let from = self.row(of: id) else { return false }
+        var start = from, end = from
+        while start > 0, case .event = listRows[start - 1] { start -= 1 }
+        while end + 1 < listRows.count, case .event = listRows[end + 1] { end += 1 }
+        return row >= start && row <= end + 1
+    }
+
+    func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+        guard tableView === list, let id = draggedID ?? info.draggingPasteboard.string(forType: Self.rowType) else { return false }
+        draggedID = nil
+        return performDrop(id, aboveRow: row)
+    }
+
+    /// Puts the event where it was dropped: above this row of the list (also called directly by the checks).
+    @discardableResult
+    func performDrop(_ id: String, aboveRow row: Int) -> Bool {
+        guard dropAllowed(id, aboveRow: row), let from = self.row(of: id) else { return false }
+        // The index among the sequence: the events before the drop row, within the group.
+        var ids = sequence(containing: id)
+        var groupStart = from
+        while groupStart > 0, case .event = listRows[groupStart - 1] { groupStart -= 1 }
+        var target = row - groupStart
+        if let i = ids.firstIndex(of: id) { ids.remove(at: i); if i < target { target -= 1 } }
+        ids.insert(id, at: min(max(0, target), ids.count))
+        selected = id
+        try? events.reorder(ids)
+        reload()
+        onChange?()
+        return true
     }
 
     // MARK: The card
@@ -563,5 +702,18 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { onEscape?() } else { super.keyDown(with: event) }
+    }
+}
+
+
+/// The Events list: ⌥⌘↑ and ⌥⌘↓ move the chosen event up and down.
+final class EventListTable: NSTableView {
+    var moveHandler: ((Int) -> Void)?
+    override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.intersection([.command, .option, .shift, .control]) == [.command, .option], event.keyCode == 126 || event.keyCode == 125 {
+            moveHandler?(event.keyCode == 126 ? -1 : 1)
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }

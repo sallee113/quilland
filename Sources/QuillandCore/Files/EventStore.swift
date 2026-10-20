@@ -5,6 +5,8 @@ public struct EventRecord: Equatable, Sendable {
     public init(object: JSONObject) { self.object = object }
     public var id: String? { get { object.string("id") } set { object.setString("id", newValue) } }
     public var title: String? { get { object.string("title") } set { object.setString("title", newValue) } }
+    /// Where the event stands among the events of its scene, in the author's own order (a number; the gaps are free).
+    public var order: Int? { get { object.int("order") } set { object.setInt("order", newValue) } }
     /// The colour the event has on the Plan (a name such as `teal`); none is the plain look.
     public var color: String? { get { object.string("color") } set { object.setString("color", newValue) } }
     /// Free text ("spring, year 214", "several years later"); never read as a date.
@@ -45,18 +47,54 @@ public final class EventStore {
 
     public func event(_ id: String) -> EventRecord? { events.first { $0.id == id } }
 
-    /// In the order of the book: by the first scene each event is linked to; the ones linked to no scene come last, by title.
+    private static func before(_ a: EventRecord, _ b: EventRecord) -> Bool {
+        switch (a.order, b.order) {
+        case let (x?, y?) where x != y: return x < y
+        case (_?, nil): return true
+        case (nil, _?): return false
+        default: return (a.title ?? "").localizedLowercase < (b.title ?? "").localizedLowercase
+        }
+    }
+
+    /// The scene that decides where an event stands in the book: the first of its scenes.
+    private static func firstScene(_ e: EventRecord, _ position: [String: Int]) -> Int? { e.links.keys.compactMap { position[$0] }.min() }
+
+    /// In the order of the book: by the first scene each event is linked to, and within a scene by the author's own order (then by title); the ones
+    /// linked to no scene come last, in the same way.
     public func ordered(sceneOrder: [String]) -> [EventRecord] {
         let position = Dictionary(uniqueKeysWithValues: sceneOrder.enumerated().map { ($1, $0) })
-        func first(_ e: EventRecord) -> Int? { e.links.keys.compactMap { position[$0] }.min() }
         return events.sorted { a, b in
-            switch (first(a), first(b)) {
-            case let (x?, y?): return x != y ? x < y : (a.title ?? "").localizedLowercase < (b.title ?? "").localizedLowercase
+            switch (Self.firstScene(a, position), Self.firstScene(b, position)) {
+            case let (x?, y?): return x != y ? x < y : Self.before(a, b)
             case (_?, nil): return true
             case (nil, _?): return false
-            case (nil, nil): return (a.title ?? "").localizedLowercase < (b.title ?? "").localizedLowercase
+            case (nil, nil): return Self.before(a, b)
             }
         }
+    }
+
+    /// The events grouped by the scene that decides their place (nil: linked to no scene), in the order of the book.
+    public func groups(sceneOrder: [String]) -> [(scene: String?, events: [EventRecord])] {
+        let position = Dictionary(uniqueKeysWithValues: sceneOrder.enumerated().map { ($1, $0) })
+        var out: [(scene: String?, events: [EventRecord])] = []
+        for e in ordered(sceneOrder: sceneOrder) {
+            let scene = Self.firstScene(e, position).map { sceneOrder[$0] }
+            if let last = out.last, last.scene == scene { out[out.count - 1].events.append(e) } else { out.append((scene, [e])) }
+        }
+        return out
+    }
+
+    /// Puts the events of one scene in a new order among themselves: they take, in that sequence, the numbers they already had, so each keeps its place and
+    /// only the files that change are written. When some of them have no number yet, they are numbered in the new order (100, 200, 300…).
+    public func reorder(_ ids: [String]) throws {
+        let known = ids.filter { event($0) != nil }
+        if known.contains(where: { event($0)?.order == nil }) {
+            for (i, id) in known.enumerated() { try update(id) { $0.order = (i + 1) * 100 } }
+            return
+        }
+        let slots = known.compactMap { event($0)?.order }.sorted()
+        guard slots.count == known.count else { return }
+        for (i, id) in known.enumerated() where event(id)?.order != slots[i] { try update(id) { $0.order = slots[i] } }
     }
 
     @discardableResult

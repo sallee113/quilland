@@ -88,3 +88,46 @@ struct EventColorTests {
         #expect(plan.eventColors == [b: "red"])
     }
 }
+
+@Suite("The order of events")
+struct EventOrderTests {
+    static func book() throws -> (URL, URL) {
+        let parent = try NewBookTests.folder()
+        return (parent, try BookCreator.create(NewBookRequest(title: "Дом", language: "ru", parentFolder: parent)))
+    }
+
+    @Test("the scenes decide, and within a scene the author's order, then the title; only the scene's events are numbered")
+    func withinAScene() throws {
+        let (parent, book) = try Self.book()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = EventStore(book: book)
+        let a = try store.add(title: "Арест"), b = try store.add(title: "Бегство"), c = try store.add(title: "Встреча"), d = try store.add(title: "Годы спустя")
+        let scenes = ["s1", "s2", "s3"]
+        try store.update(a) { $0.links = ["s1": ""] }
+        try store.update(b) { $0.links = ["s1": ""] }
+        try store.update(c) { $0.links = ["s2": ""] }
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Арест", "Бегство", "Встреча", "Годы спустя"], "by title inside a scene until put in order; no scene last")
+        let groups = store.groups(sceneOrder: scenes)
+        #expect(groups.map(\.scene) == ["s1", "s2", nil] && groups[0].events.count == 2)
+        // Put the two events of the first scene in the other order.
+        try store.reorder([b, a])
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Бегство", "Арест", "Встреча", "Годы спустя"])
+        #expect(EventStore(book: book).ordered(sceneOrder: scenes).compactMap(\.title) == ["Бегство", "Арест", "Встреча", "Годы спустя"], "and it is on disk")
+        #expect(store.event(b)?.order == 100 && store.event(a)?.order == 200, "the two were numbered in the new order")
+        #expect(store.event(c)?.order == nil && store.event(d)?.order == nil, "the events of other scenes were not touched")
+        // Back again: they swap the numbers they have, and nothing else is written.
+        try store.reorder([a, b])
+        #expect(store.event(a)?.order == 100 && store.event(b)?.order == 200)
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Арест", "Бегство", "Встреча", "Годы спустя"])
+        // A new event has no number: last in its group.
+        let e = try store.add(title: "Бой")
+        try store.update(e) { $0.links = ["s1": ""] }
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Арест", "Бегство", "Бой", "Встреча", "Годы спустя"])
+        // Put in order again with the new one among them: all three are numbered anew.
+        try store.reorder([e, a, b])
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Бой", "Арест", "Бегство", "Встреча", "Годы спустя"] && store.event(e)?.order == 100)
+        // An event that does not exist is left out.
+        try store.reorder(["no-such-event", b, a])
+        #expect(store.ordered(sceneOrder: scenes).compactMap(\.title) == ["Бой", "Бегство", "Арест", "Встреча", "Годы спустя"] && store.events.count == 5)
+    }
+}

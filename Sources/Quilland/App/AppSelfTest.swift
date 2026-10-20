@@ -119,6 +119,7 @@ final class AppSelfTest {
         if let code = fonts() { return code }
         if let code = emptyLines() { return code }
         if let code = planColors() { return code }
+        if let code = eventOrder() { return code }
         if let code = structure() { return code }
         if let code = files() { return code }
         if let code = settings() { return code }
