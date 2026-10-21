@@ -19,7 +19,7 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         main = try MainAreaController(folder: folder, state: LocalBookState.load(book: folder))
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         super.init()
-        window.title = bookTitle
+        window.title = bookTitle + Self.titleSeparator + MainAreaController.title(of: main.mode)
         window.representedURL = folder
         window.delegate = self
         window.contentMinSize = NSSize(width: 640, height: 420)
@@ -40,11 +40,17 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         window.contentView = content
         main.onCursorMoved = { [weak self] _, _ in self?.scheduleStateSave() }
         main.onChange = { [weak self] in self?.refreshStatus() }
+        main.onModeChange = { [weak self] in self?.updateTitle() }
         main.onAIStatus = { [weak self] text in self?.aiStatus = text; self?.refreshStatus() }
         main.onFocusModeChange = { [weak self] on in self?.focusModeChanged(on) }
         startSnapshotTimer()
         refreshStatus()
     }
+
+    private static let titleSeparator = " — "
+
+    /// The window is titled with the book and the view it shows: `Растительный мир — Characters`.
+    func updateTitle() { window.title = bookTitle + Self.titleSeparator + MainAreaController.title(of: main.mode) }
 
     /// The book's language code (`ru`, `en`…).
     var language: String {
@@ -108,8 +114,8 @@ final class BookWindowController: NSObject, NSWindowDelegate {
     /// Book Settings changed something: the title in the window and the list of books, the language and the dictionary in the text.
     func bookSettingsChanged(settings: AppSettings) {
         let s = BookSettings.load(book: folder)
-        window.title = s.title
         bookTitle = s.title
+        updateTitle()
         targetCharacters = s.targetCharacters
         settings.noteTitle(folder: folder, name: s.title)
         main.bookSettingsChanged()

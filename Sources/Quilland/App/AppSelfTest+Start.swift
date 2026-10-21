@@ -14,7 +14,7 @@ extension AppSelfTest {
         check(!app.welcome.window.isVisible, "and the Welcome window goes away")
         check(app.settings.lastOpened == folder.path && app.settings.knownBooks.first?.name == "Дом на Сосновой", "the book is remembered as the last opened and the first recent")
         guard let book = app.bookWindows.first else { return 1 }
-        check(book.window.title == "Дом на Сосновой" && book.main.mode == .panels, "the window is titled with the book and opens in Panels mode")
+        check(book.window.title == "Дом на Сосновой — Panels" && book.main.mode == .panels, "the window is titled with the book and the view, and opens in Panels mode", book.window.title)
         check(book.main.controllers.count == 1 && book.main.session.structure.scenes.count == 1, "one chapter with one empty scene")
         check(book.main.currentSceneID == book.main.session.structure.scenes[0].id, "the cursor is in the first scene, ready to type", "current \(String(describing: book.main.currentSceneID)), controllers \(book.main.controllers.count), sheets \(book.main.controllers.first?.stack.sheets.count ?? -1), window \(String(describing: book.main.controllers.first?.view.window)), responder \(String(describing: book.window.firstResponder))")
         guard book.main.currentSceneID != nil else { print("\n\(passed) passed, \(failed) failed"); return 1 }

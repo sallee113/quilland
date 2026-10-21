@@ -13,6 +13,8 @@ final class MainAreaController: NSViewController {
     private(set) var focusMode = false
     private var beforeFocus: Bool?
     var onFocusModeChange: ((Bool) -> Void)?
+    /// The view (mode) has changed: the window shows its name in the title.
+    var onModeChange: (() -> Void)?
     private(set) var controllers: [BookViewController] = []
     private(set) var planController: PlanCanvasController?
     private(set) var tree: StructureTreeController?
@@ -216,6 +218,7 @@ final class MainAreaController: NSViewController {
         if [.panels, .book, .compare].contains(mode) { writingMode = mode }
         mode = new
         rebuild()
+        onModeChange?()
     }
 
     /// The scene and the place of the cursor now, so that a rebuilt view can put it back.

@@ -117,7 +117,7 @@ extension AppSelfTest {
         if let bs = app.bookSettingsController(for: stFolder) {
             bs.apply { $0.title = "Новое имя" }
             spin(0.2)
-            check(BookSettings.load(book: stFolder).title == "Новое имя" && stWin.window.title == "Новое имя" && app.settings.knownBooks.first { $0.path == stFolder.path }?.name == "Новое имя", "a new title is saved, shown in the window, and in the list of books")
+            check(BookSettings.load(book: stFolder).title == "Новое имя" && stWin.window.title.hasPrefix("Новое имя — ") && app.settings.knownBooks.first { $0.path == stFolder.path }?.name == "Новое имя", "a new title is saved, shown in the window, and in the list of books")
             bs.apply { $0.title = "   " }
             check(BookSettings.load(book: stFolder).title == "Новое имя", "a blank title is refused")
             bs.apply { $0.author = "А. Автор"; $0.copyright = "© 2026"; $0.targetCharacters = 300000 }

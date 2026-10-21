@@ -89,6 +89,12 @@ extension AppSelfTest {
         main.eventsView?.select(storm); spin(0.2)
         check(main.eventsView?.addLinkEnabled == true, "the event's Add menu is on while something can be linked")
 
+        // The window's title carries the view's name.
+        main.setMode(.characters); spin(0.3)
+        check(again.window.title.hasSuffix(" — Characters"), "the window title names the view", again.window.title)
+        main.setMode(.plan); spin(0.3)
+        check(again.window.title.hasSuffix(" — Plan"), "and follows it to another view", again.window.title)
+
         // The Plan's zoom buttons are off where they would do nothing.
         app.modePlan(); spin(0.4)
         if let plan = main.planController, plan.showsControls {
