@@ -64,8 +64,45 @@ extension AppSelfTest {
         wv.removeSceneLink(row: wv.rows.firstIndex { $0.sceneID == calm } ?? 0); spin(0.2)
         check(main.eventStore.event(calm)?.places[port] == nil && wv.eventRowIDs.isEmpty, "removing the link takes the place away from the event")
 
+        // The "Add…" menus are off when there is nothing left to add.
+        let sceneIDs = main.session.structure.scenes.map(\.id)
+        let eventIDs = main.eventStore.events.compactMap(\.id)
+        app.modeCharacters(); spin(0.3)
+        if let cv = main.charactersView {
+            cv.reload(); cv.select(gleb); spin(0.2)
+            check(cv.addLinkEnabled, "the character's Add menu is on while scenes or events can be added")
+            try! main.characters.update(gleb) { r in var l = r.links; for id in sceneIDs + eventIDs { l[id] = "" }; r.links = l }
+            cv.reload(); cv.select(gleb); spin(0.2)
+            check(!cv.addLinkEnabled, "and off when every scene and event is in the list")
+            check(cv.newRelationshipEnabled == (main.characters.characters.count >= 2), "New Relationship is on only when there are two characters to relate")
+        }
+        app.modeWorld(); spin(0.3)
+        if let wv = main.worldView {
+            wv.reload(); wv.select(port); spin(0.2)
+            check(wv.addLinkEnabled, "the place's Add menu is on while scenes or events can be added")
+            try! main.worlds.updateEntry(port) { r in var l = r.links; for id in sceneIDs { l[id] = "" }; r.links = l }
+            for id in eventIDs { try! main.eventStore.update(id) { var p = $0.places; p[port] = ""; $0.places = p } }
+            wv.reload(); wv.select(port); spin(0.2)
+            check(!wv.addLinkEnabled, "and off when every scene and event is in the list")
+        }
+        app.modeEvents(); spin(0.3)
+        main.eventsView?.select(storm); spin(0.2)
+        check(main.eventsView?.addLinkEnabled == true, "the event's Add menu is on while something can be linked")
+
+        // The Plan's zoom buttons are off where they would do nothing.
+        app.modePlan(); spin(0.4)
+        if let plan = main.planController, plan.showsControls {
+            plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); plan.zoomIn(); spin(0.2)
+            check(plan.zoomButtonsEnabled.in == false && plan.zoomButtonsEnabled.out, "at the largest zoom the + is off and the − is on", "\(plan.zoom) \(plan.zoomButtonsEnabled)")
+            for _ in 0..<20 { plan.zoomOut() }
+            spin(0.2)
+            check(plan.zoomButtonsEnabled.out == false && plan.zoomButtonsEnabled.in, "at the smallest zoom the − is off and the + is on", "\(plan.zoom) \(plan.zoomButtonsEnabled)")
+            plan.zoomToFit(); spin(0.2)
+        } else { check(false, "the Plan has its controls") }
+
         try? main.characters.delete(gleb)
         for id in [storm, calm] { try? main.eventStore.delete(id) }
+        for id in eventIDs { try? main.eventStore.update(id) { var p = $0.places; p.removeValue(forKey: port); $0.places = p } }
         try? main.worlds.deleteEntry(port)
         main.setMode(main.writingMode); spin(0.3)
         return nil

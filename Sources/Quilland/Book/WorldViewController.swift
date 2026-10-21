@@ -510,6 +510,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
     private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
     var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
+    var addLinkEnabled: Bool { addSceneButton.isEnabled }
     /// For the checks: chooses a row of the list of scenes and events.
     func selectLinkRow(_ row: Int?) { if let row { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { sceneTable.deselectAll(nil) } }
 
@@ -544,6 +545,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             }
         }
         addSceneButton.menu = menu
+        addSceneButton.isEnabled = menu.offersAnything
     }
 
     /// Links the place to a scene where its name is not written: the line is empty and the cursor goes to it.

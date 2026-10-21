@@ -271,9 +271,12 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             modeControl.action = #selector(modeSegmentChanged)
             modeControl.selectedSegment = mode == .plan ? 0 : 1
             let bar = NSStackView(views: [modeControl, button(L("+ Line"), #selector(addLineAction)), button(L("+ Card"), #selector(addCardAction)),
-                                          button("−", #selector(zoomOutAction)), button("+", #selector(zoomInAction)), button(L("Fit"), #selector(fitAction)),
+                                          zoomOutButton, zoomInButton, fitButton,
                                           linesButton, NSTextField(labelWithString: L("Show from")), fromPopup, selectionNoteLabel])
             fromPopup.target = self; fromPopup.action = #selector(fromChanged)
+            for (b, action) in [(zoomOutButton, #selector(zoomOutAction)), (zoomInButton, #selector(zoomInAction)), (fitButton, #selector(fitAction))] { b.target = self; b.action = action; b.bezelStyle = .rounded }
+            magnificationObserver = scrollView.observe(\.magnification, options: [.new]) { [weak self] _, _ in self?.syncZoomButtons() }
+            syncZoomButtons()
             fillFromPopup()
             bar.spacing = 8
             bar.translatesAutoresizingMaskIntoConstraints = false
@@ -303,6 +306,10 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     private(set) var hidden: Set<String> = []
     private let fromPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let linesButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let zoomOutButton = NSButton(title: "−", target: nil, action: nil)
+    private let zoomInButton = NSButton(title: "+", target: nil, action: nil)
+    private let fitButton = NSButton(title: L("Fit"), target: nil, action: nil)
+    private var magnificationObserver: NSKeyValueObservation?
 
     private func fillFromPopup() {
         fromPopup.removeAllItems()
@@ -337,6 +344,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             for (id, card) in store.cards { if let l = card.line, off.contains(l) { hidden.insert(id) } }
         }
         fillLinesMenu()
+        syncZoomButtons()
         if let id = selectedID, hidden.contains(id) { selectedID = nil }
         selection = selection.filter { !hidden.contains($0) && (store.cards[$0] != nil || store.events[$0] != nil) }
         canvas.reload(store: store, mode: mode, selected: selection, hidden: hidden, delegate: self)
@@ -710,6 +718,15 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     // MARK: Zoom
 
     var zoom: CGFloat { scrollView.magnification }
+
+    /// A zoom button that would change nothing is off: "−" and "+" at their limits, "Fit" with nothing on the plan.
+    private func syncZoomButtons() {
+        zoomOutButton.isEnabled = scrollView.magnification > scrollView.minMagnification + 0.001
+        zoomInButton.isEnabled = scrollView.magnification < scrollView.maxMagnification - 0.001
+        fitButton.isEnabled = !store.entries.isEmpty || !store.cards.isEmpty
+    }
+    /// For the checks: are "−", "+" and "Fit" on?
+    var zoomButtonsEnabled: (out: Bool, in: Bool, fit: Bool) { (zoomOutButton.isEnabled, zoomInButton.isEnabled, fitButton.isEnabled) }
     func zoomIn() {
         scrollView.setMagnification(min(scrollView.maxMagnification, scrollView.magnification * 1.25), centeredAt: zoomCenter)
         keepSelectionVisible()
@@ -844,6 +861,11 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         }
         return spot
     }
+}
+
+extension NSMenu {
+    /// Does the menu (or a menu under it) offer anything to do? The "None left" lines are not items that act.
+    var offersAnything: Bool { items.contains { $0 is ClosureMenuItem || ($0.submenu?.offersAnything ?? false) } }
 }
 
 final class ClosureMenuItem: NSMenuItem {

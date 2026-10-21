@@ -285,6 +285,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         guard isViewLoaded else { return }
         if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
         reloadRelationships()
+        addRelationshipButton.isEnabled = store.characters.count >= 2
         let needle = filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
         let allowed = relationFilter.allowed()
         shown = store.characters.filter { (needle.isEmpty || ($0.name ?? "").lowercased().contains(needle) || $0.aliases.contains { $0.lowercased().contains(needle) }) && (allowed == nil || allowed!.contains($0.id ?? "")) }
@@ -354,6 +355,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
     private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
     var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
+    var addLinkEnabled: Bool { addSceneButton.isEnabled }
+    var newRelationshipEnabled: Bool { addRelationshipButton.isEnabled }
     /// For the checks: chooses a row of the list of scenes and events.
     func selectLinkRow(_ row: Int?) { if let row { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { sceneTable.deselectAll(nil) } }
 
@@ -424,6 +427,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             }
         }
         addSceneButton.menu = menu
+        addSceneButton.isEnabled = menu.offersAnything
     }
 
     /// Links the character to a scene where the name is not written (a nickname, a mention without it, a plan): the line is empty, the cursor goes to it.

@@ -308,6 +308,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
     private func syncRemoveButton() { removeButton.isEnabled = connections.indices.contains(table.selectedRow) }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
+    var addLinkEnabled: Bool { addButton.isEnabled }
     /// For the checks: chooses a row of the list of connections.
     func selectConnectionRow(_ row: Int?) { if let row { table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { table.deselectAll(nil) } }
 
@@ -492,6 +493,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         sub(L("Place"), worlds.entries.filter { $0.id.map { e.places[$0] == nil } ?? false }.map { p in (worlds.path(of: p.id ?? "").dropFirst().joined(separator: " › "), { [weak self] in self?.addPlace(p.id ?? "") }) })
         sub(L("Character"), characters.characters.filter { $0.links[id] == nil }.map { c in (c.name ?? "", { [weak self] in self?.addCharacter(c.id ?? "") }) })
         addButton.menu = menu
+        addButton.isEnabled = menu.offersAnything
     }
 
     private func updatePlanRow() {

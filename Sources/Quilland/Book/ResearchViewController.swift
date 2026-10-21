@@ -282,6 +282,7 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
     private func syncRemoveButton() { removeButton.isEnabled = links.indices.contains(table.selectedRow) }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
+    var addLinkEnabled: Bool { addButton.isEnabled }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         if (notification.object as? NSTableView) === table { syncRemoveButton(); return }
@@ -389,6 +390,7 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
         sub(L("Place"), worlds.entries.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { p in (worlds.path(of: p.id ?? "").dropFirst().joined(separator: " › "), { [weak self] in self?.addLink(p.id ?? "") }) })
         sub(L("Event"), events.events.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { e in (e.title ?? "", { [weak self] in self?.addLink(e.id ?? "") }) })
         addButton.menu = menu
+        addButton.isEnabled = menu.offersAnything
     }
 
     // MARK: Links
