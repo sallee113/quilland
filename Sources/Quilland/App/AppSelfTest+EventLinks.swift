@@ -114,3 +114,40 @@ extension AppSelfTest {
         return nil
     }
 }
+
+/// The Place part of the "Add…" menus lists the places under the name of their world.
+extension AppSelfTest {
+    func placeMenus() -> Int32? {
+        let main = self.main!
+        let w1 = main.worlds.worlds[0], w1name = main.worlds.worlds[0].name ?? ""
+        let w2 = try! main.worlds.addWorld(name: "ТМП-Яблоня")
+        let b = try! main.worlds.addEntry(name: "Б-место", world: w2), a = try! main.worlds.addEntry(name: "А-место", world: w2)
+        let inner = try! main.worlds.addEntry(name: "внутри", world: w2, parent: a)
+        let ev = try! main.eventStore.add(title: "ТМП меню мест")
+        let doc = try! main.researchStore.add(title: "ТМП документ")
+
+        func check(_ items: [(title: String, heading: Bool)], _ what: String) {
+            let headings = items.filter(\.heading).map(\.title)
+            self.check(headings.contains("ТМП-Яблоня") && headings.contains(w1name), "\(what): the places are under the names of their worlds", "\(headings)")
+            self.check(headings == headings.sorted { $0.localizedStandardCompare($1) == .orderedAscending }, "\(what): the worlds are in alphabetical order", "\(headings)")
+            if let i = items.firstIndex(where: { $0.title == "ТМП-Яблоня" && $0.heading }) {
+                let rest = items[(i + 1)...].prefix { !$0.heading }.map(\.title)
+                self.check(rest == ["А-место", "А-место › внутри", "Б-место"], "\(what): a world's places are sorted, a nested one shown inside its parent", "\(rest)")
+            } else { self.check(false, "\(what): the heading of the second world is there") }
+        }
+        main.setMode(.events); spin(0.4)
+        main.eventsView?.select(ev); spin(0.3)
+        check(main.eventsView?.placeMenuItems ?? [], "Events")
+        main.setMode(.research); spin(0.4)
+        main.researchView?.select(doc); spin(0.3)
+        check(main.researchView?.placeMenuItems ?? [], "Research")
+
+        for id in [inner, a, b] { try? main.worlds.deleteEntry(id) }
+        try? main.worlds.deleteWorld(w2)
+        try? main.eventStore.delete(ev)
+        try? main.researchStore.delete(doc)
+        _ = w1
+        main.setMode(main.writingMode); spin(0.3)
+        return nil
+    }
+}

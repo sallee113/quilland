@@ -123,6 +123,7 @@ final class AppSelfTest {
         if let code = relationFilters() { return code }
         if let code = eventLinks() { return code }
         if let code = graphView() { return code }
+        if let code = placeMenus() { return code }
         if let code = aiStatusEvents() { return code }
         if let code = structure() { return code }
         if let code = files() { return code }

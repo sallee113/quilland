@@ -283,6 +283,8 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
     private func syncRemoveButton() { removeButton.isEnabled = links.indices.contains(table.selectedRow) }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
     var addLinkEnabled: Bool { addButton.isEnabled }
+    /// For the checks: what the Place part of the "Link to…" menu lists.
+    var placeMenuItems: [(title: String, heading: Bool)] { PlaceMenu.titles(of: addButton.menu?.items.first { $0.title == L("Place") }?.submenu) }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         if (notification.object as? NSTableView) === table { syncRemoveButton(); return }
@@ -377,18 +379,19 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
         if let book = bookID(), r.links[book] == nil {
             menu.addItem(ClosureMenuItem(title: L("The whole book")) { [weak self] in self?.addLink(book) })
         }
-        func sub(_ title: String, _ items: [(String, () -> Void)]) {
+        func sub(_ title: String, items: [NSMenuItem]) {
             let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             let m = NSMenu()
-            if items.isEmpty { let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: ""); none.isEnabled = false; m.addItem(none) }
-            for (t, a) in items { m.addItem(ClosureMenuItem(title: t, action: a)) }
+            if !items.contains(where: { $0 is ClosureMenuItem }) { let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: ""); none.isEnabled = false; m.addItem(none) }
+            else { items.forEach { m.addItem($0) } }
             parent.submenu = m
             menu.addItem(parent)
         }
-        sub(L("Scene"), scenes().filter { r.links[$0.id] == nil }.map { s in (s.title, { [weak self] in self?.addLink(s.id) }) })
-        sub(L("Character"), characters.characters.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { c in (c.name ?? "", { [weak self] in self?.addLink(c.id ?? "") }) })
-        sub(L("Place"), worlds.entries.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { p in (worlds.path(of: p.id ?? "").dropFirst().joined(separator: " › "), { [weak self] in self?.addLink(p.id ?? "") }) })
-        sub(L("Event"), events.events.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { e in (e.title ?? "", { [weak self] in self?.addLink(e.id ?? "") }) })
+        func plain(_ list: [(String, () -> Void)]) -> [NSMenuItem] { list.map { ClosureMenuItem(title: $0.0, action: $0.1) } }
+        sub(L("Scene"), items: plain(scenes().filter { r.links[$0.id] == nil }.map { s in (s.title, { [weak self] in self?.addLink(s.id) }) }))
+        sub(L("Character"), items: plain(characters.characters.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { c in (c.name ?? "", { [weak self] in self?.addLink(c.id ?? "") }) }))
+        sub(L("Place"), items: PlaceMenu.items(in: worlds, include: { r.links[$0] == nil }, choose: { [weak self] in self?.addLink($0) }))
+        sub(L("Event"), items: plain(events.events.filter { $0.id.map { r.links[$0] == nil } ?? false }.map { e in (e.title ?? "", { [weak self] in self?.addLink(e.id ?? "") }) }))
         addButton.menu = menu
         addButton.isEnabled = menu.offersAnything
     }
