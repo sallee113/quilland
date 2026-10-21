@@ -29,8 +29,10 @@ extension AppSelfTest {
         let place = tv.selectedRange().location
 
         // The modes, from the menu.
-        app.modeCompare(); spin(0.4)
-        check(book.main.mode == .compare && book.main.controllers.count == 2, "View ▸ Compare shows two areas")
+        app.modeBook(); app.toggleSplit(); spin(0.4)
+        check(book.main.mode == .book && book.main.showsSplit && book.main.controllers.count == 2, "View ▸ Split Book View shows two areas")
+        app.toggleSplit(); spin(0.4)
+        check(book.main.mode == .book && !book.main.showsSplit && book.main.controllers.count == 1, "and a second choice closes the split")
         app.modePlan(); spin(0.4)
         check(book.main.mode == .plan && book.main.planController != nil, "View ▸ Plan shows the plan canvas")
         _ = book.main.planController?.addCard()

@@ -404,7 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         let view = submenu(L("View"))
         add(view, L("Panels"), #selector(modePanels), "1", target: self)
         add(view, L("Book"), #selector(modeBook), "2", target: self)
-        add(view, L("Compare"), #selector(modeCompare), "3", target: self)
+        add(view, L("Split Book View"), #selector(toggleSplit), "\\", target: self)
         add(view, L("Outline"), #selector(modeOutline), "4", target: self)
         add(view, L("Plan"), #selector(modePlan), "5", target: self)
         add(view, L("Characters"), #selector(modeCharacters), "6", target: self)
@@ -559,7 +559,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func ungroupPart() { keyBook?.main.ungroupPart() }
     @objc func deleteSection() { keyBook?.main.delete() }
     @objc func modeBook() { keyBook?.main.setMode(.book); keyBook?.refreshStatus() }
-    @objc func modeCompare() { keyBook?.main.setMode(.compare); keyBook?.refreshStatus() }
+    @objc func toggleSplit() { if let m = keyBook?.main { m.setSplit(!m.isSplit); keyBook?.refreshStatus() } }
     @objc func modePlan() { keyBook?.main.setMode(.plan); keyBook?.refreshStatus() }
     @objc private func toggleTypewriter() { if let m = keyBook?.main, !m.focusMode { m.setTypewriter(!m.typewriter) } }
     @objc func toggleFocusMode() { if let m = keyBook?.main { m.setFocusMode(!m.focusMode) } }
@@ -574,11 +574,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         if item.action == #selector(historyBack) { return keyBook?.main.canGoBack ?? false }
         if item.action == #selector(historyForward) { return keyBook?.main.canGoForward ?? false }
         // The view in use and the right panel are ticked.
-        let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeCompare), .compare), (#selector(modeOutline), .outline),
+        let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeOutline), .outline),
                                                             (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events), (#selector(modeResearch), .research), (#selector(modeReminders), .reminders)]
         if let action = item.action, let view = views.first(where: { $0.0 == action }) {
             item.state = keyBook?.main.mode == view.1 ? .on : .off
             return keyBook != nil
+        }
+        if item.action == #selector(toggleSplit) {
+            item.state = keyBook?.main.isSplit == true ? .on : .off
+            return keyBook?.main.mode == .book
         }
         if item.action == #selector(toggleRightPanel) {
             item.state = keyBook?.main.showsRightPanel == true ? .on : .off

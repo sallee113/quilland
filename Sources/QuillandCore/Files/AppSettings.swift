@@ -99,7 +99,7 @@ public final class AppSettings {
 public struct LocalBookState: Equatable, Sendable {
     public var scene: String?
     public var position: Int = 0
-    /// `panels`, `book`, `compare` or `plan` (others come with their views).
+    /// `panels`, `book` or `plan` (others come with their views). An old `compare` is the Book view with the split.
     public var mode: String = "panels"
     /// Is the right panel open?
     public var rightPanel: Bool = false
@@ -110,8 +110,11 @@ public struct LocalBookState: Equatable, Sendable {
     public var exportFolder: String?
     /// The section (part, chapter or scene) the Plan view starts from; what comes before it is hidden. Nil: the whole book.
     public var planFrom: String?
+    /// Is the Book view split into two panes?
+    public var split: Bool = false
 
-    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil) {
+    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false) {
+        self.split = split
         self.exportFolder = exportFolder
         self.planFrom = planFrom
         self.rightPanel = rightPanel
@@ -133,7 +136,7 @@ public struct LocalBookState: Equatable, Sendable {
     public static func load(book: URL) -> LocalBookState {
         guard let data = try? Data(contentsOf: url(book)), let o = try? JSONParser.parseObject(data) else { return LocalBookState() }
         let cursor = o.object("cursor") ?? [:]
-        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"))
+        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false)
     }
 
     /// Keeps the keys it does not know (other parts of the state).
@@ -142,6 +145,7 @@ public struct LocalBookState: Equatable, Sendable {
         o["format"] = .int(1)
         o["mode"] = .string(mode)
         o["right_panel"] = .bool(rightPanel)
+        o["split"] = .bool(split)
         if let exportFolder { o["export_folder"] = .string(exportFolder) }
         if let planFrom { o["plan_from"] = .string(planFrom) } else { o.removeValue(forKey: "plan_from") }
         if let dayDate, let dayBaseline { o["today"] = .object(["baseline": .int(dayBaseline), "date": .string(dayDate)]) }

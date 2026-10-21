@@ -82,8 +82,8 @@ struct NewBookTests {
         let book = try Self.folder()
         defer { try? FileManager.default.removeItem(at: book) }
         #expect(LocalBookState.load(book: book) == LocalBookState())
-        LocalBookState(scene: "s1", position: 1432, mode: "compare").save(book: book)
-        #expect(LocalBookState.load(book: book) == LocalBookState(scene: "s1", position: 1432, mode: "compare"))
+        LocalBookState(scene: "s1", position: 1432, mode: "book", split: true).save(book: book)
+        #expect(LocalBookState.load(book: book) == LocalBookState(scene: "s1", position: 1432, mode: "book", split: true))
         var o = try JSONParser.parseObject(Data(contentsOf: book.appendingPathComponent(".quilland/state.json")))
         o["x_keep"] = .string("yes")
         try JSONWriter.data(o).write(to: book.appendingPathComponent(".quilland/state.json"))

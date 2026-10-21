@@ -3,7 +3,7 @@ import QuillandCore
 
 /// The main area of an open book's window: Panels (the tree and one scene), Book mode, Compare, or the Plan canvas (more views come later), for one book.
 final class MainAreaController: NSViewController {
-    enum Mode: String { case panels, book, compare, outline, characters, world, events, research, reminders, plan }
+    enum Mode: String { case panels, book, outline, characters, world, events, research, reminders, plan }
 
     let folder: URL
     var session: BookSession
@@ -59,7 +59,7 @@ final class MainAreaController: NSViewController {
     var backPlaces: [ViewPlace] = []
     var forwardPlaces: [ViewPlace] = []
     var isNavigatingHistory = false
-    /// Which side of Compare the author was last in (0 left, 1 right): where a jump to a scene goes.
+    /// Which side of the split Book view the author was last in (0 left, 1 right): where a jump to a scene goes.
     var activeAreaIndex = 0
     /// The Jump to Scene list when it is shown over the window (the views that have no jump bar of their own).
     private var jumpPopover: NSPopover?
@@ -67,7 +67,10 @@ final class MainAreaController: NSViewController {
     /// An interrupted move was finished when the book was opened (the banner says so once the view is there).
     private(set) var finishedInterruptedMove = false
     private var day: LocalBookState
-    private var compareSplit: NSSplitViewController?
+    private var writingSplit: NSSplitViewController?
+    /// Is the Book view split into two panes (kept for the book; it shows only in the Book view)?
+    private(set) var isSplit = false
+    var showsSplit: Bool { mode == .book && isSplit }
     private let container = NSView()
     /// The cursor moved: the scene's id and the place in it.
     var onCursorMoved: ((String, Int) -> Void)?
@@ -81,8 +84,10 @@ final class MainAreaController: NSViewController {
         if (try? Renumber.recover(root: folder, journal: journal)) == true { finishedInterruptedMove = true }
         let structure = try BookStructure.load(folder: folder)
         session = BookSession(structure: structure)
-        mode = Mode(rawValue: state.mode) ?? .panels
-        if [.panels, .book, .compare].contains(mode) { writingMode = mode }
+        // (A book last left in the old Compare view opens in the Book view, split.)
+        mode = state.mode == "compare" ? .book : (Mode(rawValue: state.mode) ?? .panels)
+        isSplit = state.split || state.mode == "compare"
+        if [.panels, .book].contains(mode) { writingMode = mode }
         showsRightPanel = state.rightPanel
         day = state
         planFrom = state.planFrom
@@ -184,7 +189,7 @@ final class MainAreaController: NSViewController {
     /// Goes to a place in a scene's text and selects it (in the writing mode, which it returns to from the Outline or the Plan).
     func reveal(scene: String, range: NSRange?) {
         guard session.document(scene) != nil else { return }
-        if ![.panels, .book, .compare].contains(mode) {
+        if ![.panels, .book].contains(mode) {
             // The writing view is made again and puts the cursor back where it was: it is told to put it here.
             pendingCursor = (scene, range?.location ?? 0)
             setMode(writingMode)
@@ -210,12 +215,24 @@ final class MainAreaController: NSViewController {
 
     // MARK: Modes
 
+    /// Splits the Book view into two panes, or closes the split: the left pane stays, with the cursor where it was in it (the cursor of the right pane
+    /// goes to the left pane's place). Only the Book view can be split.
+    func setSplit(_ on: Bool) {
+        guard mode == .book, on != isSplit else { return }
+        if focusMode { setFocusMode(false) }
+        if let c = controllers.first, let id = c.currentSceneID, let tv = c.currentSheet?.textView { pendingCursor = (id, tv.selectedRange().location) }
+        isSplit = on
+        activeAreaIndex = 0
+        rebuild()
+        onModeChange?()
+    }
+
     func setMode(_ new: Mode) {
         guard new != mode else { return }
         if focusMode { setFocusMode(false) }
         recordViewChange()
         remember()
-        if [.panels, .book, .compare].contains(mode) { writingMode = mode }
+        if [.panels, .book].contains(mode) { writingMode = mode }
         mode = new
         rebuild()
         onModeChange?()
@@ -250,7 +267,7 @@ final class MainAreaController: NSViewController {
     private func tearDownViews() {
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
-        compareSplit = nil
+        writingSplit = nil
         panelsSplit = nil
         outerSplit = nil
         planController = nil
@@ -273,7 +290,7 @@ final class MainAreaController: NSViewController {
         case .research: return buildResearch()
         case .reminders: return buildReminders()
         case .plan: return buildPlan()
-        case .book, .compare: return buildWriting()
+        case .book: return buildWriting()
         }
     }
 
@@ -469,11 +486,11 @@ final class MainAreaController: NSViewController {
         return Built(view: plan.view, controller: nil)
     }
 
-    /// Book mode (one area of sheets) and Compare (two of them side by side).
+    /// Book mode: one area of sheets, or two of them side by side when the view is split.
     private func buildWriting() -> Built {
-        let count = mode == .compare ? 2 : 1
+        let count = showsSplit ? 2 : 1
         for _ in 0..<count { controllers.append(makeBookController()) }
-        guard mode == .compare else { return Built(view: controllers[0].view, controller: controllers[0]) }
+        guard showsSplit else { return Built(view: controllers[0].view, controller: controllers[0]) }
         let split = NSSplitViewController()
         split.splitView.isVertical = true
         split.splitView.dividerStyle = .thin
@@ -482,7 +499,7 @@ final class MainAreaController: NSViewController {
             item.minimumThickness = 320
             split.addSplitViewItem(item)
         }
-        compareSplit = split
+        writingSplit = split
         return Built(view: split.view, controller: split)
     }
 
@@ -519,7 +536,7 @@ final class MainAreaController: NSViewController {
 
     /// Where the author left off: that scene, with the cursor at that place, after the first layout.
     private func restoreCursor() {
-        // In Compare the cursor goes back to the side it was in.
+        // In the split view the cursor goes back to the side it was in.
         guard let c = controllers.indices.contains(activeAreaIndex) ? controllers[activeAreaIndex] : controllers.first else { return }
         let focusText = focusTextAfterRebuild
         focusTextAfterRebuild = true
@@ -528,6 +545,8 @@ final class MainAreaController: NSViewController {
         let position = pendingCursor?.position ?? 0
         DispatchQueue.main.async { [weak self] in
             guard let self, let scene, self.session.document(scene) != nil else { return }
+            // The other side of the split shows the same scene (the author moves it from there); the keyboard stays where it was.
+            for other in self.controllers where other !== c { other.show(sceneID: scene) }
             guard focusText else {
                 c.select(sceneID: scene)
                 self.tree?.focus()
@@ -570,16 +589,16 @@ final class MainAreaController: NSViewController {
         return panel
     }
 
-    /// The writing area the author is in: in Compare the side whose text has the keyboard focus, or else the side they were last in.
+    /// The writing area the author is in: in the split view the side whose text has the keyboard focus, or else the side they were last in.
     var activeArea: BookViewController? {
         if let responder = view.window?.firstResponder as? EditorTextView, let c = controllers.first(where: { $0.stack.sheets.contains { $0.textView === responder } }) { return c }
         return controllers.indices.contains(activeAreaIndex) ? controllers[activeAreaIndex] : controllers.first
     }
 
-    /// ⌘J: the list of scenes. Under the jump bar of the area where the cursor is (Book, Compare: in Compare the side that is active changes);
+    /// ⌘J: the list of scenes. Under the jump bar of the area where the cursor is (Book: in the split view the side that is active changes);
     /// in every other view, and in Focus Mode, which has no bar, over the top of the window.
     func openJump() {
-        if [.book, .compare].contains(mode), !focusMode, let area = activeArea { area.openJumpList(); return }
+        if mode == .book, !focusMode, let area = activeArea { area.openJumpList(); return }
         showJumpListOverWindow()
     }
 
@@ -787,6 +806,6 @@ final class MainAreaController: NSViewController {
     func localState() -> LocalBookState {
         remember()
         _ = writtenToday
-        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom)
+        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit)
     }
 }

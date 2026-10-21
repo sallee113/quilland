@@ -5,7 +5,7 @@ public struct Preferences: Equatable, Sendable {
     // General
     /// `en` (the default), `system` (the language of the system when it is installed, else English), or the code of an installed language.
     public var interfaceLanguage = "en"
-    /// `panels`, `book` or `compare`: where a book with no remembered view starts.
+    /// `panels` or `book`: where a book with no remembered view starts.
     public var defaultMode = "panels"
     public var recentLimit = 10
     public var reopenLastBook = true
@@ -55,7 +55,8 @@ public struct Preferences: Equatable, Sendable {
         p.readingWidth = min(max(readingWidth, Self.limits.readingWidth.lowerBound), Self.limits.readingWidth.upperBound)
         p.followDelay = min(max(followDelay, Self.limits.followDelay.lowerBound), Self.limits.followDelay.upperBound)
         if interfaceLanguage.isEmpty { p.interfaceLanguage = "en" }
-        if !["panels", "book", "compare"].contains(defaultMode) { p.defaultMode = "panels" }
+        if defaultMode == "compare" { p.defaultMode = "book" }   // (the old Compare view is the Book view, split)
+        else if !["panels", "book"].contains(defaultMode) { p.defaultMode = "panels" }
         if !["system", "light", "dark"].contains(appearance) { p.appearance = "system" }
         if p.panelTabs.isEmpty { p.panelTabs = ["section"] }
         if p.aiAddress.trimmingCharacters(in: .whitespaces).isEmpty { p.aiAddress = AIConnection.defaultAddress }

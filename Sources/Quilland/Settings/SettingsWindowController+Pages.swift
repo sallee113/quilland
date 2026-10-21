@@ -20,7 +20,7 @@ extension SettingsWindowController {
             row([NSTextField(labelWithString: L("Recent books to remember")), stepperField("recent", range: 1...30, step: 1, #selector(stepperChanged(_:)))]),
             check("reopen", L("Reopen the last book when Quilland starts"), #selector(boxChanged(_:))),
             check("showReminders", L("Show the open reminders when a book opens"), #selector(boxChanged(_:))),
-            row([NSTextField(labelWithString: L("A book with no remembered view opens in")), popup("mode", [("Panels", "panels"), ("Book", "book"), ("Compare", "compare")], #selector(popupChanged(_:)))]),
+            row([NSTextField(labelWithString: L("A book with no remembered view opens in")), popup("mode", [("Panels", "panels"), ("Book", "book")], #selector(popupChanged(_:)))]),
             caption(L("Snapshots")),
             check("autoSnapshots", L("Take snapshots by themselves while something changes"), #selector(boxChanged(_:))),
             row([NSTextField(labelWithString: L("Every")), stepperField("snapshotMinutes", range: 1...240, step: 5, #selector(stepperChanged(_:))), NSTextField(labelWithString: L("minutes"))]),

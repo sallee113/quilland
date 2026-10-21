@@ -44,8 +44,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 | Vue | Touche | Description |
 | --- | --- | --- |
 | Panneaux | ⌘1 | La disposition classique : l’arborescence de la structure à gauche, une scène au milieu, un panneau à onglets à droite. |
-| Livre | ⌘2 | Les scènes les unes après les autres dans un seul défilement, comme le manuscrit. Un bandeau fin entre les scènes indique le titre, le statut et le nombre de caractères. Chaque scène reste son propre fichier. |
-| Comparer | ⌘3 | Deux vues Livre côte à côte, toutes deux modifiables. On peut ouvrir la même scène dans les deux : c’est un seul texte avec un seul historique d’annulation. La recherche suit le côté où se trouve votre curseur : un résultat ne fait défiler que ce côté, et « Cette scène », « Chapitre » et « Partie » partent de sa scène. |
+| Livre | ⌘2 | Les scènes les unes après les autres dans un seul défilement, comme le manuscrit. Un bandeau fin entre les scènes indique le titre, le statut et le nombre de caractères. Chaque scène reste son propre fichier. **Présentation ▸ Diviser la vue Livre** (⌘\\) la divise en deux volets côte à côte, tous deux modifiables ; la division est mémorisée pour le livre, et un second choix la ferme (le volet gauche reste, et le curseur y va). On peut ouvrir la même scène dans les deux : c’est un seul texte avec un seul historique d’annulation. La recherche suit le côté où se trouve votre curseur : un résultat ne fait défiler que ce côté, et « Cette scène », « Chapitre » et « Partie » partent de sa scène. |
 
 **Vues en pleine fenêtre**
 
@@ -66,7 +65,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 - **La barre d’état** indique le nombre de caractères de la scène où se trouve le curseur, celui du livre et la variation du jour, la langue de saisie, et « Enregistré ».
 - **Le mode concentration** (⌃⌘↩, dans la vue Livre) masque tout sauf le texte et garde la ligne que vous tapez au milieu de l’écran.
 - **Le défilement machine à écrire** (⌥⌘T) fait de même dans les vues ordinaires.
-- **Aller à la scène…** (⌘J) trouve une scène par son nom : une liste s’ouvre, tapez pour filtrer, les flèches et Retour choisissent, Échap ferme. Elle fonctionne dans toutes les vues ; dans Livre et Comparer, la liste s’ouvre sous la barre de chemin, et dans Comparer le côté où se trouve votre curseur change pendant que l’autre reste. Depuis les autres vues, elle s’ouvre en haut de la fenêtre et vous mène à la scène dans le texte. Un lien vers une scène depuis une vue de fiches arrive du côté de Comparer où vous étiez en dernier.
+- **Aller à la scène…** (⌘J) trouve une scène par son nom : une liste s’ouvre, tapez pour filtrer, les flèches et Retour choisissent, Échap ferme. Elle fonctionne dans toutes les vues ; dans la vue Livre, la liste s’ouvre sous la barre de chemin, et dans la vue divisée le côté où se trouve votre curseur change pendant que l’autre reste. Depuis les autres vues, elle s’ouvre en haut de la fenêtre et vous mène à la scène dans le texte. Un lien vers une scène depuis une vue de fiches arrive du côté de la vue Livre divisée où vous étiez en dernier.
 - **Précédent** (⌘[) et **Suivant** (⌘]) du menu Présentation reviennent aux vues où vous êtes passé et avancent de nouveau, comme dans un navigateur. Chaque changement de vue compte, que vous ayez suivi un lien (par exemple d’un lieu vers une scène), appuyé sur ⌘1–⌘0 ou sur Échap. Précédent revient à la même fiche (le personnage, le lieu, l’événement, le document ou la section choisis) et, dans les vues d’écriture, à la même scène et au même curseur. Un nouveau changement de vue supprime le chemin vers l’avant. La barre d’état montre le parcours à son extrémité droite, sous la forme `Personnages ‹ ● › Événements` : la vue où Précédent mènerait, un point pour la vue où vous êtes, et la vue où Suivant mènerait.
 
 Faire glisser les bordures entre les panneaux change leur taille ; Quilland s’en souvient.
@@ -246,7 +245,8 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 
 | Touche | Commande |
 | --- | --- |
-| ⌘1 ⌘2 ⌘3 | Panneaux, Livre, Comparer |
+| ⌘1 ⌘2 | Panneaux, Livre |
+| ⌘\\ | Diviser la vue Livre en deux |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation, Rappels |
 | ⌘J | Aller à la scène |
 | ⌘[ ⌘] | Précédent, Suivant entre les vues |

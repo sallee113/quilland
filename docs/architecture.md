@@ -88,7 +88,7 @@ My Book/
 
 - `AppDelegate` owns the menus (validated through `NSMenuItemValidation`), the book windows, the Welcome window, Settings and the AI connection.
 - `BookWindowController` is one open book: the window, the status bar, snapshots on a timer, saving on close.
-- `MainAreaController` is the heart of a book window. It shows the book in one of ten **modes** (Panels, Book, Compare, Outline, Plan, Characters, World, Events, Research, Reminders), with the right panel and the bottom panel. Its files:
+- `MainAreaController` is the heart of a book window. It shows the book in one of nine **modes** (Panels, Book, Outline, Plan, Characters, World, Events, Research, Reminders), with the right panel and the bottom panel. Its files:
   - `MainAreaController.swift`: state, modes, `rebuild()` and one builder per mode, saving.
   - `+Structure`, `+Undo`: every change to the structure goes through `restructure(...)` (a snapshot before and after, the stores reloaded, the views rebuilt); Undo and Redo restore those snapshots.
   - `+Records`, `+Outline`, `+SectionState`: merges and conversions of records, the Outline's data, what the Section menu can do now.

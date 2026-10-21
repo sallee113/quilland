@@ -29,7 +29,7 @@ extension MainAreaController {
         case .events: card = eventsView?.selected
         case .research: card = researchView?.selected
         case .outline: card = tree?.selectedIDs.first
-        case .panels, .book, .compare, .plan, .reminders: card = nil
+        case .panels, .book, .plan, .reminders: card = nil
         }
         return ViewPlace(mode: mode, card: card, scene: scene, position: position)
     }
@@ -48,7 +48,6 @@ extension MainAreaController {
         switch mode {
         case .panels: return L("Panels")
         case .book: return L("Book")
-        case .compare: return L("Compare")
         case .outline: return L("Outline")
         case .plan: return L("Plan")
         case .characters: return L("Characters")
@@ -100,7 +99,7 @@ extension MainAreaController {
         case .events: if let card = place.card, eventStore.event(card) != nil { eventsView?.select(card) }
         case .research: if let card = place.card, researchStore.document(card) != nil { researchView?.select(card) }
         case .outline: if let card = place.card { tree?.select(card) }
-        case .panels, .book, .compare:
+        case .panels, .book:
             if let scene = place.scene, session.document(scene) != nil { reveal(scene: scene, range: NSRange(location: place.position, length: 0)) }
         case .plan, .reminders: break
         }

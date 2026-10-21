@@ -270,6 +270,22 @@ final class BookViewController: NSViewController, NSTextViewDelegate, SceneNavig
         if typewriter { centerCaret(of: sheet.textView, animated: false) } else { reveal(sheet) }
     }
 
+    /// Shows a scene with its top near the top of the area, without taking the keyboard or moving the cursor (the other side of a split view).
+    func show(sceneID: String) {
+        guard let sheet = stack.sheets.first(where: { $0.document.id == sceneID }) else { return }
+        view.layoutSubtreeIfNeeded()
+        select(sceneID: sceneID)
+        updateJumpBar()
+        reveal(sheet)
+    }
+
+    /// For the checks: does the visible part of the area show the top of this scene?
+    func isShowing(sceneID: String) -> Bool {
+        guard let sheet = stack.sheets.first(where: { $0.document.id == sceneID }) else { return false }
+        let clip = scrollView.contentView.bounds
+        return sheet.frame.minY >= clip.minY - 1 && sheet.frame.minY < clip.maxY - 20
+    }
+
     /// Scrolls so that the sheet's top is near the top of the visible area, its header above it showing.
     private func reveal(_ sheet: SheetView) {
         let clip = scrollView.contentView

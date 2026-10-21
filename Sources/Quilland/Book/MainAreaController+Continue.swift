@@ -12,7 +12,7 @@ extension MainAreaController {
     /// AI ▸ Continue Writing (⌃⌘G): the model writes one paragraph after the cursor, shown faint; Tab accepts it, Esc discards it. Asked again while one is
     /// shown, it writes another. With `askDirection`, a line says where the story should go.
     func continueWriting(askDirection: Bool) {
-        guard let target = writingTarget, mode == .book || mode == .panels || mode == .compare else { return }
+        guard let target = writingTarget, mode == .book || mode == .panels else { return }
         guard AIService.shared.isReady, let client = AIService.shared.client() else {
             let alert = NSAlert()
             alert.messageText = L("The AI is not available")

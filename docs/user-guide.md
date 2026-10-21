@@ -42,8 +42,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 | View | Key | What it is |
 | --- | --- | --- |
 | Panels | ⌘1 | The classic layout: the structure tree on the left, one scene in the middle, a tabbed panel on the right. |
-| Book | ⌘2 | The scenes one after another in a single scroll, like the manuscript. A thin header between scenes shows the title, the status and the count. Each scene is still its own file. |
-| Compare | ⌘3 | Two Book views side by side, both editable. You can open the same scene in both: it is one text with one undo history. Search follows the side where your cursor is: a result scrolls only that side, and "This scene", "Chapter" and "Part" start from its scene. |
+| Book | ⌘2 | The scenes one after another in a single scroll, like the manuscript. A thin header between scenes shows the title, the status and the count. Each scene is still its own file. **View ▸ Split Book View** (⌘\\) splits it into two panes side by side, both editable; the split is remembered for the book, and a second choice closes it (the left pane stays, and the cursor goes to it). You can open the same scene in both: it is one text with one undo history. Search follows the side where your cursor is: a result scrolls only that side, and "This scene", "Chapter" and "Part" start from its scene. |
 
 **Full-window views**
 
@@ -64,7 +63,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 - **The status bar** shows the count of the scene where the cursor is, the count of the book and today's change, the input language, and "Saved".
 - **Focus Mode** (⌃⌘↩, in Book view) hides everything but the text and keeps the line you are typing in the middle of the screen.
 - **Typewriter Scrolling** (⌥⌘T) does the same in the ordinary views.
-- **Jump to Scene…** (⌘J) finds a scene by name: a list opens, type to filter, arrows and Return choose, Esc closes. It works in every view; in Book and Compare the list opens under the path bar, and in Compare the side where your cursor is changes while the other stays. From the other views it opens at the top of the window and takes you to the scene in the text. A link to a scene from a card view lands on the side of Compare you were last in.
+- **Jump to Scene…** (⌘J) finds a scene by name: a list opens, type to filter, arrows and Return choose, Esc closes. It works in every view; in the Book view the list opens under the path bar, and in the split view the side where your cursor is changes while the other stays. From the other views it opens at the top of the window and takes you to the scene in the text. A link to a scene from a card view lands on the side of the split Book view you were last in.
 - **Back** (⌘[) and **Forward** (⌘]) in the View menu go back and forward between the views you have been in, as in a browser. Every change of the view counts, whether you followed a link (for example from a place to a scene), pressed ⌘1–⌘0 or Esc. Back returns to the same card (the character, place, event, document or section you had chosen) and, in the writing views, to the same scene and cursor. A new change of the view drops the way forward. The status bar shows the trail at its right end, as `Characters ‹ ● › Events`: the view Back would go to, a dot for the view you are in, and the view Forward would go to.
 
 Dragging the borders between panels changes their sizes; Quilland remembers them.
@@ -244,7 +243,8 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 
 | Key | Command |
 | --- | --- |
-| ⌘1 ⌘2 ⌘3 | Panels, Book, Compare |
+| ⌘1 ⌘2 | Panels, Book |
+| ⌘\\ | Split the Book view in two |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Outline, Plan, Characters, World, Events, Research, Reminders |
 | ⌘J | Jump to Scene |
 | ⌘[ ⌘] | Back, Forward between views |
