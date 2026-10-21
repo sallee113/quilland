@@ -29,7 +29,7 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
     public var detail: String = ""
     /// A place's type (`place`, `people`, `thing`, `term`); a relationship's kind ("sisters").
     public var type: String = ""
-    /// A relationship's characters, by name.
+    /// A relationship's characters, by name; an event's participants, by name.
     public var members: [String] = []
     /// An observation: who or what it is about, by name.
     public var about: String = ""
@@ -93,6 +93,7 @@ public struct CollectedSet: Equatable, Sendable {
                 if e.date.isEmpty { e.date = item.date }
                 if e.parent.isEmpty { e.parent = item.parent }
                 for p in item.places where !e.places.contains(p) { e.places.append(p) }
+                for m in item.members where item.kind == .events && !e.members.contains(where: { Names.normalize($0) == Names.normalize(m) }) { e.members.append(m) }
                 for ev in item.evidence where !e.evidence.contains(where: { $0.scene == ev.scene && $0.range == ev.range }) { e.evidence.append(ev) }
                 items[i] = e
             } else {

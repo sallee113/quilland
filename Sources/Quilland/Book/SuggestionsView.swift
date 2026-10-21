@@ -268,6 +268,7 @@ final class SuggestionCell: NSTableCellView {
         if item.kind == .places, !item.type.isEmpty, item.type != "place" { tags.append(L(item.type)) }
         if item.kind == .places, !item.parent.isEmpty { tags.append(L("in {place}", ["place": item.parent])) }
         if item.kind == .events, !item.date.isEmpty { tags.append(item.date) }
+        if item.kind == .events, !item.members.isEmpty { tags.append(L("with {names}", ["names": item.members.joined(separator: ", ")])) }
         if !item.aliases.isEmpty { tags.append(L("also {names}", ["names": item.aliases.joined(separator: ", ")])) }
         let scenes = Set(item.evidence.map(\.scene)).count
         tags.append(Lp("{n} scene", "{n} scenes", scenes))

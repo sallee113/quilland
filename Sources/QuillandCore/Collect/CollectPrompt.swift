@@ -32,7 +32,7 @@ public enum CollectPrompt {
             s += "\n\"places\": named places, peoples, important objects and invented terms: [{\"name\": \"\", \"type\": \"place | people | thing | term\", \"parent\": \"the larger place it is in, if the passage says\", \"description\": \"\", \"note\": \"what happens there in the passage\", \"quote\": \"\"}]"
         }
         if kinds.contains(.events) {
-            s += "\n\"events\": important happenings that move the story or change a character's situation (an arrival, a quarrel, a discovery, a decision, a death); not descriptions, thoughts or small actions; each with a short title: [{\"title\": \"\", \"date\": \"only if the passage says when\", \"places\": [\"place names\"], \"note\": \"what happens\", \"quote\": \"\"}]"
+            s += "\n\"events\": important happenings that move the story or change a character's situation (an arrival, a quarrel, a discovery, a decision, a death); not descriptions, thoughts or small actions; each with a short title: [{\"title\": \"\", \"date\": \"only if the passage says when\", \"places\": [\"place names\"], \"characters\": [\"names of those who take part in it\"], \"note\": \"what happens\", \"quote\": \"\"}]"
         }
         if kinds.contains(.relationships) {
             s += "\n\"relationships\": a LASTING bond between two named characters that the passage states or clearly shows (family, friendship, enmity, work, love); never a mere meeting of strangers: [{\"characters\": [\"A\", \"B\"], \"kind\": \"sisters\", \"note\": \"how it shows here\", \"quote\": \"\"}]"
@@ -138,7 +138,7 @@ public enum CollectParser {
             for d in entries("events") {
                 let title = str(d, "title"); guard !title.isEmpty, let ev = evidence(d, note: str(d, "note")) else { continue }
                 var item = CollectedItem(kind: .events, name: title)
-                item.date = str(d, "date"); item.places = list(d, "places"); item.detail = str(d, "note"); item.evidence = [ev]
+                item.date = str(d, "date"); item.places = list(d, "places"); item.members = list(d, "characters"); item.detail = str(d, "note"); item.evidence = [ev]
                 result.items.append(item)
             }
         }

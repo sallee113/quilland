@@ -34,7 +34,7 @@ struct CollectTests {
           {"name": "Лев", "description": "Выдуманный", "note": "", "quote": "Лев вошёл в комнату"}],
          "places": [{"name": "Озеро", "type": "place", "parent": "", "description": "Рядом с домом.", "note": "", "quote": "к дому у озера"},
                     {"name": "Дом", "type": "weird", "description": "", "note": "", "quote": "Они пошли к дому"}],
-         "events": [{"title": "Приезд Анны", "date": "", "places": ["Станция"], "note": "Её встречает старик", "quote": "Старик в фуражке спросил"}],
+         "events": [{"title": "Приезд Анны", "date": "", "places": ["Станция"], "characters": ["Анна", "Старик"], "note": "Её встречает старик", "quote": "Старик в фуражке спросил"}],
          "relationships": [{"characters": ["Анна", "Вера"], "kind": "племянница и тётя", "note": "", "quote": "к тёте Вере"}, {"characters": ["Анна"], "kind": "x", "note": "", "quote": "Анна стояла"}],
          "observations": [{"about": "Старик", "note": "носит фуражку", "quote": "Старик в фуражке"}]}
         ```
@@ -48,6 +48,8 @@ struct CollectTests {
         #expect(result.items.first { $0.name == "Дом" }?.type == "place", "an unknown type becomes a place")
         #expect(result.items.contains { $0.kind == .relationships && $0.members == ["Анна", "Вера"] } && !result.items.contains { $0.members == ["Анна"] }, "a relationship needs two different names")
         #expect(result.items.first { $0.kind == .observations }?.about == "Старик")
+        #expect(result.items.first { $0.kind == .events }?.members == ["Анна", "Старик"], "an event has the characters who take part")
+        #expect(CollectPrompt.system(kinds: [.events]).contains("who take part"), "the model is asked for them")
         let only = CollectParser.parse(reply, kinds: [.events], scene: "s1", chunk: Self.passage, chunkOffset: 0)
         #expect(only.items.count == 1 && only.items[0].kind == .events, "only the kinds asked for")
         #expect(CollectParser.parse("I could not do it.", kinds: kinds, scene: "s", chunk: "x", chunkOffset: 0).malformed)
@@ -75,6 +77,10 @@ struct CollectTests {
         var r2 = CollectedItem(kind: .relationships, name: ""); r2.members = ["вера", "анна"]; r2.type = "Тётя"
         set.merge([r1, r2])
         #expect(set.items.filter { $0.kind == .relationships }.count == 1, "a relationship is the same whichever way it is written")
+        var e1 = CollectedItem(kind: .events, name: "Приезд"); e1.members = ["Анна"]
+        var e2 = CollectedItem(kind: .events, name: "приезд"); e2.members = ["анна", "Вера"]
+        set.merge([e1, e2])
+        #expect(set.items.filter { $0.kind == .events }.count == 1 && set.items.first { $0.kind == .events }?.members == ["Анна", "Вера"], "the participants of one event found twice are joined")
     }
 
     @Test("a long scene is cut at paragraph ends, and the offsets add up")

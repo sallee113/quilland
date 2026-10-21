@@ -149,7 +149,7 @@ extension AppSelfTest {
             var again = CollectedItem(kind: .characters, name: "Тестовая Аня"); again.aliases = ["Анюта"]; again.detail = "Не должно перезаписать."; again.evidence = [evidence("здесь")]
             var town = CollectedItem(kind: .places, name: "Сборград"); town.detail = "Город сборщиков."; town.evidence = [evidence("действие здесь")]
             var square = CollectedItem(kind: .places, name: "Площадь Сборграда"); square.parent = "Сборград"; square.evidence = [evidence("тут")]
-            var event = CollectedItem(kind: .events, name: "Приезд Сборкина"); event.date = "осень"; event.places = ["Сборград"]; event.detail = "Он приезжает."; event.evidence = [evidence("приезжает")]
+            var event = CollectedItem(kind: .events, name: "Приезд Сборкина"); event.date = "осень"; event.places = ["Сборград"]; event.members = ["Сборкин", "Тестовая Аня", "Неизвестный"]; event.detail = "Он приезжает."; event.evidence = [evidence("приезжает")]
             var rel = CollectedItem(kind: .relationships, name: ""); rel.members = ["Сборкин", "Тестовая Аня"]; rel.type = "знакомые"; rel.evidence = [evidence("встреча")]
             var lonely = CollectedItem(kind: .relationships, name: ""); lonely.members = ["Сборкин", "Никто"]; lonely.type = "враги"; lonely.evidence = [evidence("x")]
             var obs = CollectedItem(kind: .observations, name: ""); obs.about = "Сборкин"; obs.detail = "Носит шляпу."; obs.evidence = [evidence("шляпа")]
@@ -176,12 +176,19 @@ extension AppSelfTest {
             check(townEntry != nil && squareEntry?.parent == townEntry?.id && squareEntry?.world == townEntry?.world && main.worlds.text(townEntry?.id ?? "") == "Город сборщиков.", "places are made in the book's world, the inner one inside the larger")
             let ev = main.eventStore.events.first { $0.title == "Приезд Сборкина" }
             check(ev?.date == "осень" && ev?.places.keys.contains(townEntry?.id ?? "-") == true && ev?.links[sceneID] == "приезжает", "an event has its date, its place and its scene")
+            check(made?.links[ev?.id ?? "-"] == "" && main.characters.character(known)?.links[ev?.id ?? "-"] == "", "the characters who take part are linked to the event, in their own files")
+            check(!main.characters.characters.contains { $0.name == "Неизвестный" }, "a participant with no card does not get one")
             check(main.relationships.relationships.contains { Set($0.characters) == Set([made?.id ?? "", known]) && $0.kind == "знакомые" } && !main.relationships.relationships.contains { $0.kind == "враги" }, "a relationship is made between characters that have cards; one with a stranger is not")
             check(sv.itemCount == 1, "what was accepted leaves the list; what could not be made stays", "\(sv.itemCount)")
             // The same again does not make a second card.
             main.collect.inject([c]); sv.checkAll()
             let second = sv.acceptChecked()!
             check(second.created.isEmpty && second.updated == 1 && main.characters.characters.filter { $0.name == "Сборкин" }.count == 1, "accepting a thing found again only updates its card")
+            // An event that is already in the book gets its participants too.
+            try? main.characters.update(known) { r in var l = r.links; l.removeValue(forKey: ev?.id ?? "-"); r.links = l }
+            main.collect.inject([event]); sv.checkAll()
+            let third = sv.acceptChecked()!
+            check(third.created.isEmpty && main.characters.character(known)?.links[ev?.id ?? "-"] == "" && main.eventStore.events.filter { $0.title == "Приезд Сборкина" }.count == 1, "an event found again links its participants without a second event", "\(third)")
             main.searchPanel.onClose?(); spin(0.2)
             // Put the book back as it was.
             main.collect.clear()

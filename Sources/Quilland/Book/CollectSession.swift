@@ -285,8 +285,15 @@ final class CollectSession {
 
         for item in chosen where item.kind == .events {
             let found = main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) }
+            // Who takes part: the link is kept in the character's file. A name with no card (here or made in this run) is left out.
+            func linkParticipants(_ event: String) {
+                for cid in Set(item.members.compactMap { characterIDs[Names.normalize($0)] }) {
+                    try? main.characters.update(cid) { r in var l = r.links; if l[event] == nil { l[event] = "" }; r.links = l }
+                }
+            }
             if let id = found?.id {
                 try? main.eventStore.update(id) { r in r.links = merged(r.links, linkText(item)) }
+                linkParticipants(id)
                 report.updated += 1
             } else if let id = try? main.eventStore.add(title: item.name) {
                 let placeIDs = item.places.compactMap { entryIDs[Names.normalize($0)] }
@@ -296,6 +303,7 @@ final class CollectSession {
                     r.places = Dictionary(placeIDs.map { ($0, "") }, uniquingKeysWith: { a, _ in a })
                 }
                 if !item.detail.isEmpty { try? main.eventStore.setText(id, item.detail) }
+                linkParticipants(id)
                 report.created[.events, default: 0] += 1
             }
         }
