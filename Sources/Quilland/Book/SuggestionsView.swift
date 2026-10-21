@@ -131,6 +131,11 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     var itemCount: Int { session?.items.count ?? 0 }
     var findingCount: Int { session?.findings.count ?? 0 }
     var checkedCount: Int { session?.checked.count ?? 0 }
+    /// For the checks: does the row of this finding show why it was not accepted?
+    func reasonShown(for id: UUID) -> Bool {
+        guard let session, let row = rows.firstIndex(where: { if case .item(let i) = $0 { return i.id == id } else { return false } }), let cell = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? SuggestionCell else { return false }
+        return cell.shownText.contains("not accepted: ") && session.skipReason(for: id) != nil
+    }
 
     // MARK: Table
 
@@ -157,7 +162,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
             return cell
         case .item(let item):
             let cell = SuggestionCell()
-            cell.configure(item, existing: session?.existingMatch(item), sceneTitle: { [weak self] id in self?.main?.session.structure.scenes.first { $0.id == id }?.node.title ?? "" }, checked: session?.checked.contains(item.id) == true)
+            cell.configure(item, existing: session?.existingMatch(item), sceneTitle: { [weak self] id in self?.main?.session.structure.scenes.first { $0.id == id }?.node.title ?? "" }, checked: session?.checked.contains(item.id) == true, skipReason: session?.skipReason(for: item.id))
             cell.onToggle = { [weak self] on in
                 if on { self?.session?.checked.insert(item.id) } else { self?.session?.checked.remove(item.id) }
                 self?.updateButtons()
@@ -227,6 +232,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
 final class SuggestionCell: NSTableCellView {
     private let box = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let text = NSTextField(wrappingLabelWithString: "")
+    var shownText: String { text.stringValue }
     var onToggle: ((Bool) -> Void)?
 
     init() {
@@ -261,7 +267,7 @@ final class SuggestionCell: NSTableCellView {
         text.attributedStringValue = s
     }
 
-    func configure(_ item: CollectedItem, existing: String?, sceneTitle: (String) -> String, checked: Bool) {
+    func configure(_ item: CollectedItem, existing: String?, sceneTitle: (String) -> String, checked: Bool, skipReason: String? = nil) {
         box.state = checked ? .on : .off
         let s = NSMutableAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold)])
         var tags: [String] = []
@@ -274,6 +280,7 @@ final class SuggestionCell: NSTableCellView {
         tags.append(Lp("{n} scene", "{n} scenes", scenes))
         s.append(NSAttributedString(string: "   " + tags.joined(separator: " · "), attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]))
         if existing != nil { s.append(NSAttributedString(string: "   " + L("already has a card: only the scenes are added"), attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.systemOrange])) }
+        if let skipReason { s.append(NSAttributedString(string: "\n" + L("not accepted: {reason}", ["reason": skipReason]), attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.systemOrange])) }
         if !item.detail.isEmpty { s.append(NSAttributedString(string: "\n" + item.detail, attributes: [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.labelColor])) }
         if let e = item.evidence.first {
             let place = sceneTitle(e.scene)

@@ -13,7 +13,7 @@ struct AcceptReport {
             if let n = created[kind], n > 0 { parts.append(CollectSession.createdText(kind, n)) }
         }
         if updated > 0 { parts.append(Lp("{n} existing card updated", "{n} existing cards updated", updated)) }
-        if !skipped.isEmpty { parts.append(Lp("{n} skipped", "{n} skipped", skipped.count)) }
+        if !skipped.isEmpty { parts.append(Lp("{n} skipped", "{n} skipped", skipped.count) + ": " + skipped.joined(separator: ", ")) }
         return parts.isEmpty ? L("Nothing was changed.") : parts.joined(separator: " · ")
     }
 }
@@ -25,6 +25,9 @@ final class CollectSession {
     /// Contradictions found by Consistency Check; they only point at places and cards, nothing in them can be accepted.
     private(set) var findings: [ConsistencyFinding] = []
     var checked: Set<UUID> = []
+    /// Why a finding that was asked to be accepted could not be (it stays in the list, unchecked, with this under it).
+    private(set) var skipReasons: [UUID: String] = [:]
+    func skipReason(for id: UUID) -> String? { skipReasons[id] }
     private(set) var running = false
     private(set) var progress: CollectProgress?
     private(set) var summary: CollectSummary?
@@ -51,6 +54,7 @@ final class CollectSession {
         collected = CollectedSet()
         findings = []
         checked = []
+        skipReasons = [:]
         summary = nil
         progress = nil
         message = ""
@@ -120,7 +124,7 @@ final class CollectSession {
         onChange?()
     }
 
-    func clear() { collected = CollectedSet(); findings = []; checked = []; summary = nil; message = ""; onChange?() }
+    func clear() { collected = CollectedSet(); findings = []; checked = []; skipReasons = [:]; summary = nil; message = ""; onChange?() }
 
     // MARK: Consistency Check
 
@@ -238,6 +242,12 @@ final class CollectSession {
             return out
         }
         func merged(_ old: [String: String], _ new: [String: String]) -> [String: String] { old.merging(new) { existing, _ in existing } }
+        for item in chosen { skipReasons.removeValue(forKey: item.id) }
+        /// A finding that could not be accepted: it stays, and says why.
+        func skip(_ item: CollectedItem, _ reason: String) {
+            report.skipped.append(item.title)
+            skipReasons[item.id] = reason
+        }
 
         // Who is who, by name and other name: the cards there are now and the ones made here.
         var characterIDs: [String: String] = [:]
@@ -273,7 +283,7 @@ final class CollectSession {
                 continue
             }
             if worldID == nil, !worldAsked { worldAsked = true; worldID = chooseWorld(main) }
-            guard let world = worldID else { report.skipped.append(item.name); continue }
+            guard let world = worldID else { skip(item, L("no world was chosen for it")); continue }
             let parent = entryIDs[Names.normalize(item.parent)]
             if let id = try? main.worlds.addEntry(name: item.name, world: world, parent: parent, type: item.type.isEmpty ? "place" : item.type) {
                 try? main.worlds.updateEntry(id) { r in r.aliases = item.aliases; r.links = linkText(item) }
@@ -310,7 +320,7 @@ final class CollectSession {
 
         for item in chosen where item.kind == .relationships {
             let ids = item.members.compactMap { characterIDs[Names.normalize($0)] }
-            guard Set(ids).count >= 2 else { report.skipped.append(item.title); continue }
+            guard Set(ids).count >= 2 else { skip(item, L("it needs two characters that have cards")); continue }
             if let existing = main.relationships.relationships.first(where: { Set($0.characters) == Set(ids) && Names.normalize($0.kind ?? "") == Names.normalize(item.type) })?.id {
                 try? main.relationships.update(existing) { r in r.links = merged(r.links, linkText(item)) }
                 report.updated += 1
@@ -328,14 +338,13 @@ final class CollectSession {
             } else if let id = entryIDs[key] {
                 try? main.worlds.updateEntry(id) { r in if !r.notes.contains(item.detail) { r.notes.append(item.detail) } }
                 report.updated += 1
-            } else { report.skipped.append(item.about) }
+            } else { skip(item, L("no card named “{name}” to attach it to", ["name": item.about])) }
         }
 
-        // What was accepted leaves the list (what was skipped stays, with its reason in the message).
-        let skippedNames = Set(report.skipped.map(Names.normalize))
-        let done = Set(chosen.filter { !skippedNames.contains(Names.normalize($0.title)) }.map(\.id))
+        // What was accepted leaves the list. What was skipped stays, with its reason, and is no longer ticked (so that it is not tried again by itself).
+        let done = Set(chosen.filter { skipReasons[$0.id] == nil }.map(\.id))
         collected.remove(done)
-        checked.subtract(done)
+        checked.subtract(chosen.map(\.id))
         main.collectedCardsChanged()
         message = report.text
         onChange?()

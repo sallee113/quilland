@@ -153,6 +153,7 @@ extension AppSelfTest {
             var rel = CollectedItem(kind: .relationships, name: ""); rel.members = ["Сборкин", "Тестовая Аня"]; rel.type = "знакомые"; rel.evidence = [evidence("встреча")]
             var lonely = CollectedItem(kind: .relationships, name: ""); lonely.members = ["Сборкин", "Никто"]; lonely.type = "враги"; lonely.evidence = [evidence("x")]
             var obs = CollectedItem(kind: .observations, name: ""); obs.about = "Сборкин"; obs.detail = "Носит шляпу."; obs.evidence = [evidence("шляпа")]
+            var orphan = CollectedItem(kind: .observations, name: ""); orphan.about = "дом Сборкина"; orphan.detail = "Стоит на холме."; orphan.evidence = [evidence("холм")]
             // The Collect window opens on the current scene.
             let modeBefore = main.mode
             main.reveal(scene: sceneID, range: nil); spin(0.3)
@@ -161,10 +162,10 @@ extension AppSelfTest {
             check(main.currentSceneID != nil && sheet.currentChoice.scope == .scene, "the Collect window starts on the current scene", "\(sheet.currentChoice.scope) \(main.mode)")
             if main.mode != modeBefore { main.setMode(modeBefore); spin(0.3) }
             check(CollectSheet.defaultScope(hasCurrentScene: false) == .book, "and on the whole book when there is no current scene")
-            main.collect.inject([c, again, town, square, event, rel, lonely, obs])
+            main.collect.inject([c, again, town, square, event, rel, lonely, obs, orphan])
             main.showSearch(.suggestions); spin(0.3)
             let sv = main.searchPanel.suggestView
-            check(main.searchPanel.mode == .suggestions && sv.itemCount == 8 && sv.checkedCount == 0, "the findings wait unchecked in the Suggestions tab")
+            check(main.searchPanel.mode == .suggestions && sv.itemCount == 9 && sv.checkedCount == 0, "the findings wait unchecked in the Suggestions tab")
             check(main.collect.existingMatch(again) == "Тестовая Аня" && main.collect.existingMatch(c) == nil, "a finding that has a card already is recognised")
             sv.checkAll()
             let report = sv.acceptChecked()!
@@ -179,7 +180,11 @@ extension AppSelfTest {
             check(made?.links[ev?.id ?? "-"] == "" && main.characters.character(known)?.links[ev?.id ?? "-"] == "", "the characters who take part are linked to the event, in their own files")
             check(!main.characters.characters.contains { $0.name == "Неизвестный" }, "a participant with no card does not get one")
             check(main.relationships.relationships.contains { Set($0.characters) == Set([made?.id ?? "", known]) && $0.kind == "знакомые" } && !main.relationships.relationships.contains { $0.kind == "враги" }, "a relationship is made between characters that have cards; one with a stranger is not")
-            check(sv.itemCount == 1, "what was accepted leaves the list; what could not be made stays", "\(sv.itemCount)")
+            check(sv.itemCount == 2, "what was accepted leaves the list; what could not be made stays", "\(sv.itemCount)")
+            check(sv.checkedCount == 0, "and what stays is no longer ticked", "\(sv.checkedCount)")
+            check(main.collect.skipReason(for: orphan.id)?.contains("дом Сборкина") == true && main.collect.skipReason(for: lonely.id)?.contains("two characters") == true && main.collect.skipReason(for: obs.id) == nil, "each of them says why", "\(String(describing: main.collect.skipReason(for: orphan.id)))")
+            check(main.collect.message.contains("2 skipped") && main.collect.message.contains("дом Сборкина"), "and the message names what was skipped", main.collect.message)
+            check(sv.reasonShown(for: orphan.id), "and the row shows the reason")
             // The same again does not make a second card.
             main.collect.inject([c]); sv.checkAll()
             let second = sv.acceptChecked()!
