@@ -406,6 +406,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         add(view, L("Book"), #selector(modeBook), "2", target: self)
         add(view, L("Split Book View"), #selector(toggleSplit), "\\", target: self)
         add(view, L("Outline"), #selector(modeOutline), "4", target: self)
+        add(view, L("Graph"), #selector(modeGraph), "3", target: self)
         add(view, L("Plan"), #selector(modePlan), "5", target: self)
         add(view, L("Characters"), #selector(modeCharacters), "6", target: self)
         add(view, L("World"), #selector(modeWorld), "7", target: self)
@@ -560,6 +561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func deleteSection() { keyBook?.main.delete() }
     @objc func modeBook() { keyBook?.main.setMode(.book); keyBook?.refreshStatus() }
     @objc func toggleSplit() { if let m = keyBook?.main { m.setSplit(!m.isSplit); keyBook?.refreshStatus() } }
+    @objc func modeGraph() { keyBook?.main.setMode(.graph); keyBook?.refreshStatus() }
     @objc func modePlan() { keyBook?.main.setMode(.plan); keyBook?.refreshStatus() }
     @objc private func toggleTypewriter() { if let m = keyBook?.main, !m.focusMode { m.setTypewriter(!m.typewriter) } }
     @objc func toggleFocusMode() { if let m = keyBook?.main { m.setFocusMode(!m.focusMode) } }
@@ -575,7 +577,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         if item.action == #selector(historyForward) { return keyBook?.main.canGoForward ?? false }
         // The view in use and the right panel are ticked.
         let views: [(Selector, MainAreaController.Mode)] = [(#selector(modePanels), .panels), (#selector(modeBook), .book), (#selector(modeOutline), .outline),
-                                                            (#selector(modePlan), .plan), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events), (#selector(modeResearch), .research), (#selector(modeReminders), .reminders)]
+                                                            (#selector(modePlan), .plan), (#selector(modeGraph), .graph), (#selector(modeCharacters), .characters), (#selector(modeWorld), .world), (#selector(modeEvents), .events), (#selector(modeResearch), .research), (#selector(modeReminders), .reminders)]
         if let action = item.action, let view = views.first(where: { $0.0 == action }) {
             item.state = keyBook?.main.mode == view.1 ? .on : .off
             return keyBook != nil
@@ -588,7 +590,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             item.state = keyBook?.main.showsRightPanel == true ? .on : .off
             return keyBook != nil
         }
-        if item.action == #selector(zoomIn) || item.action == #selector(zoomOut) || item.action == #selector(zoomFit) { return keyBook?.main.planController != nil }
+        if item.action == #selector(zoomIn) || item.action == #selector(zoomOut) || item.action == #selector(zoomFit) { return keyBook?.main.planController != nil || keyBook?.main.graphView != nil }
         if item.action == #selector(synopsisAction) { return keyBook != nil && AIService.shared.isReady }
         if item.action == #selector(continueAction) || item.action == #selector(continueDirectionAction) {
             let main = keyBook?.main
@@ -629,9 +631,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         }
         return true
     }
-    @objc private func zoomIn() { if let plan = keyBook?.main.planController { plan.zoomIn() } }
-    @objc private func zoomOut() { if let plan = keyBook?.main.planController { plan.zoomOut() } }
-    @objc private func zoomFit() { if let plan = keyBook?.main.planController { plan.zoomToFit() } }
+    @objc private func zoomIn() { if let plan = keyBook?.main.planController { plan.zoomIn() } else { keyBook?.main.graphView?.zoomIn() } }
+    @objc private func zoomOut() { if let plan = keyBook?.main.planController { plan.zoomOut() } else { keyBook?.main.graphView?.zoomOut() } }
+    @objc private func zoomFit() { if let plan = keyBook?.main.planController { plan.zoomToFit() } else { keyBook?.main.graphView?.zoomToFit() } }
 
     /// One step bigger or smaller: the book's text by a point.
     @objc func appLarger() { stepAppSize(1) }

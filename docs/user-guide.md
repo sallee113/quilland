@@ -48,6 +48,7 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 
 | View | Key | What it is |
 | --- | --- | --- |
+| Graph | ⌘3 | The characters, places, events and (if you switch them on) scenes as nodes, with the links between them as lines; a relationship carries its kind ("sisters"). **Whole book**, **Social graph** (characters and their relationships, thicker lines for more shared events) or **Neighbourhood** (one thing and what is around it, 1 to 3 steps out: choose it in *Look at*, or right-click a node and choose *Focus on This*). The kind switches, *Show unlinked* (a place no event uses, a character in no event: the gaps) and the section list narrow what is shown. Click a node to light it and what is joined to it, double-click to open its card, drag it to put it where you want: it stays there (kept in the book, in `plan/graph.json`), and the others are arranged around it. *Release Position* (right-click) frees one node and *Reset Layout* all of them. It only shows: links are made on the cards. |
 | Outline | ⌘4 | The structure on the left, the details of the chosen section (synopsis, note, status) on the right. |
 | Plan | ⌘5 | A canvas of cards on plot lines. |
 | Characters | ⌘6 | Cards of characters and the relationships between them. |
@@ -243,7 +244,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 
 | Key | Command |
 | --- | --- |
-| ⌘1 ⌘2 | Panels, Book |
+| ⌘1 ⌘2 ⌘3 | Panels, Book, Graph |
 | ⌘\\ | Split the Book view in two |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Outline, Plan, Characters, World, Events, Research, Reminders |
 | ⌘J | Jump to Scene |
@@ -251,7 +252,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | ⌥⌘R | Show or hide the right panel |
 | ⌃⌘↩ | Focus Mode |
 | ⌥⌘T | Typewriter Scrolling |
-| ⌘+ ⌘− ⇧⌘0 | Zoom the Plan, fit it to the window |
+| ⌘+ ⌘− ⇧⌘0 | Zoom the Plan or the Graph, fit it to the window |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Larger, smaller, usual book text size |
 
 **Finding and checking**

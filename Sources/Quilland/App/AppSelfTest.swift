@@ -122,6 +122,7 @@ final class AppSelfTest {
         if let code = eventOrder() { return code }
         if let code = relationFilters() { return code }
         if let code = eventLinks() { return code }
+        if let code = graphView() { return code }
         if let code = structure() { return code }
         if let code = files() { return code }
         if let code = settings() { return code }

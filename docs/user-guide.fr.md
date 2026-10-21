@@ -50,6 +50,7 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 
 | Vue | Touche | Description |
 | --- | --- | --- |
+| Graphe | ⌘3 | Les personnages, lieux, événements et (si vous les activez) scènes comme nœuds, avec les liens entre eux comme lignes ; une relation porte son genre (« sœurs »). **Tout le livre**, **Graphe social** (les personnages et leurs relations, lignes plus épaisses pour plus d’événements communs) ou **Voisinage** (une chose et ce qui l’entoure, de 1 à 3 pas : choisissez-la dans *Regarder*, ou clic droit sur un nœud puis *Regarder ceci*). Les interrupteurs de genre, *Afficher les éléments isolés* (un lieu qu’aucun événement n’utilise, un personnage sans événement : les trous) et la liste des sections restreignent l’affichage. Cliquez un nœud pour l’éclairer avec ce qui lui est lié, double-cliquez pour ouvrir sa fiche, faites-le glisser où vous voulez : il y reste (conservé dans le livre, dans `plan/graph.json`) et les autres se disposent autour de lui. *Libérer la position* (clic droit) en libère un, *Réinitialiser la disposition* tous. Il ne fait que montrer : les liens se font sur les fiches. |
 | Plan détaillé | ⌘4 | La structure à gauche, les détails de la section choisie (synopsis, note, statut) à droite. |
 | Plan | ⌘5 | Une toile de cartes sur des lignes narratives. |
 | Personnages | ⌘6 | Les fiches des personnages et les relations entre eux. |
@@ -245,7 +246,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 
 | Touche | Commande |
 | --- | --- |
-| ⌘1 ⌘2 | Panneaux, Livre |
+| ⌘1 ⌘2 ⌘3 | Panneaux, Livre, Graphe |
 | ⌘\\ | Diviser la vue Livre en deux |
 | ⌘4 ⌘5 ⌘6 ⌘7 ⌘8 ⌘9 ⌘0 | Plan détaillé, Plan, Personnages, Monde, Événements, Documentation, Rappels |
 | ⌘J | Aller à la scène |
@@ -253,7 +254,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | ⌥⌘R | Afficher ou masquer le panneau de droite |
 | ⌃⌘↩ | Mode concentration |
 | ⌥⌘T | Défilement machine à écrire |
-| ⌘+ ⌘− ⇧⌘0 | Zoom du Plan, ajustement à la fenêtre |
+| ⌘+ ⌘− ⇧⌘0 | Zoom du Plan ou du Graphe, ajustement à la fenêtre |
 | ⌥⌘+ ⌥⌘− ⌥⌘0 | Texte du livre plus grand, plus petit, taille habituelle |
 
 **Recherche et vérification**

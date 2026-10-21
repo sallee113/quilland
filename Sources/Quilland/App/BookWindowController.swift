@@ -175,6 +175,8 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         } else if main.mode == .events {
             let n = main.eventStore.events.count
             parts.append(Lp("{n} event", "{n} events", n))
+        } else if main.mode == .graph {
+            parts.append(main.graphView?.noteText.isEmpty == false ? main.graphView!.noteText : L("Graph"))
         } else if main.mode == .reminders {
             let n = main.remindersStore.open.count
             parts.append(n == 0 ? L("No open reminders") : Lp("{n} open reminder", "{n} open reminders", n))

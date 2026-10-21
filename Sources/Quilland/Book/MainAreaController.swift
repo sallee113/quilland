@@ -3,7 +3,7 @@ import QuillandCore
 
 /// The main area of an open book's window: Panels (the tree and one scene), Book mode, Compare, or the Plan canvas (more views come later), for one book.
 final class MainAreaController: NSViewController {
-    enum Mode: String { case panels, book, outline, characters, world, events, research, reminders, plan }
+    enum Mode: String { case panels, book, outline, characters, world, events, research, reminders, plan, graph }
 
     let folder: URL
     var session: BookSession
@@ -47,6 +47,9 @@ final class MainAreaController: NSViewController {
     private(set) var worldView: WorldViewController?
     private(set) lazy var eventStore = EventStore(book: folder)
     private(set) var eventsView: EventsViewController?
+    private(set) var graphView: GraphViewController?
+    /// What the Graph view is set to (kept here, as the view is made again each time).
+    var graphState = GraphViewState()
     private(set) lazy var researchStore = ResearchStore(book: folder)
     private(set) var researchView: ResearchViewController?
     private(set) lazy var remindersStore = RemindersStore(book: folder)
@@ -276,6 +279,7 @@ final class MainAreaController: NSViewController {
         charactersView = nil
         worldView = nil
         eventsView = nil
+        graphView = nil
         researchView = nil
         remindersView = nil
     }
@@ -290,6 +294,7 @@ final class MainAreaController: NSViewController {
         case .research: return buildResearch()
         case .reminders: return buildReminders()
         case .plan: return buildPlan()
+        case .graph: return buildGraph()
         case .book: return buildWriting()
         }
     }
@@ -434,6 +439,36 @@ final class MainAreaController: NSViewController {
         view.relationFilter.source = relationFilterSource()
         _ = view.view
         eventsView = view
+        return Built(view: view.view, controller: nil)
+    }
+
+    private func buildGraph() -> Built {
+        let view = GraphViewController()
+        view.characters = characters
+        view.worlds = worlds
+        view.events = eventStore
+        view.relationships = relationships
+        view.store = GraphStore(folder: folder)
+        view.structure = { [weak self] in self?.session.structure ?? BookStructure(folder: URL(fileURLWithPath: "/")) }
+        view.index = { [weak self] in
+            guard let self else { fatalError("the book is gone") }
+            return self.relationFilterSource().index()
+        }
+        view.sections = { [weak self] in self?.planSectionChoices() ?? [] }
+        view.state = graphState
+        view.onOpen = { [weak self] kind, id in
+            switch kind {
+            case .character: self?.setMode(.characters); self?.charactersView?.select(id)
+            case .place: self?.setMode(.world); self?.worldView?.select(id)
+            case .event: self?.setMode(.events); self?.eventsView?.select(id)
+            case .scene: self?.reveal(scene: id, range: nil)
+            }
+        }
+        view.onStateChange = { [weak self] in self?.graphState = $0 }
+        view.onChange = { [weak self] in self?.onChange?() }
+        view.onEscape = { [weak self] in self?.leaveFullAreaView() }
+        _ = view.view
+        graphView = view
         return Built(view: view.view, controller: nil)
     }
 
@@ -715,7 +750,7 @@ final class MainAreaController: NSViewController {
     func leaveOutline() { leaveFullAreaView() }
 
     /// Esc in a full-area view (the Outline, Characters): back to the writing mode.
-    func leaveFullAreaView() { if [.outline, .characters, .world, .events, .research, .reminders].contains(mode) { setMode(writingMode) } }
+    func leaveFullAreaView() { if [.outline, .characters, .world, .events, .research, .reminders, .graph].contains(mode) { setMode(writingMode) } }
 
     // The same for places and worlds (the World view): a snapshot before and after, so that Undo takes the change back.
 
