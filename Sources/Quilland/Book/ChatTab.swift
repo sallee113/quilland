@@ -65,8 +65,11 @@ final class ChatTab: NSView, NSTextViewDelegate {
     private let actionButton = NSButton(title: L("Save Prompt as Action…"), target: nil, action: nil)
     private let newButton = NSButton(title: L("New Conversation"), target: nil, action: nil)
 
+    private var subscriptions: [Subscription] = []
+
     override init(frame: NSRect) {
         super.init(frame: frame)
+        subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.refresh() })
         transcript.isEditable = false; transcript.isRichText = true
         transcript.textContainerInset = NSSize(width: 6, height: 6)
         transcript.drawsBackground = false

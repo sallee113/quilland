@@ -8,8 +8,6 @@ final class AIService {
 
     private(set) var status: AIStatus?
     private(set) var checking = false
-    /// Called on the main thread when `status` changed.
-    var onChange: (() -> Void)?
     private var generation = 0
 
     var settings: Preferences { AppPreferences.shared.values }
@@ -33,16 +31,25 @@ final class AIService {
         return LMStudioClient(config: config)
     }
 
+    /// Takes a new status (what the server said, or nothing) and tells whoever listens.
+    func apply(_ new: AIStatus?) {
+        status = new
+        changed()
+    }
+
+    /// Tells the places that depend on the AI (`.aiStatusChanged`) that something about the connection is different.
+    private func changed() { NotificationCenter.default.post(name: .aiStatusChanged, object: nil) }
+
     /// Asks the server again (the address, the model or the context may have changed). `completion` gets the new status on the main thread.
     func refresh(completion: ((AIStatus) -> Void)? = nil) {
         guard isEnabled else {
-            status = nil
-            onChange?()
+            apply(nil)
             return
         }
         generation += 1
         let mine = generation
         checking = true
+        changed()
         let s = settings
         Task {
             let result = await AIConnection.check(address: s.aiAddress, model: s.aiModel, contextSetting: s.aiContext)
@@ -50,8 +57,7 @@ final class AIService {
                 let me = AIService.shared
                 guard mine == me.generation else { return }
                 me.checking = false
-                me.status = result
-                me.onChange?()
+                me.apply(result)
                 completion?(result)
             }
         }

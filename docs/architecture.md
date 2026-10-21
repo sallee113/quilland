@@ -112,6 +112,8 @@ My Book/
 
 `AIService` is the application's one connection to LM Studio (is it on, does it answer, which model, how many tokens it reads). The jobs themselves are in `QuillandCore/Collect` and are tested against a fake server. The rules: the AI is optional and says why it is unavailable; **nothing it proposes is applied until the author accepts it** (suggestions are faint text, or items in the Suggestions tab); every quote it gives is checked against the text; closing a book window stops its jobs.
 
+**Events.** What more than one place cares about is posted as a named event (`App/AppEvents.swift`, for now `.aiStatusChanged`), and each place subscribes where it lives with `subscribe(to:)`, holding the returned `Subscription` (it ends when the view goes). `AIService` posts the event whenever the connection changes (asking, answered, not answering, switched off), so the Outline detail, the right panel, Chat and Proofreading follow it by themselves; coming back to the application asks the server again when the model was not there. A new place that depends on the AI subscribes; nobody needs to be told about it.
+
 ### Interface language
 
 English text in the code is its own key (`L("Open Book…")`, `Lp("{n} scene", "{n} scenes", n)`). A language is one JSON file in `Resources/Languages/` (or the user's own folder); `template.json` lists every text and is made by `make-languages.py`. English is the default; Russian and French are bundled. A test fails if a bundled language lacks a text.

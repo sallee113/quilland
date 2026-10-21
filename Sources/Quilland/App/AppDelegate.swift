@@ -72,11 +72,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         }
     }
 
+    /// What the application listens to (see `subscribe(to:)`).
+    private var subscriptions: [Subscription] = []
+
+    /// Back in the application: if the model was not there when it was last asked (LM Studio is started after Quilland, often), ask again.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard !CommandLine.arguments.contains("--selftest-app"), !CommandLine.arguments.contains("--selftest-lab") else { return }
+        recheckAIIfNeeded()
+    }
+
+    /// Asks the model server again when the actions cannot run (and it is not being asked already).
+    func recheckAIIfNeeded() {
+        let ai = AIService.shared
+        if ai.isEnabled, !ai.isReady, !ai.checking { ai.refresh() }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         applyAppearance()
         Hover.installForAllButtons()
         buildMenu()
-        AIService.shared.onChange = { [weak self] in self?.updateAIStatusItem(); self?.settingsWindow?.refreshAll() }
+        subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.updateAIStatusItem(); self?.settingsWindow?.refreshAll() })
         // Ask LM Studio once at the start, so that the actions know whether they can run (the checks do not).
         if !CommandLine.arguments.contains("--selftest-app") && !CommandLine.arguments.contains("--selftest-lab") { AIService.shared.refresh() }
         NSApp.activate(ignoringOtherApps: true)

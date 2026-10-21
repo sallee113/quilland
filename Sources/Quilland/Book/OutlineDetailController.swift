@@ -129,6 +129,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
             titleField.widthAnchor.constraint(equalTo: column.widthAnchor), textBlocks.widthAnchor.constraint(equalTo: column.widthAnchor),
             countsLabel.widthAnchor.constraint(equalTo: column.widthAnchor),
         ])
+        subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.updateWriteButton() })
         show([])
     }
 
@@ -140,6 +141,16 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         if ids != shown { commitEdits() }
         shown = ids
         refresh()
+    }
+
+    private var subscriptions: [Subscription] = []
+    /// For the checks: is the button that asks the model on?
+    var writeEnabled: Bool { writeButton.isEnabled }
+
+    /// The button that asks the model follows the connection, whatever is shown at the time.
+    private func updateWriteButton() {
+        writeButton.isEnabled = AIService.shared.isReady
+        writeButton.toolTip = AIService.shared.unavailableReason ?? L("The model writes a synopsis; Tab accepts it, Esc drops it")
     }
 
     func refresh() {
@@ -161,8 +172,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
             [statusRow, targetRow, textBlocks, openButton].forEach { $0.isHidden = true }
             return
         }
-        writeButton.isEnabled = AIService.shared.isReady
-        writeButton.toolTip = AIService.shared.unavailableReason ?? L("The model writes a synopsis; Tab accepts it, Esc drops it")
+        updateWriteButton()
         let isScene = section.kind == .scene
         kindLabel.stringValue = L(section.kind.rawValue).uppercased()
         titleField.stringValue = section.title

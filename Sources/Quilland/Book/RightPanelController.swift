@@ -88,6 +88,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     // MARK: View
 
     override func loadView() {
+        subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.updateWriteButton() })
         let root = NSView()
         view = root
         tabs.selectedSegment = 0
@@ -306,11 +307,20 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     // MARK: Showing
 
+    private var subscriptions: [Subscription] = []
+    /// For the checks: is the button that asks the model on?
+    var writeEnabled: Bool { writeButton.isEnabled }
+
+    /// The button that asks the model follows the connection.
+    private func updateWriteButton() {
+        writeButton.isEnabled = AIService.shared.isReady
+        writeButton.toolTip = AIService.shared.unavailableReason ?? L("The model writes a synopsis; Tab accepts it, Esc drops it")
+    }
+
     /// Shows the scene again (after a change in the book).
     func refresh() {
         guard isViewLoaded else { return }
-        writeButton.isEnabled = AIService.shared.isReady
-        writeButton.toolTip = AIService.shared.unavailableReason ?? L("The model writes a synopsis; Tab accepts it, Esc drops it")
+        updateWriteButton()
         found = []
         if let id = shownScene, let info = sceneInfo(id) {
             titleLabel.stringValue = info.title

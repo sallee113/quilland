@@ -31,8 +31,11 @@ final class ProofreadingView: NSView, NSTableViewDataSource, NSTableViewDelegate
     private let explanation = NSTextField(wrappingLabelWithString: "")
     static let scopes: [SearchScope] = [.scene, .chapter, .part, .book]
 
+    private var subscriptions: [Subscription] = []
+
     override init(frame: NSRect) {
         super.init(frame: frame)
+        subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.refresh() })
         for s in Self.scopes { scopePopup.addItem(withTitle: s.title) }
         scopePopup.selectItem(at: 0)
         scopePopup.target = self; scopePopup.action = #selector(refreshAction)

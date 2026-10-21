@@ -15,6 +15,10 @@ public struct AIStatus: Equatable, Sendable {
     public var loaded: Bool
     /// One sentence for the Settings window.
     public var message: String
+
+    public init(reachable: Bool, models: [ModelInfo], model: String?, info: ModelInfo?, context: Int, loaded: Bool, message: String) {
+        self.reachable = reachable; self.models = models; self.model = model; self.info = info; self.context = context; self.loaded = loaded; self.message = message
+    }
 }
 
 public enum AIConnection {
