@@ -366,6 +366,8 @@ final class MainAreaController: NSViewController {
         view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
         view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.events = { [weak self] in self?.eventChoices() ?? [] }
+        view.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         view.onChange = { [weak self] in self?.charactersChanged() }
         view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
@@ -381,6 +383,9 @@ final class MainAreaController: NSViewController {
         view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
         view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
+        view.eventStore = eventStore
+        view.events = { [weak self] in self?.eventChoices() ?? [] }
+        view.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
         view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }

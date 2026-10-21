@@ -74,4 +74,22 @@ extension MainAreaController {
         if showsRightPanel { rightPanel.refresh() }
         onChange?()
     }
+
+    /// The events for the cards' "Add…" menus and rows, in the order of the book: the title and the title of the scene that decides where the event stands.
+    func eventChoices() -> [EventChoice] {
+        let scenes = session.structure.sceneChoices
+        let titles = Dictionary(scenes.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+        return eventStore.groups(sceneOrder: scenes.map(\.id)).flatMap { g in
+            g.events.compactMap { e in e.id.map { EventChoice(id: $0, title: e.title ?? "", scene: g.scene.flatMap { titles[$0] }) } }
+        }
+    }
+}
+
+/// An event as the Character and Place cards list it.
+struct EventChoice {
+    var id: String
+    var title: String
+    var scene: String?
+    /// "Title — Scene" (or the title alone when the event is linked to no scene).
+    var label: String { scene.map { "\(title) — \($0)" } ?? title }
 }

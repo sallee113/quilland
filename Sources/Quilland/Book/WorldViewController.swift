@@ -29,6 +29,12 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private var roots: [Node] = []
     private var byID: [String: Node] = [:]
     private(set) var rows: [CharacterSceneRow] = []
+    /// The events held at the place (the link is kept in the event's file).
+    private(set) var eventRows: [CharacterSceneRow] = []
+    var eventStore: EventStore!
+    /// The events of the book in order, for the rows and the "Add an Event…" menu.
+    var events: () -> [EventChoice] = { [] }
+    var onOpenEvent: ((String) -> Void)?
     private static let dragType = NSPasteboard.PasteboardType("com.quilland.place")
 
     let filterField = NSSearchField()
@@ -51,6 +57,12 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private let scenesCaption = NSTextField(labelWithString: "")
     private let sceneTable = Hover.rows(NSTableView())
     private var sceneScroll = NSScrollView()
+    private let eventsCaption = NSTextField(labelWithString: "")
+    private let eventTable = Hover.rows(NSTableView())
+    private let eventScroll = NSScrollView()
+    private let addEventButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let removeEventButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
+    private let eventButtons = NSStackView()
     private let countLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton(title: L("Delete…"), target: nil, action: nil)
     private let addSceneButton = NSPopUpButton(frame: .zero, pullsDown: true)
@@ -181,6 +193,28 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         sceneScroll.hasVerticalScroller = true; sceneScroll.borderType = .bezelBorder
         sceneScroll.translatesAutoresizingMaskIntoConstraints = false
         sceneScroll.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        eventsCaption.stringValue = L("Events held here (double-click opens the event)")
+        eventsCaption.font = .systemFont(ofSize: 11, weight: .semibold)
+        eventsCaption.textColor = .secondaryLabelColor
+        for (id, title, width) in [("event", L("Event"), 300), ("text", L("What happens here"), 280)] as [(String, String, CGFloat)] {
+            let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : 60
+            eventTable.addTableColumn(c)
+        }
+        eventTable.dataSource = self; eventTable.delegate = self
+        eventTable.rowHeight = 22
+        eventTable.target = self; eventTable.doubleAction = #selector(openEventRow)
+        eventTable.setAccessibilityLabel(L("Events of the place"))
+        eventScroll.documentView = eventTable
+        eventScroll.hasVerticalScroller = true; eventScroll.borderType = .bezelBorder
+        eventScroll.translatesAutoresizingMaskIntoConstraints = false
+        eventScroll.heightAnchor.constraint(equalToConstant: 110).isActive = true
+        addEventButton.controlSize = .small
+        removeEventButton.target = self; removeEventButton.action = #selector(removeEventLinkPressed)
+        removeEventButton.controlSize = .small; removeEventButton.bezelStyle = .rounded
+        removeEventButton.toolTip = L("Takes the place away from the chosen event.")
+        eventButtons.setViews([addEventButton, removeEventButton], in: .leading)
+        eventButtons.spacing = 8
         countLabel.textColor = .secondaryLabelColor
         deleteButton.target = self; deleteButton.action = #selector(deletePressed)
         deleteButton.bezelStyle = .rounded
@@ -199,7 +233,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         sceneButtons.spacing = 8
 
         let descBox = box(descriptionView, height: 150), notesBox = box(notesView, height: 80)
-        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
+        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, eventsCaption, eventScroll, eventButtons, cardButtons] {
             card.addArrangedSubview(v)
         }
         card.orientation = .vertical; card.alignment = .leading; card.spacing = 8
@@ -222,7 +256,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             card.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), card.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -20),
             nameField.widthAnchor.constraint(equalTo: card.widthAnchor), aliasField.widthAnchor.constraint(equalTo: card.widthAnchor),
             descBox.widthAnchor.constraint(equalTo: card.widthAnchor), notesBox.widthAnchor.constraint(equalTo: card.widthAnchor),
-            sceneScroll.widthAnchor.constraint(equalTo: card.widthAnchor), typeBox.widthAnchor.constraint(equalToConstant: 160),
+            sceneScroll.widthAnchor.constraint(equalTo: card.widthAnchor), eventScroll.widthAnchor.constraint(equalTo: card.widthAnchor), typeBox.widthAnchor.constraint(equalToConstant: 160),
             nothing.centerXAnchor.constraint(equalTo: root.centerXAnchor), nothing.centerYAnchor.constraint(equalTo: root.centerYAnchor),
         ])
         return root
@@ -456,7 +490,8 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             setText(descriptionView, store.text(id))
             setText(notesView, w.notes.joined(separator: "\n"))
             sceneScroll.isHidden = true; scenesCaption.isHidden = true; sceneButtons.isHidden = true
-            rows = []
+            eventsCaption.isHidden = true; eventScroll.isHidden = true; eventButtons.isHidden = true
+            rows = []; eventRows = []
             deleteButton.title = L("Delete World…")
             convertButton.title = L("Turn Into a Place…")
             mergeButton.isEnabled = store.worlds.count > 1
@@ -471,8 +506,10 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             setText(descriptionView, store.text(id))
             setText(notesView, e.notes.joined(separator: "\n"))
             sceneScroll.isHidden = false; scenesCaption.isHidden = false; sceneButtons.isHidden = false
+            eventsCaption.isHidden = false; eventScroll.isHidden = false; eventButtons.isHidden = false
             rebuildRows(for: e)
             rebuildAddSceneMenu()
+            rebuildEventRows(for: id)
             deleteButton.title = L("Delete Place…")
             convertButton.title = L("Turn Into a World…")
             mergeButton.isEnabled = store.entries.count > 1
@@ -538,12 +575,16 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     var sceneRowIDs: [String] { rows.map(\.sceneID) }
     var addableScenes: [String] { (addSceneButton.menu?.items.dropFirst() ?? []).compactMap { $0 is ClosureMenuItem ? $0.title : nil } }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { tableView === eventTable ? eventRows.count : rows.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard rows.indices.contains(row), let id = tableColumn?.identifier.rawValue else { return nil }
-        let r = rows[row]
+        let list = tableView === eventTable ? eventRows : rows
+        guard list.indices.contains(row), let id = tableColumn?.identifier.rawValue else { return nil }
+        let r = list[row]
         switch id {
+        case "event":
+            let l = NSTextField(labelWithString: r.title)
+            return l
         case "scene": return NSTextField(labelWithString: r.title)
         case "mentions":
             let l = NSTextField(labelWithString: r.mentions > 0 ? String(r.mentions) : "")
@@ -559,6 +600,75 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     }
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { QuietRowView() }
+
+    // MARK: Events
+
+    private func rebuildEventRows(for place: String) {
+        let all = events()
+        eventRows = all.compactMap { e in eventStore.event(e.id).flatMap { $0.places[place] }.map { CharacterSceneRow(sceneID: e.id, title: e.label, mentions: 0, pov: false, text: $0, isEvent: true) } }
+        eventTable.reloadData()
+        let shown = Set(eventRows.map(\.sceneID))
+        let free = all.filter { !shown.contains($0.id) }
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: L("Add an Event…"), action: nil, keyEquivalent: ""))
+        if free.isEmpty {
+            let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            menu.addItem(none)
+        }
+        for e in free {
+            let item = ClosureMenuItem(title: e.label) { [weak self] in self?.addEvent(e.id) }
+            item.representedObject = e.id
+            menu.addItem(item)
+        }
+        addEventButton.menu = menu
+    }
+
+    /// Holds the event at this place: the place goes into the event's file, and the cursor into its "What happens here" cell.
+    func addEvent(_ event: String) {
+        guard let place = selected, store.entry(place) != nil else { return }
+        try? eventStore.update(event) { var p = $0.places; if p[place] == nil { p[place] = "" }; $0.places = p }
+        onChange?()
+        rebuildEventRows(for: place)
+        guard let row = eventRows.firstIndex(where: { $0.sceneID == event }),
+              let column = eventTable.tableColumns.firstIndex(where: { $0.identifier.rawValue == "text" }) else { return }
+        eventTable.scrollRowToVisible(row)
+        eventTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        eventTable.editColumn(column, row: row, with: nil, select: false)
+    }
+
+    /// Takes the place away from the event of this row.
+    func removeEventLink(row: Int) {
+        guard eventRows.indices.contains(row), let place = selected else { return }
+        let event = eventRows[row].sceneID
+        try? eventStore.update(event) { var p = $0.places; p.removeValue(forKey: place); $0.places = p }
+        onChange?()
+        rebuildEventRows(for: place)
+    }
+
+    /// What happens at the place in the event of this row (empty keeps the link with no text).
+    func setEventLine(row: Int, _ raw: String) {
+        guard eventRows.indices.contains(row), let place = selected else { return }
+        let event = eventRows[row].sceneID
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? eventStore.update(event) { var p = $0.places; p[place] = text; $0.places = p }
+        eventRows[row].text = text
+        onChange?()
+    }
+
+    @objc private func removeEventLinkPressed() { removeEventLink(row: eventTable.selectedRow) }
+
+    @objc private func openEventRow() {
+        let row = eventTable.clickedRow
+        let column = eventTable.clickedColumn
+        if eventTable.tableColumns.indices.contains(column), eventTable.tableColumns[column].identifier.rawValue == "text" { return }
+        guard eventRows.indices.contains(row) else { return }
+        onOpenEvent?(eventRows[row].sceneID)
+    }
+
+    /// For the checks: the events in the card's list, and the ones the "Add an Event…" menu offers.
+    var eventRowIDs: [String] { eventRows.map(\.sceneID) }
+    var addableEvents: [String] { (addEventButton.menu?.items ?? []).compactMap { $0.representedObject as? String } }
 
     @objc private func openSceneRow() {
         let row = sceneTable.clickedRow
@@ -596,6 +706,8 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             let type = typeBox.stringValue.trimmingCharacters(in: .whitespaces)
             updateSelected(rebuild: false, entry: { $0.type = type.isEmpty ? "place" : type })
         } else if field !== addField, field !== filterField {
+            let eventRow = eventTable.row(for: field)
+            if eventRow >= 0 { setEventLine(row: eventRow, field.stringValue); return }
             let row = sceneTable.row(for: field)
             if row >= 0 { setSceneLine(row: row, field.stringValue) }
         }

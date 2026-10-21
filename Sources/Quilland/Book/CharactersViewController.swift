@@ -8,6 +8,8 @@ struct CharacterSceneRow {
     var mentions: Int
     var pov: Bool
     var text: String
+    /// The row is an event the character takes part in (the id is the event's), not a scene.
+    var isEvent = false
 }
 
 /// The Characters view: the list of characters on the left, the card of the chosen one on the right (the two-part layout).
@@ -25,6 +27,9 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     /// How many times the character's name is in each scene (only scenes where it is).
     var mentions: (String) -> [String: Int] = { _ in [:] }
     var onOpenScene: ((String) -> Void)?
+    var onOpenEvent: ((String) -> Void)?
+    /// The events of the book in order, for the rows and the "Add…" menu.
+    var events: () -> [EventChoice] = { [] }
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
     /// Merge Into…: the character to take out of the book and the one that keeps what is known of both. The owner of the book does it (and can undo it).
@@ -233,7 +238,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         relationshipsLabel.font = .systemFont(ofSize: 12)
         relationshipsLabel.textColor = .secondaryLabelColor
         card.setViews([nameField, aliasField, mainBox, relationshipsLabel, caption(L("Profile, appearance, speech")), profileBox, caption(L("Notes (one per line)")), notesBox,
-                       caption(L("Scenes: where the name is, point of view, what the character does (double-click opens the scene)")), tableScroll, sceneButtons, cardButtons])
+                       caption(L("Scenes and events (◆): where the name is, point of view, what the character does (double-click opens it)")), tableScroll, sceneButtons, cardButtons])
         card.orientation = .vertical
         card.alignment = .leading
         card.spacing = 8
@@ -321,13 +326,14 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         guard let id = tableColumn?.identifier.rawValue, rows.indices.contains(row) else { return nil }
         let r = rows[row]
         switch id {
-        case "scene": return NSTextField(labelWithString: r.title)
+        case "scene": return NSTextField(labelWithString: r.isEvent ? "◆ " + r.title : r.title)
         case "mentions":
             let l = NSTextField(labelWithString: r.mentions > 0 ? String(r.mentions) : "")
             l.alignment = .right
             l.textColor = .secondaryLabelColor
             return l
         case "pov":
+            if r.isEvent { return nil }
             let b = NSButton(checkboxWithTitle: "", target: self, action: #selector(povToggled(_:)))
             b.state = r.pov ? .on : .off
             return b
@@ -389,15 +395,27 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     /// The "Add a Scene…" menu: the scenes that are not in the list yet, in the order of the book.
     private func rebuildAddSceneMenu() {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: L("Add a Scene…"), action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("Add a Scene or Event…"), action: nil, keyEquivalent: ""))
         let shown = Set(rows.map(\.sceneID))
         let free = scenes().filter { !shown.contains($0.id) }
-        if free.isEmpty {
+        let freeEvents = events().filter { !shown.contains($0.id) }
+        if free.isEmpty && freeEvents.isEmpty {
             let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: "")
             none.isEnabled = false
             menu.addItem(none)
         }
         for s in free { menu.addItem(ClosureMenuItem(title: s.title) { [weak self] in self?.addScene(s.id) }) }
+        if !freeEvents.isEmpty {
+            menu.addItem(.separator())
+            let heading = NSMenuItem(title: L("Events"), action: nil, keyEquivalent: "")
+            heading.isEnabled = false
+            menu.addItem(heading)
+            for e in freeEvents {
+                let item = ClosureMenuItem(title: "◆ " + e.label) { [weak self] in self?.addScene(e.id) }
+                item.representedObject = e.id
+                menu.addItem(item)
+            }
+        }
         addSceneButton.menu = menu
     }
 
@@ -423,7 +441,11 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
 
     /// For the checks: the scenes in the card's list, and the ones the "Add a Scene…" menu offers.
     var sceneRowIDs: [String] { rows.map(\.sceneID) }
-    var addableScenes: [String] { (addSceneButton.menu?.items.dropFirst() ?? []).compactMap { $0 is ClosureMenuItem ? $0.title : nil } }
+    var addableScenes: [String] { (addSceneButton.menu?.items.dropFirst() ?? []).compactMap { $0 is ClosureMenuItem && $0.representedObject == nil ? $0.title : nil } }
+    /// The ids of the events the "Add…" menu offers.
+    var addableEvents: [String] { (addSceneButton.menu?.items ?? []).compactMap { $0.representedObject as? String } }
+    /// The events in the card's list (ids).
+    var eventRowIDs: [String] { rows.filter(\.isEvent).map(\.sceneID) }
 
     @objc private func removeSceneLinkPressed() { removeSceneLink(row: sceneTable.selectedRow) }
 
@@ -443,6 +465,16 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             let line = links[s.id]
             guard n > 0 || line != nil || pov.contains(s.id) else { return nil }
             return CharacterSceneRow(sceneID: s.id, title: s.title, mentions: n, pov: pov.contains(s.id), text: line ?? "")
+        }
+        // The events (and links to things that are gone: the author can take them away).
+        let known = Set(scenes().map(\.id))
+        let all = events()
+        let eventIDs = Set(all.map(\.id))
+        for e in all where links[e.id] != nil {
+            rows.append(CharacterSceneRow(sceneID: e.id, title: e.label, mentions: 0, pov: false, text: links[e.id] ?? "", isEvent: true))
+        }
+        for key in links.keys.sorted() where !known.contains(key) && !eventIDs.contains(key) {
+            rows.append(CharacterSceneRow(sceneID: key, title: L("(missing)"), mentions: 0, pov: false, text: links[key] ?? "", isEvent: true))
         }
         sceneTable.reloadData()
     }
@@ -547,14 +579,15 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         }
     }
 
-    /// What the character does in the scene of this row (empty removes the line).
+    /// What the character does in the scene of this row (empty removes the line; an event stays linked with no text).
     func setSceneLine(row: Int, _ raw: String) {
         guard rows.indices.contains(row) else { return }
         let scene = rows[row].sceneID
+        let isEvent = rows[row].isEvent
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         update(rebuild: false) { r in
             var links = r.links
-            if text.isEmpty { links.removeValue(forKey: scene) } else { links[scene] = text }
+            if text.isEmpty && !isEvent { links.removeValue(forKey: scene) } else { links[scene] = text }
             r.links = links
         }
         rows[row].text = text
@@ -566,7 +599,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         // A double-click in the text column is for typing, not for going away.
         if sceneTable.tableColumns.indices.contains(column), sceneTable.tableColumns[column].identifier.rawValue == "text" { return }
         guard rows.indices.contains(row) else { return }
-        onOpenScene?(rows[row].sceneID)
+        if rows[row].isEvent { if events().contains(where: { $0.id == rows[row].sceneID }) { onOpenEvent?(rows[row].sceneID) } } else { onOpenScene?(rows[row].sceneID) }
     }
 
     private func update(rebuild: Bool = true, _ change: @escaping (inout CharacterRecord) -> Void) {
