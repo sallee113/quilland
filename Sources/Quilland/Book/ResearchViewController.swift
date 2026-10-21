@@ -279,7 +279,12 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
         tableView === table ? QuietRowView() : nil
     }
 
+    /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
+    private func syncRemoveButton() { removeButton.isEnabled = links.indices.contains(table.selectedRow) }
+    var removeLinkEnabled: Bool { removeButton.isEnabled }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
+        if (notification.object as? NSTableView) === table { syncRemoveButton(); return }
         guard (notification.object as? NSTableView) === list else { return }
         let row = list.selectedRow
         guard row >= 0, shown.indices.contains(row), shown[row].id != selected else { return }
@@ -360,6 +365,7 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
         }
         links = rows
         table.reloadData()
+        syncRemoveButton()
     }
 
     /// The "Add…" menu: what is not yet linked.

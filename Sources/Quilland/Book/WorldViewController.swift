@@ -504,6 +504,17 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             if let line = eventStore.event(ev.id)?.places[id] { rows.append(CharacterSceneRow(sceneID: ev.id, title: ev.label, mentions: 0, pov: false, text: line, isEvent: true)) }
         }
         sceneTable.reloadData()
+        syncRemoveButton()
+    }
+
+    /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
+    private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
+    var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
+    /// For the checks: chooses a row of the list of scenes and events.
+    func selectLinkRow(_ row: Int?) { if let row { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { sceneTable.deselectAll(nil) } }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        if (notification.object as? NSTableView) === sceneTable { syncRemoveButton() }
     }
 
     // MARK: Adding a scene

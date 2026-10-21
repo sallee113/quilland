@@ -149,7 +149,7 @@ extension AppSelfTest {
             } } }
             check(unanswered.isEmpty, "every tracking area's owner answers all the messages it asks for", "\(Set(unanswered))")
         }
-        // A button that is off is faded, one that works is not.
+        // A button that is off is drawn by the system, not faded by the app.
         do {
             let probe = NSButton(title: "Probe", target: app, action: #selector(AppDelegate.findAction))
             probe.bezelStyle = .inline
@@ -181,7 +181,7 @@ extension AppSelfTest {
                 check(rowOwners.contains { $0.responds(to: NSSelectorFromString("mouseMoved:")) && $0.responds(to: NSSelectorFromString("mouseEntered:")) && $0.responds(to: NSSelectorFromString("mouseExited:")) }, "and so does a list's (every message its tracking asks for)")
             }
             probe.removeFromSuperview()
-            check(on == 1 && off < 0.6 && back == 1, "a button that is switched off is faded, and a button that works is not", "\(on) \(off) \(back)")
+            check(on == 1 && off == 1 && back == 1, "a button that is switched off keeps its opacity (the system draws it gray)", "\(on) \(off) \(back)")
         }
         // The Section menu offers only what can be done.
         do {

@@ -305,7 +305,14 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         tableView === table ? QuietRowView() : nil
     }
 
+    /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
+    private func syncRemoveButton() { removeButton.isEnabled = connections.indices.contains(table.selectedRow) }
+    var removeLinkEnabled: Bool { removeButton.isEnabled }
+    /// For the checks: chooses a row of the list of connections.
+    func selectConnectionRow(_ row: Int?) { if let row { table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { table.deselectAll(nil) } }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
+        if (notification.object as? NSTableView) === table { syncRemoveButton(); return }
         guard (notification.object as? NSTableView) === list else { return }
         let row = list.selectedRow
         guard row >= 0, listRows.indices.contains(row), case .event(let e) = listRows[row], e.id != selected else { return }
@@ -465,6 +472,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         }
         connections = rows
         table.reloadData()
+        syncRemoveButton()
     }
 
     /// The "Add…" menu: scenes, places and characters that are not yet connected.

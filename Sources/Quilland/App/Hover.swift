@@ -145,16 +145,10 @@ enum Hover {
             overlay.isHidden = true
             view.addSubview(overlay)
             view.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .cursorUpdate, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
-            // A control that is off is faded, so that it can be told from one that works.
+            // A control that is off shows it in the system's own way (a gray title); it only stops reacting to the pointer.
             if let control = view as? NSControl {
-                dim(control)
-                observation = control.observe(\.isEnabled, options: [.new]) { [weak self] control, _ in self?.dim(control) }
+                observation = control.observe(\.isEnabled, options: [.new]) { [weak self] control, _ in if !control.isEnabled { self?.overlay.isHidden = true } }
             }
-        }
-
-        private func dim(_ control: NSControl) {
-            control.alphaValue = control.isEnabled ? 1 : 0.4
-            if !control.isEnabled { overlay.isHidden = true }
         }
 
         private var enabled: Bool { (view as? NSControl)?.isEnabled ?? true }

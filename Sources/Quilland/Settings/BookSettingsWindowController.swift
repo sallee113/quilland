@@ -25,6 +25,8 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
     private let progress = NSProgressIndicator()
     private let coverLabel = NSTextField(labelWithString: "")
     private let wordTable = Hover.rows(NSTableView())
+    private let removeCoverButton = NSButton(title: L("Remove"), target: nil, action: nil)
+    private let removeWordsButton = NSButton(title: L("Remove Selected"), target: nil, action: nil)
     let addWordField = NSTextField()
     private let countLabel = NSTextField(labelWithString: "")
     private static let languages = [("ru", L("Russian")), ("en", L("English")), ("uk", L("Ukrainian")), ("de", L("German")), ("fr", L("French")), ("es", L("Spanish")), ("it", L("Italian")), ("pl", L("Polish"))]
@@ -86,7 +88,8 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
         for (code, name) in Self.languages { languagePopup.addItem(withTitle: name); languagePopup.lastItem?.representedObject = code }
         languagePopup.target = self; languagePopup.action = #selector(languageChanged)
         let chooseCover = NSButton(title: L("Choose Image…"), target: self, action: #selector(chooseCover))
-        let removeCover = NSButton(title: L("Remove"), target: self, action: #selector(removeCover))
+        let removeCover: NSButton = removeCoverButton
+        removeCoverButton.target = self; removeCoverButton.action = #selector(BookSettingsWindowController.removeCover)
         func row(_ name: String, _ view: NSView) -> NSStackView { let r = NSStackView(views: [label(name), view]); r.spacing = 10; r.alignment = .firstBaseline; return r }
         let note = NSTextField(wrappingLabelWithString: L("The language sets the quote style of the typing corrections, the language of exported files, and the names Quilland gives to new sections."))
         note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
@@ -114,7 +117,8 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
         scroll.heightAnchor.constraint(equalToConstant: 250).isActive = true
         addWordField.placeholderString = L("A word to accept — type it, press Return")
         addWordField.delegate = self
-        let removeButton = NSButton(title: L("Remove Selected"), target: self, action: #selector(removeWords))
+        let removeButton = removeWordsButton
+        removeButton.target = self; removeButton.action = #selector(removeWords)
         countLabel.textColor = .secondaryLabelColor
         let explain = NSTextField(wrappingLabelWithString: L("Words the spell checker should accept in this book: names, places, invented words. They are kept in the book (dictionary.json), so everyone who has the book has them."))
         explain.font = .systemFont(ofSize: 11); explain.textColor = .secondaryLabelColor
@@ -149,7 +153,9 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
         if let i = Self.languages.firstIndex(where: { $0.0 == settings.language }) { languagePopup.selectItem(at: i) }
         else { languagePopup.addItem(withTitle: settings.language); languagePopup.lastItem?.representedObject = settings.language; languagePopup.selectItem(at: languagePopup.numberOfItems - 1) }
         coverLabel.stringValue = settings.cover ?? "none"
+        removeCoverButton.isEnabled = settings.cover != nil
         wordTable.reloadData()
+        syncRemoveWords()
         countLabel.stringValue = Lp("{n} word", "{n} words", words.count)
     }
 
@@ -313,6 +319,11 @@ final class BookSettingsWindowController: NSObject, NSWindowDelegate, NSTextFiel
         showValues()
         onChanged()
     }
+
+    /// "Remove Selected" works on chosen words, so with none chosen it is off.
+    private func syncRemoveWords() { removeWordsButton.isEnabled = !wordTable.selectedRowIndexes.isEmpty }
+    func tableViewSelectionDidChange(_ notification: Notification) { syncRemoveWords() }
+    var removeButtonsEnabled: (cover: Bool, words: Bool) { (removeCoverButton.isEnabled, removeWordsButton.isEnabled) }
 
     func numberOfRows(in tableView: NSTableView) -> Int { words.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? { CenteredCell(NSTextField(labelWithString: words[row])) }

@@ -351,7 +351,14 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         tableView === sceneTable ? QuietRowView() : nil
     }
 
+    /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
+    private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
+    var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
+    /// For the checks: chooses a row of the list of scenes and events.
+    func selectLinkRow(_ row: Int?) { if let row { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { sceneTable.deselectAll(nil) } }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
+        if (notification.object as? NSTableView) === sceneTable { syncRemoveButton(); return }
         if (notification.object as? NSTableView) === relList {
             let row = relList.selectedRow
             guard row >= 0, shownRelationships.indices.contains(row) else { return }
@@ -477,6 +484,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             rows.append(CharacterSceneRow(sceneID: key, title: L("(missing)"), mentions: 0, pov: false, text: links[key] ?? "", isEvent: true))
         }
         sceneTable.reloadData()
+        syncRemoveButton()
     }
 
     // MARK: Relationships
