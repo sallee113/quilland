@@ -43,9 +43,9 @@ extension AppSelfTest {
         check(wv.eventRowIDs == [calm], "the event is in the place's list", "\(wv.eventRowIDs)")
         check(main.eventStore.event(calm)?.places[port] == "", "and the link is kept in the event's file")
         check(main.worlds.entry(port)?.links.isEmpty == true, "the place's own file is not touched")
-        wv.setEventLine(row: 0, "стоит на причале")
+        wv.setSceneLine(row: wv.rows.firstIndex { $0.sceneID == calm } ?? 0, "стоит на причале")
         check(main.eventStore.event(calm)?.places[port] == "стоит на причале", "what happens there is saved")
-        wv.removeEventLink(row: 0); spin(0.2)
+        wv.removeSceneLink(row: wv.rows.firstIndex { $0.sceneID == calm } ?? 0); spin(0.2)
         check(main.eventStore.event(calm)?.places[port] == nil && wv.eventRowIDs.isEmpty, "removing the link takes the place away from the event")
 
         try? main.characters.delete(gleb)
