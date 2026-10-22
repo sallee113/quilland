@@ -124,6 +124,7 @@ final class AppSelfTest {
         if let code = eventLinks() { return code }
         if let code = graphView() { return code }
         if let code = eventChanges() { return code }
+        if let code = cardChanges() { return code }
         if let code = deleting() { return code }
         if let code = eventMigration() { return code }
         if let code = outlineMoves() { return code }

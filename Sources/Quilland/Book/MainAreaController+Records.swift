@@ -6,7 +6,7 @@ extension MainAreaController {
     /// How many times a character's name is in each scene (only the scenes where it is).
     func mentions(ofCharacter id: String) -> [String: Int] {
         guard let record = characters.character(id), let name = record.name else { return [:] }
-        return mentions(of: NameEntry(id: id, name: name, aliases: record.aliases))
+        return mentions(of: NameEntry(id: id, name: name, aliases: record.aliases + eventStore.addedAliases(of: id)))
     }
 
     /// How many times a name (or one of its aliases) is in each scene (only the scenes where it is).
@@ -30,6 +30,78 @@ extension MainAreaController {
             return nil
         }
         charactersView?.select(target)
+    }
+
+    // MARK: The changes of an event
+
+    /// Opens the window of what an event changes in a character, a place or a relationship (one for each event and target), from the Events view or from a card.
+    func openChanges(event: String, target: String, kind: EffectTarget) {
+        let key = event + "|" + target
+        if let open = changeWindows[key] { open.showWindow(nil); open.window?.makeKeyAndOrderFront(nil); return }
+        let context = ChangesContext(events: eventStore, event: event, characters: characters, worlds: worlds, relationships: relationships)
+        let w = ChangesWindowController(context: context, kind: kind, target: target, startsHere: kind == .relationship && eventStore.event(event)?.relationships[target] == "starts")
+        w.onSaved = { [weak self] removed in self?.changesSaved(event: event, target: target, removed: removed) }
+        w.onClosed = { [weak self] _ in self?.changeWindows[key] = nil }
+        changeWindows[key] = w
+        w.showWindow(nil)
+        w.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// "Пожар в усадьбе · Сцена 4": the event and its scene, for the tooltip of a change on a card.
+    func changeTooltip(_ c: EntityChange) -> String {
+        guard let scene = c.scene, let entry = session.structure.scenes.first(where: { $0.id == scene }) else { return c.eventTitle + " · " + L("no scene") }
+        return c.eventTitle + " · " + entry.node.title
+    }
+
+
+    /// The event that holds a relationship: where it starts (else where it ends or changes first), the one to open when the relationship is clicked.
+    func eventHolding(relationship id: String) -> String? {
+        let marks = RelationshipTimeline(events: eventStore, sceneOrder: session.structure.scenes.map(\.id)).marks(of: id)
+        return marks.start ?? marks.end ?? marks.changes.first
+    }
+
+    /// The relationships of a character for its card, in the order they start: "Лев — friends → enemies" (the other characters, the kind, and each later kind),
+    /// greyed when it has ended; the tooltip says where it starts and ends; a click opens the event that holds it (the start; else the first mark).
+    func relationshipBricks(of character: String) -> [RelationshipBrick] {
+        let order = session.structure.scenes.map(\.id)
+        let timeline = RelationshipTimeline(events: eventStore, sceneOrder: order)
+        func eventTitle(_ id: String?) -> String { id.flatMap { eventStore.event($0)?.title } ?? "" }
+        var items: [(position: Int, brick: RelationshipBrick)] = []
+        for r in relationships.relationships(of: character) {
+            guard let id = r.id else { continue }
+            let marks = timeline.marks(of: id)
+            guard let holder = eventHolding(relationship: id) else { continue }
+            var kinds = [r.kind ?? ""]
+            for e in marks.changes { if let k = eventStore.event(e)?.effect(of: id).string("kind"), k != kinds.last { kinds.append(k) } }
+            let others = r.characters.filter { $0 != character }.compactMap { characters.character($0)?.name }.joined(separator: ", ")
+            let title = (others.isEmpty ? "" : others + " — ") + kinds.joined(separator: " → ")
+            var lines: [String] = []
+            if let s = marks.start { lines.append(L("Starts: {event}", ["event": eventTitle(s)])) }
+            if let e = marks.end { lines.append(L("Ends: {event}", ["event": eventTitle(e)])) }
+            items.append((timeline.order(of: marks.start ?? holder) ?? Int.max, RelationshipBrick(title: title, dimmed: marks.end != nil, tooltip: lines.joined(separator: "\n"), event: holder)))
+        }
+        return items.sorted { $0.position < $1.position }.map(\.brick)
+    }
+
+    /// A window of changes saved: the cards show it. A change that was emptied is gone: the banner says so and, for a moment, offers Undo.
+    private func changesSaved(event: String, target: String, removed: [(field: EffectField, text: String)]) {
+        NotificationCenter.default.post(name: .bookDataChanged, object: nil)
+        onChange?()
+        guard !removed.isEmpty else { return }
+        effectUndo = (Date().addingTimeInterval(25), { [weak self] in
+            guard let self else { return }
+            try? self.eventStore.update(event) { r in
+                for (field, text) in removed {
+                    switch field {
+                    case .aliases, .worlds: r.setEffect(field, of: target, list: text.split(separator: ",").map { String($0) })
+                    case .main: r.setEffectFlag(of: target, text == "true")
+                    default: r.setEffect(field, of: target, text: text)
+                    }
+                }
+            }
+            NotificationCenter.default.post(name: .bookDataChanged, object: nil)
+        })
+        banner.show(L("Change removed."), undoable: true)
     }
 
     // MARK: Deleting

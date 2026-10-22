@@ -34,8 +34,20 @@ public final class CharacterStore {
 
     public func character(_ id: String) -> CharacterRecord? { characters.first { $0.id == id } }
 
-    /// Names and aliases for finding the characters in a text.
-    public var entries: [NameEntry] { characters.compactMap { c in c.id.flatMap { id in c.name.map { NameEntry(id: id, name: $0, aliases: c.aliases) } } } }
+    /// More names for a character, from outside its card (the new names events give it: `EventStore.addedAliases`); the application sets it.
+    public var extraAliases: (String) -> [String] = { _ in [] }
+
+    /// Names and aliases for finding the characters in a text: the card's and the ones events add.
+    public var entries: [NameEntry] {
+        characters.compactMap { c in
+            c.id.flatMap { id in
+                c.name.map { name in
+                    let known = Set(([name] + c.aliases).map { $0.lowercased() })
+                    return NameEntry(id: id, name: name, aliases: c.aliases + extraAliases(id).filter { !known.contains($0.lowercased()) })
+                }
+            }
+        }
+    }
 
     @discardableResult
     public func add(name: String) throws -> String {

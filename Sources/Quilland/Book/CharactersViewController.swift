@@ -16,12 +16,20 @@ struct CharacterSceneRow {
 final class CharactersViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate, NSMenuDelegate {
     var store: CharacterStore!
     var relationships: RelationshipStore!
-    let relCard = RelationshipCardController()
-    private(set) var selectedRelationship: String?
-    private var shownRelationships: [RelationshipRecord] = []
-    private let relList = Hover.rows(NSTableView())
-    private let addRelationshipButton = NSButton(title: L("New Relationship…"), target: nil, action: nil)
-    private let relationshipsLabel = NSTextField(wrappingLabelWithString: "")
+    /// What events change in a character (in the order of the book), a tooltip for each, and the window of one (the owner of the book opens it).
+    var changes: (String) -> [EntityChange] = { _ in [] }
+    var changeTooltip: (EntityChange) -> String = { $0.eventTitle }
+    var onOpenChange: ((String, String) -> Void)?
+    /// The name of a world, and the relationships of a character as bricks (read-only: they are made and changed in the events).
+    var worldName: (String) -> String = { $0 }
+    var relationshipBricks: (String) -> [RelationshipBrick] = { _ in [] }
+    /// A relationship brick was clicked: the event that holds the relationship.
+    var onOpenRelationship: ((String) -> Void)?
+    private let aliasFlow = FlowView()
+    private let worldsFlow = FlowView()
+    private let relationshipsFlow = FlowView()
+    private let profileChanges = ChangeRowsView()
+    private var subscriptions: [Subscription] = []
     /// The scenes of the book in order, with their titles and where they sit.
     var scenes: () -> [(id: String, title: String)] = { [] }
     /// How many times the character's name is in each scene (only scenes where it is).
@@ -40,7 +48,6 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     var onMerge: ((String, String) -> Void)?
     /// Delete…: the owner of the book deletes the character with everything that refers to it (and can undo it). Without it the card is only taken out.
     var onDelete: ((String) -> Void)?
-    var onDeleteRelationship: ((String) -> Void)?
     private let addSceneButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let removeSceneButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
     private let mergeButton = NSButton(title: L("Merge Into…"), target: nil, action: nil)
@@ -91,20 +98,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         split.addSplitViewItem(b)
         addChild(split)
         view = split.view
-        relCard.store = relationships
-        relCard.characters = store
-        relCard.scenes = { [weak self] in self?.scenes() ?? [] }
-        relCard.mentions = { [weak self] in self?.mentions($0) ?? [:] }
-        relCard.onChange = { [weak self] in self?.reloadRelationships(); self?.onChange?() }
-        relCard.onDelete = { [weak self] id in self?.onDeleteRelationship?(id) }
-        relCard.onOpenScene = { [weak self] in self?.onOpenScene?($0) }
-        relCard.onDeleted = { [weak self] in
-            self?.selectedRelationship = nil
-            self?.relCard.show(nil)
-            self?.reloadRelationships()
-            self?.showCard()
-            self?.onChange?()
-        }
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.refreshChanges() })
+        profileChanges.onOpen = { [weak self] event in if let id = self?.selected { self?.onOpenChange?(event, id) } }
         reload()
     }
 
@@ -133,25 +128,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         emptyLabel.font = .systemFont(ofSize: 15)
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.alignment = .center
-        // Below the characters: the relationships, a second list.
-        let relColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("relationship"))
-        relList.addTableColumn(relColumn)
-        relList.headerView = nil
-        relList.dataSource = self; relList.delegate = self
-        relList.rowHeight = 24
-        relList.style = .sourceList
-        relList.setAccessibilityLabel(L("Relationships"))
-        let relScroll = NSScrollView()
-        relScroll.documentView = relList
-        relScroll.hasVerticalScroller = true
-        relScroll.drawsBackground = false
-        relScroll.translatesAutoresizingMaskIntoConstraints = false
-        relScroll.heightAnchor.constraint(equalToConstant: 130).isActive = true
-        let relCaption = caption(L("Relationships"))
-        addRelationshipButton.bezelStyle = .rounded; addRelationshipButton.controlSize = .small
-        addRelationshipButton.target = self; addRelationshipButton.action = #selector(addRelationshipPressed)
         relationFilter.onChange = { [weak self] in self?.reload(keepingRelations: true) }
-        for v in [filterField, relationFilter.view, scroll, addField, emptyLabel, relCaption, relScroll, addRelationshipButton] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
+        for v in [filterField, relationFilter.view, scroll, addField, emptyLabel] { v.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(v) }
         NSLayoutConstraint.activate([
             filterField.topAnchor.constraint(equalTo: root.topAnchor, constant: 10), filterField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             filterField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
@@ -160,10 +138,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             scroll.topAnchor.constraint(equalTo: relationFilter.view.bottomAnchor, constant: 6), scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: addField.topAnchor, constant: -8),
             addField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10), addField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
-            addField.bottomAnchor.constraint(equalTo: relCaption.topAnchor, constant: -14),
-            relCaption.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12), relCaption.bottomAnchor.constraint(equalTo: relScroll.topAnchor, constant: -4),
-            relScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor), relScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor), relScroll.bottomAnchor.constraint(equalTo: addRelationshipButton.topAnchor, constant: -6),
-            addRelationshipButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10), addRelationshipButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -10),
+            addField.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
             emptyLabel.centerXAnchor.constraint(equalTo: scroll.centerXAnchor), emptyLabel.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
         ])
         return root
@@ -243,9 +218,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         sceneButtons.spacing = 8
 
         let profileBox = box(profile, height: 150), notesBox = box(notes, height: 90)
-        relationshipsLabel.font = .systemFont(ofSize: 12)
-        relationshipsLabel.textColor = .secondaryLabelColor
-        card.setViews([nameField, aliasField, mainBox, relationshipsLabel, caption(L("Profile, appearance, speech")), profileBox, caption(L("Notes (one per line)")), notesBox,
+        card.setViews([nameField, aliasFlow, mainBox, worldsFlow, relationshipsFlow, caption(L("Profile, appearance, speech")), profileBox, profileChanges, caption(L("Notes (one per line)")), notesBox,
                        caption(L("Scenes and events (◆): where the name is, point of view, what the character does (double-click opens it)")), tableScroll, sceneButtons, cardButtons])
         card.orientation = .vertical
         card.alignment = .leading
@@ -263,12 +236,6 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         nothing.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(cardScroll)
         root.addSubview(nothing)
-        addChild(relCard)
-        relCard.view.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(relCard.view)
-        relCard.view.isHidden = true
-        NSLayoutConstraint.activate([relCard.view.topAnchor.constraint(equalTo: root.topAnchor), relCard.view.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-                                     relCard.view.leadingAnchor.constraint(equalTo: root.leadingAnchor), relCard.view.trailingAnchor.constraint(equalTo: root.trailingAnchor)])
         let clip = cardScroll.contentView
         NSLayoutConstraint.activate([
             cardScroll.topAnchor.constraint(equalTo: root.topAnchor), cardScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -276,7 +243,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             document.topAnchor.constraint(equalTo: clip.topAnchor), document.leadingAnchor.constraint(equalTo: clip.leadingAnchor), document.trailingAnchor.constraint(equalTo: clip.trailingAnchor),
             card.topAnchor.constraint(equalTo: document.topAnchor, constant: 20), card.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24),
             card.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), card.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -20),
-            nameField.widthAnchor.constraint(equalTo: card.widthAnchor), aliasField.widthAnchor.constraint(equalTo: card.widthAnchor), relationshipsLabel.widthAnchor.constraint(equalTo: card.widthAnchor),
+            nameField.widthAnchor.constraint(equalTo: card.widthAnchor), aliasFlow.widthAnchor.constraint(equalTo: card.widthAnchor), worldsFlow.widthAnchor.constraint(equalTo: card.widthAnchor), relationshipsFlow.widthAnchor.constraint(equalTo: card.widthAnchor), profileChanges.widthAnchor.constraint(equalTo: card.widthAnchor),
             profileBox.widthAnchor.constraint(equalTo: card.widthAnchor), notesBox.widthAnchor.constraint(equalTo: card.widthAnchor),
             tableScroll.widthAnchor.constraint(equalTo: card.widthAnchor),
             nothing.centerXAnchor.constraint(equalTo: root.centerXAnchor), nothing.centerYAnchor.constraint(equalTo: root.centerYAnchor),
@@ -292,8 +259,6 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     func reload(keepingRelations: Bool = false) {
         guard isViewLoaded else { return }
         if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
-        reloadRelationships()
-        addRelationshipButton.isEnabled = store.characters.count >= 2
         let needle = filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
         let allowed = relationFilter.allowed()
         shown = store.characters.filter { (needle.isEmpty || ($0.name ?? "").lowercased().contains(needle) || $0.aliases.contains { $0.lowercased().contains(needle) }) && (allowed == nil || allowed!.contains($0.id ?? "")) }
@@ -313,19 +278,13 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     func select(_ id: String) {
         commitEdits()
         selected = id
-        leaveRelationship()
         if let row = shown.firstIndex(where: { $0.id == id }) { list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
         showCard()
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { tableView === list ? shown.count : (tableView === relList ? shownRelationships.count : rows.count) }
+    func numberOfRows(in tableView: NSTableView) -> Int { tableView === list ? shown.count : rows.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        if tableView === relList {
-            let label = NSTextField(labelWithString: relationshipTitle(shownRelationships[row]))
-            label.lineBreakMode = .byTruncatingTail
-            return CenteredCell(label)
-        }
         if tableView === list {
             let record = shown[row]
             let label = NSTextField(labelWithString: record.name ?? "")
@@ -364,35 +323,23 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
     var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
     var addLinkEnabled: Bool { addSceneButton.isEnabled }
-    var newRelationshipEnabled: Bool { addRelationshipButton.isEnabled }
     /// For the checks: chooses a row of the list of scenes and events.
     func selectLinkRow(_ row: Int?) { if let row { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } else { sceneTable.deselectAll(nil) } }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         if (notification.object as? NSTableView) === sceneTable { syncRemoveButton(); return }
-        if (notification.object as? NSTableView) === relList {
-            let row = relList.selectedRow
-            guard row >= 0, shownRelationships.indices.contains(row) else { return }
-            commitEdits()
-            selectedRelationship = shownRelationships[row].id
-            list.deselectAll(nil)
-            cardScroll.isHidden = true; nothing.isHidden = true
-            relCard.show(selectedRelationship)
-            return
-        }
         guard (notification.object as? NSTableView) === list else { return }
         let row = list.selectedRow
         guard row >= 0, shown.indices.contains(row), shown[row].id != selected else { return }
         commitEdits()
         selected = shown[row].id
-        leaveRelationship()
         showCard()
     }
 
     // MARK: The card
 
     private func showCard() {
-        guard isViewLoaded, selectedRelationship == nil else { return }
+        guard isViewLoaded else { return }
         let record = selected.flatMap { store.character($0) }
         cardScroll.isHidden = record == nil
         nothing.isHidden = record != nil
@@ -401,12 +348,59 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         nameField.stringValue = record.name ?? ""
         aliasField.stringValue = record.aliases.joined(separator: ", ")
         mainBox.state = record.main ? .on : .off
-        relationshipsLabel.stringValue = relationshipsSummary(of: id)
         setText(profile, store.profile(id))
         setText(notes, record.notes.joined(separator: "\n"))
+
         rebuildRows(for: record)
         rebuildAddSceneMenu()
+        refreshChanges()
     }
+
+    // MARK: What events change
+
+    /// The rows and bricks of the card that come from the events: new names, worlds, the profile and the relationships.
+    func refreshChanges() {
+        guard isViewLoaded, let id = selected, let record = store.character(id) else { return }
+        let all = changes(id)
+        var seen = Set<String>(record.aliases.map { $0.lowercased() })
+        var bricks: [NSView] = [aliasField]
+        for c in all {
+            for name in c.list(.aliases) where seen.insert(name.lowercased()).inserted {
+                let b = BrickView(name, dimmed: !c.applies, tooltip: changeTooltip(c))
+                b.onClick = { [weak self] in self?.onOpenChange?(c.event, id) }
+                bricks.append(b)
+            }
+        }
+        aliasFlow.set(bricks)
+        var worlds: [NSView] = record.worlds.map { BrickView(worldName($0)) }
+        var haveWorlds = Set(record.worlds)
+        for c in all {
+            for w in c.list(.worlds) where haveWorlds.insert(w).inserted {
+                let b = BrickView(worldName(w), dimmed: !c.applies, tooltip: changeTooltip(c))
+                b.onClick = { [weak self] in self?.onOpenChange?(c.event, id) }
+                worlds.append(b)
+            }
+        }
+        worldsFlow.set(worlds)
+        worldsFlow.isHidden = worlds.isEmpty
+        let rels = relationshipBricks(id).map { r -> BrickView in
+            let b = BrickView(r.title, dimmed: r.dimmed, tooltip: r.tooltip)
+            b.onClick = { [weak self] in self?.onOpenRelationship?(r.event) }
+            return b
+        }
+        relationshipsFlow.set(rels)
+        relationshipsFlow.isHidden = rels.isEmpty
+        profileChanges.set(all, text: { $0.text(.profile) }, tooltip: changeTooltip)
+    }
+
+    // test access
+    var aliasBrickTitles: [String] { aliasFlow.bricks.map(\.title) }
+    var worldBrickTitles: [String] { worldsFlow.bricks.map(\.title) }
+    var relationshipBrickTitles: [String] { relationshipsFlow.bricks.map(\.title) }
+    var profileRowTexts: [String] { profileChanges.texts }
+    func clickAliasBrick(_ i: Int) { aliasFlow.bricks[i].onClick?() }
+    func clickRelationshipBrick(_ i: Int) { relationshipsFlow.bricks[i].onClick?() }
+    func clickProfileRow(_ i: Int) { profileChanges.rows[i].onClick?(profileChanges.rows[i].event) }
 
     // MARK: Adding a scene
 
@@ -520,86 +514,6 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         }
         sceneTable.reloadData()
         syncRemoveButton()
-    }
-
-    // MARK: Relationships
-
-    private func relationshipTitle(_ r: RelationshipRecord) -> String {
-        let names = r.characters.compactMap { store.character($0)?.name }.joined(separator: ", ")
-        return "\(names) — \(r.kind ?? "")"
-    }
-
-    /// "Мира (сёстры), Лев (друзья)": what the character is to the others.
-    private func relationshipsSummary(of id: String) -> String {
-        let list = relationships.relationships(of: id).map { r -> String in
-            let others = r.characters.filter { $0 != id }.compactMap { store.character($0)?.name }.joined(separator: ", ")
-            return "\(others) (\(r.kind ?? ""))"
-        }
-        return list.isEmpty ? "" : L("Relationships: {list}", ["list": list.joined(separator: "; ")])
-    }
-
-    func reloadRelationships() {
-        guard isViewLoaded else { return }
-        relationships.reload()
-        let allowed = relationFilter.allowed()
-        shownRelationships = relationships.relationships.filter { r in allowed == nil || r.characters.allSatisfy { allowed!.contains($0) } }.sorted { relationshipTitle($0).localizedLowercase < relationshipTitle($1).localizedLowercase }
-        relList.reloadData()
-        if let id = selectedRelationship, let row = shownRelationships.firstIndex(where: { $0.id == id }) {
-            relList.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        }
-        if let id = selected { relationshipsLabel.stringValue = relationshipsSummary(of: id) }
-    }
-
-    private func leaveRelationship() {
-        guard selectedRelationship != nil else { return }
-        selectedRelationship = nil
-        relList.deselectAll(nil)
-        relCard.show(nil)
-    }
-
-    func selectRelationship(_ id: String) {
-        commitEdits()
-        guard let row = shownRelationships.firstIndex(where: { $0.id == id }) else { return }
-        relList.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-    }
-
-    var relationshipTitles: [String] { shownRelationships.map(relationshipTitle) }
-
-    @objc private func addRelationshipPressed() {
-        guard store.characters.count >= 2 else { NSSound.beep(); return }
-        let alert = NSAlert()
-        alert.messageText = L("New Relationship")
-        alert.informativeText = L("Choose two characters and say what they are to each other. More can be added on the card.")
-        func popup(_ selectedIndex: Int) -> NSPopUpButton {
-            let p = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 160, height: 26), pullsDown: false)
-            for c in store.characters { p.addItem(withTitle: c.name ?? ""); p.lastItem?.representedObject = c.id }
-            p.selectItem(at: min(selectedIndex, store.characters.count - 1))
-            return p
-        }
-        let first = popup(0), second = popup(1)
-        let kind = NSTextField(frame: NSRect(x: 0, y: 0, width: 330, height: 24))
-        kind.placeholderString = L("What they are to each other")
-        let box = NSView(frame: NSRect(x: 0, y: 0, width: 330, height: 64))
-        first.frame.origin = NSPoint(x: 0, y: 36); second.frame.origin = NSPoint(x: 170, y: 36); kind.frame.origin = NSPoint(x: 0, y: 4)
-        [first, second, kind].forEach(box.addSubview)
-        alert.accessoryView = box
-        alert.addButton(withTitle: L("Create"))
-        alert.addButton(withTitle: L("Cancel"))
-        alert.window.initialFirstResponder = kind
-        guard alert.runModal() == .alertFirstButtonReturn,
-              let a = first.selectedItem?.representedObject as? String, let b = second.selectedItem?.representedObject as? String, a != b else { return }
-        addRelationship([a, b], kind: kind.stringValue)
-    }
-
-    /// Makes a relationship; its card opens.
-    @discardableResult
-    func addRelationship(_ ids: [String], kind raw: String) -> String? {
-        let kind = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard ids.count >= 2, let id = try? relationships.add(characters: ids, kind: kind.isEmpty ? L("related") : kind) else { return nil }
-        reloadRelationships()
-        selectRelationship(id)
-        onChange?()
-        return id
     }
 
     // MARK: Editing
@@ -718,7 +632,6 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
 
     /// Writes the profile and the notes typed and not yet saved.
     @objc func commitEdits() {
-        relCard.commitEdits()   // a relationship's text is saved by its own card: it waits for its timer too
         saveTimer?.invalidate()
         saveTimer = nil
         guard !dirty.isEmpty, let id = selected else { dirty = []; return }

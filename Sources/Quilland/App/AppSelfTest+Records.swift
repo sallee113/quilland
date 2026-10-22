@@ -51,28 +51,8 @@ extension AppSelfTest {
         check(cv.shownNames == ["Анна Петровна"], "the filter narrows the list")
         cv.filterField.stringValue = ""
         cv.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: cv.filterField))
-        // Relationships.
+        // (Relationships are made in the events, and the card shows them as bricks: AppSelfTest+CardChanges.)
         setText(sc[0].id, "Петя вошёл. Анне Петровне стало легче.")
-        let relAnna = main.characters.characters.first { $0.name == "Анна Петровна" }!.id!
-        let rel = cv.addRelationship([relAnna, petr], kind: "друзья")!
-        check(cv.relationshipTitles == ["Анна Петровна, Пётр Иванович — друзья"] && cv.selectedRelationship == rel && cv.relCard.shownID == rel, "New Relationship makes one and opens its card")
-        check(cv.relCard.sceneRows.contains { $0.sceneID == sc[0].id && $0.mentions > 0 }, "its card lists the scenes where both characters are named")
-        cv.relCard.setSceneLine(row: 0, "спорят о доме")
-        check(main.relationships.relationship(rel)?.links[sc[0].id] == "спорят о доме", "and what the relationship does there is saved")
-        cv.relCard.kindField.stringValue = "соседи"
-        cv.relCard.controlTextDidEndEditing(Notification(name: NSControl.textDidEndEditingNotification, object: cv.relCard.kindField))
-        check(main.relationships.relationship(rel)?.kind == "соседи" && cv.relationshipTitles == ["Анна Петровна, Пётр Иванович — соседи"], "the kind can be changed, and the list follows")
-        // A relationship's notes typed a moment ago (its own save waits for a timer) are saved when the book saves everything (before a merge, a close).
-        cv.relCard.notes.string = "Соседи по лестнице."
-        cv.relCard.textDidChange(Notification(name: NSText.didChangeNotification, object: cv.relCard.notes))
-        let waiting = RelationshipStore(book: main.folder).relationship(rel)?.notes != ["Соседи по лестнице."]
-        main.saveAll()
-        check(waiting && RelationshipStore(book: main.folder).relationship(rel)?.notes == ["Соседи по лестнице."], "what was typed in a relationship's card is saved by Save All, not left to its timer")
-        check(cv.addRelationship([relAnna], kind: "один") == nil, "a relationship needs two characters")
-        cv.select(petr)
-        check(cv.selectedRelationship == nil && main.relationships.relationships(of: petr).count == 1, "choosing a character shows the character again")
-        for ext in ["json", "md"] { try? FileManager.default.removeItem(at: main.folder.appendingPathComponent("bible/relationships/\(rel).\(ext)")) }
-        cv.reloadRelationships()
         cv.onOpenScene?(sc[0].id); spin(0.5)
         check(main.mode == main.writingMode && main.currentSceneID == sc[0].id, "opening a scene from the card goes to the text")
         app.modeCharacters(); spin(0.4)

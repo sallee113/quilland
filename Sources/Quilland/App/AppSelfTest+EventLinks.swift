@@ -75,7 +75,6 @@ extension AppSelfTest {
             for id in eventIDs { try! main.eventStore.update(id) { var l = $0.characters; l[gleb] = ""; $0.characters = l } }
             cv.reload(); cv.select(gleb); spin(0.2)
             check(!cv.addLinkEnabled, "and off when every scene and event is in the list")
-            check(cv.newRelationshipEnabled == (main.characters.characters.count >= 2), "New Relationship is on only when there are two characters to relate")
         }
         app.modeWorld(); spin(0.3)
         if let wv = main.worldView {

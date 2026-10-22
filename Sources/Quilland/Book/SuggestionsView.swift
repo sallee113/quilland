@@ -202,7 +202,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
         guard case .finding(let f)? = selectedRow, let main else { return }
         switch f.source.kind {
         case .character: main.setMode(.characters); main.charactersView?.select(f.source.ref)
-        case .relationship: main.setMode(.characters); main.charactersView?.selectRelationship(f.source.ref)
+        case .relationship: if let event = main.eventHolding(relationship: f.source.ref) { main.setMode(.events); main.eventsView?.select(event) }
         case .place: main.setMode(.world); main.worldView?.select(f.source.ref)
         case .event: main.setMode(.events); main.eventsView?.select(f.source.ref)
         case .scene: main.reveal(scene: f.source.ref, range: nil)

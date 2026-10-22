@@ -21,6 +21,12 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     /// The merges and conversions: the owner of the book does them (with a snapshot, so that Undo takes them back).
     var onMergePlace: ((String, String) -> Void)?
     var onMergeWorld: ((String, String) -> Void)?
+    /// What events change in a place, in the order of the book, a tooltip for each, and the window of one (the owner of the book opens it).
+    var changes: (String) -> [EntityChange] = { _ in [] }
+    var changeTooltip: (EntityChange) -> String = { $0.eventTitle }
+    var onOpenChange: ((String, String) -> Void)?
+    private let changeRows = ChangeRowsView()
+    private var subscriptions: [Subscription] = []
     /// Delete…: the owner of the book deletes the place or world with everything that refers to it (and can undo it). Without it the card is only taken out.
     var onDelete: ((String, Bool) -> Void)?
     var onPlaceToWorld: ((String) -> Void)?
@@ -158,6 +164,8 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
 
     private func buildCard() -> NSView {
         let root = NSView()
+        changeRows.onOpen = { [weak self] event in if let id = self?.selected { self?.onOpenChange?(event, id) } }
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.refreshChanges() })
         nameField.font = .systemFont(ofSize: 24, weight: .semibold)
         nameField.isBordered = false; nameField.drawsBackground = false; nameField.focusRingType = .none
         nameField.placeholderString = L("Name"); nameField.delegate = self
@@ -205,7 +213,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         sceneButtons.spacing = 8
 
         let descBox = box(descriptionView, height: 150), notesBox = box(notesView, height: 80)
-        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
+        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, changeRows, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
             card.addArrangedSubview(v)
         }
         card.orientation = .vertical; card.alignment = .leading; card.spacing = 8
@@ -227,7 +235,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             card.topAnchor.constraint(equalTo: document.topAnchor, constant: 20), card.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24),
             card.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), card.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -20),
             nameField.widthAnchor.constraint(equalTo: card.widthAnchor), aliasField.widthAnchor.constraint(equalTo: card.widthAnchor),
-            descBox.widthAnchor.constraint(equalTo: card.widthAnchor), notesBox.widthAnchor.constraint(equalTo: card.widthAnchor),
+            descBox.widthAnchor.constraint(equalTo: card.widthAnchor), notesBox.widthAnchor.constraint(equalTo: card.widthAnchor), changeRows.widthAnchor.constraint(equalTo: card.widthAnchor),
             sceneScroll.widthAnchor.constraint(equalTo: card.widthAnchor), typeBox.widthAnchor.constraint(equalToConstant: 160),
             nothing.centerXAnchor.constraint(equalTo: root.centerXAnchor), nothing.centerYAnchor.constraint(equalTo: root.centerYAnchor),
         ])
@@ -462,6 +470,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             setText(descriptionView, store.text(id))
             setText(notesView, w.notes.joined(separator: "\n"))
             sceneScroll.isHidden = true; scenesCaption.isHidden = true; sceneButtons.isHidden = true
+            changeRows.set([], text: { _ in nil }, tooltip: { _ in "" })
             rows = []
             deleteButton.title = L("Delete World…")
             convertButton.title = L("Turn Into a Place…")
@@ -479,6 +488,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             sceneScroll.isHidden = false; scenesCaption.isHidden = false; sceneButtons.isHidden = false
             rebuildRows(for: e)
             rebuildAddSceneMenu()
+            refreshChanges()
             deleteButton.title = L("Delete Place…")
             convertButton.title = L("Turn Into a World…")
             mergeButton.isEnabled = store.entries.count > 1
@@ -490,6 +500,18 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         if tv.string != text { tv.string = text }
         tv.undoManager?.removeAllActions()
     }
+
+    /// The rows under the description: what events change in the description of the place, in the order of the book.
+    func refreshChanges() {
+        guard isViewLoaded, let id = selected, store.entry(id) != nil else { return }
+        changeRows.set(changes(id), text: { $0.text(.description) }, tooltip: changeTooltip)
+    }
+
+    /// For the checks: the texts of the rows under the description, and their tooltips.
+    var changeRowTexts: [String] { changeRows.texts }
+    var changeRowTooltips: [String] { changeRows.rows.map { $0.toolTip ?? "" } }
+    var changeRowsDimmed: [Bool] { changeRows.rows.map { !$0.applies } }
+    func clickChangeRow(_ index: Int) { if changeRows.rows.indices.contains(index) { changeRows.rows[index].onClick?(changeRows.rows[index].event) } }
 
     private func rebuildRows(for e: PlaceRecord) {
         guard let id = e.id, let name = e.name else { return }

@@ -22,9 +22,10 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     var events: EventStore!
     var characters: CharacterStore!
     var relationships: RelationshipStore!
-    /// A change was emptied and so taken away: the text to show with Undo, and what puts it back.
-    var onChangeRemoved: ((String, @escaping () -> Void) -> Void)?
-    private var changeWindows: [String: ChangesWindowController] = [:]
+    /// The owner of the book opens the windows of the changes (it keeps one for each event and target, and shows the cards again when one is saved).
+    var onOpenChanges: ((String, String, EffectTarget) -> Void)?
+    var changesWindowProvider: ((String, String) -> ChangesWindowController?)?
+    private var subscriptions: [Subscription] = []
     var worlds: WorldStore!
     var planStore: () -> PlanStore? = { nil }
     var scenes: () -> [(id: String, title: String)] = { [] }
@@ -72,6 +73,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     // MARK: View
 
     override func loadView() {
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.refreshAfterChange() })
         let split = NSSplitViewController()
         split.splitView.isVertical = true
         split.splitView.dividerStyle = .thin
@@ -877,51 +879,22 @@ extension EventsViewController {
 
     @objc func changesPressed(_ sender: NSButton) { changeTapped(row: sender.tag) }
 
-    /// Opens the window of the changes of this event for the row's character, place or relationship (one window for each).
+    /// Opens the window of the changes of this event for the row's character, place or relationship (the owner keeps one window for each).
     func changeTapped(row: Int) {
         guard connections.indices.contains(row), let eid = selected else { return }
         let c = connections[row]
-        let kind: EffectTarget
         switch c.kind {
-        case .character: kind = .character
-        case .place: kind = .place
-        case .relationship: kind = .relationship
+        case .character: onOpenChanges?(eid, c.refID, .character)
+        case .place: onOpenChanges?(eid, c.refID, .place)
+        case .relationship: onOpenChanges?(eid, c.refID, .relationship)
         case .scene: return
         }
-        let key = eid + "|" + c.refID
-        if let open = changeWindows[key] { open.showWindow(nil); return }
-        let context = ChangesContext(events: events, event: eid, characters: characters, worlds: worlds, relationships: relationships)
-        let w = ChangesWindowController(context: context, kind: kind, target: c.refID, startsHere: c.kind == .relationship && c.marker == "starts")
-        w.onSaved = { [weak self] removed in self?.changesSaved(event: eid, target: c.refID, removed: removed) }
-        w.onClosed = { [weak self] _ in self?.changeWindows[key] = nil }
-        changeWindows[key] = w
-        w.showWindow(nil)
-        w.window?.makeKeyAndOrderFront(nil)
     }
 
     /// For the checks: the window that is open for a row.
     func changesWindow(forRow row: Int) -> ChangesWindowController? {
         guard connections.indices.contains(row), let eid = selected else { return nil }
-        return changeWindows[eid + "|" + connections[row].refID]
-    }
-
-    private func changesSaved(event: String, target: String, removed: [(field: EffectField, text: String)]) {
-        refreshAfterChange()
-        guard !removed.isEmpty else { return }
-        // A change that was emptied is taken away; the owner shows "Change removed. Undo" for a moment.
-        onChangeRemoved?(L("Change removed.")) { [weak self] in
-            guard let self else { return }
-            try? self.events.update(event) { r in
-                for (field, text) in removed {
-                    switch field {
-                    case .aliases, .worlds: r.setEffect(field, of: target, list: text.split(separator: ",").map { String($0) })
-                    case .main: r.setEffectFlag(of: target, text == "true")
-                    default: r.setEffect(field, of: target, text: text)
-                    }
-                }
-            }
-            self.refreshAfterChange()
-        }
+        return changesWindowProvider?(eid, connections[row].refID)
     }
 
     // MARK: Relationships

@@ -35,7 +35,11 @@ final class MainAreaController: NSViewController {
     private var outerSplit: NSSplitViewController?
     private(set) var showsRightPanel: Bool
     private(set) lazy var rightPanel: RightPanelController = makeRightPanel()
-    private(set) lazy var characters = CharacterStore(book: folder)
+    private(set) lazy var characters: CharacterStore = {
+        let store = CharacterStore(book: folder)
+        store.extraAliases = { [weak self] id in self?.eventStore.addedAliases(of: id) ?? [] }   // the names events add count for the text matcher
+        return store
+    }()
     private(set) var charactersView: CharactersViewController?
     private(set) lazy var relationships = RelationshipStore(book: folder)
     /// What the model found for Collect from the Book, waiting for the author.
@@ -54,6 +58,8 @@ final class MainAreaController: NSViewController {
     var graphState = GraphViewState()
     /// A change that was emptied in the Events view, for the banner's Undo for a moment: what puts it back, and until when.
     var effectUndo: (until: Date, run: () -> Void)?
+    /// The windows of the changes that are open, by event and target.
+    var changeWindows: [String: ChangesWindowController] = [:]
     private(set) lazy var researchStore = ResearchStore(book: folder)
     private(set) var researchView: ResearchViewController?
     private(set) lazy var remindersStore = RemindersStore(book: folder)
@@ -412,7 +418,12 @@ final class MainAreaController: NSViewController {
         view.onChange = { [weak self] in self?.charactersChanged() }
         view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
         view.onDelete = { [weak self] id in self?.deleteCharacter(id) }
-        view.onDeleteRelationship = { [weak self] id in self?.deleteRelationship(id) }
+        view.changes = { [weak self] id in self.map { $0.eventStore.changes(of: id, sceneOrder: $0.session.structure.scenes.map(\.id)) } ?? [] }
+        view.changeTooltip = { [weak self] c in self?.changeTooltip(c) ?? c.eventTitle }
+        view.onOpenChange = { [weak self] event, id in self?.openChanges(event: event, target: id, kind: .character) }
+        view.worldName = { [weak self] id in self?.worlds.world(id)?.name ?? id }
+        view.relationshipBricks = { [weak self] id in self?.relationshipBricks(of: id) ?? [] }
+        view.onOpenRelationship = { [weak self] event in self?.setMode(.events); self?.eventsView?.select(event) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         view.relationFilter.source = relationFilterSource()
         _ = view.view
@@ -433,6 +444,9 @@ final class MainAreaController: NSViewController {
         view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
         view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }
         view.onDelete = { [weak self] id, isWorld in self?.deletePlace(id, isWorld: isWorld) }
+        view.changes = { [weak self] id in self.map { $0.eventStore.changes(of: id, sceneOrder: $0.session.structure.scenes.map(\.id)) } ?? [] }
+        view.changeTooltip = { [weak self] c in self?.changeTooltip(c) ?? c.eventTitle }
+        view.onOpenChange = { [weak self] event, id in self?.openChanges(event: event, target: id, kind: .place) }
         view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
         view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
@@ -454,10 +468,8 @@ final class MainAreaController: NSViewController {
         view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
         view.onShowPlan = { [weak self] in self?.setMode(.plan) }
         view.relationships = relationships
-        view.onChangeRemoved = { [weak self] text, undo in
-            self?.effectUndo = (Date().addingTimeInterval(25), undo)
-            self?.banner.show(text, undoable: true)
-        }
+        view.onOpenChanges = { [weak self] event, target, kind in self?.openChanges(event: event, target: target, kind: kind) }
+        view.changesWindowProvider = { [weak self] event, target in self?.changeWindows[event + "|" + target] }
         view.onDelete = { [weak self] id, started in self?.deleteEvent(id, started: started) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
