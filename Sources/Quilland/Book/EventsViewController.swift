@@ -3,18 +3,28 @@ import QuillandCore
 
 /// One line of an event's connections: a scene, a place or a character, and what happens there.
 struct EventConnection {
-    enum Kind: String { case scene = "Scene", place = "Place", character = "Character" }
+    enum Kind: String { case scene = "Scene", place = "Place", character = "Character", relationship = "Relationship" }
     var kind: Kind
     var refID: String
     var name: String
     var text: String
     var missing: Bool
+    /// How many fields the event changes in it (characters, places and relationships).
+    var changes = 0
+    /// A relationship row: `starts`, `ends` or empty (the event only changes it).
+    var marker = ""
+    /// A relationship whose order is broken, or one that cannot apply: what is wrong, for a warning on the row.
+    var warning: String?
 }
 
 /// The Events view: the events in the order of the book on the left, the card of the chosen one on the right.
-final class EventsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate {
+final class EventsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate, NSMenuDelegate {
     var events: EventStore!
     var characters: CharacterStore!
+    var relationships: RelationshipStore!
+    /// A change was emptied and so taken away: the text to show with Undo, and what puts it back.
+    var onChangeRemoved: ((String, @escaping () -> Void) -> Void)?
+    private var changeWindows: [String: ChangesWindowController] = [:]
     var worlds: WorldStore!
     var planStore: () -> PlanStore? = { nil }
     var scenes: () -> [(id: String, title: String)] = { [] }
@@ -55,6 +65,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     private let planLabel = NSTextField(labelWithString: "")
     private let planButton = NSButton(title: "", target: nil, action: nil)
     private let deleteButton = NSButton(title: L("Delete Event…"), target: nil, action: nil)
+    private let warningLabel = NSTextField(wrappingLabelWithString: "")
     private var dirty: Set<String> = []
     private var saveTimer: Timer?
 
@@ -156,11 +167,12 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         dateField.setAccessibilityLabel(L("Date"))
         descriptionView.setAccessibilityLabel(L("Description")); notesView.setAccessibilityLabel(L("Notes"))
 
-        for (id, title, width) in [("kind", "", 80), ("name", L("Who or where"), 220), ("text", L("What happens"), 280)] as [(String, String, CGFloat)] {
+        for (id, title, width) in [("kind", "", 80), ("name", L("Who or where"), 220), ("text", L("What happens"), 260), ("changes", "", 64)] as [(String, String, CGFloat)] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : 60
+            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : (id == "changes" ? 56 : 60)
             table.addTableColumn(c)
         }
+        let rowMenu = NSMenu(); rowMenu.delegate = self; table.menu = rowMenu
         table.dataSource = self; table.delegate = self
         table.rowHeight = 22
         table.target = self; table.doubleAction = #selector(openConnection)
@@ -185,7 +197,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
         let descBox = box(descriptionView, height: 130), notesBox = box(notesView, height: 70)
         for v in [titleField, dateField, planRow, caption(L("Description")), descBox, caption(L("Notes (one per line)")), notesBox,
-                  caption(L("Scenes, places and characters (double-click opens one)")), tableScroll, buttons, deleteButton] { card.addArrangedSubview(v) }
+                  caption(L("Scenes, places, characters and relationships (double-click opens one)")), tableScroll, buttons, warningLabel, deleteButton] { card.addArrangedSubview(v) }
+        warningLabel.textColor = .systemOrange; warningLabel.font = .systemFont(ofSize: 12); warningLabel.isHidden = true
         card.orientation = .vertical; card.alignment = .leading; card.spacing = 8
         card.translatesAutoresizingMaskIntoConstraints = false
         let document = FlippedView()
@@ -222,6 +235,11 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         func matches(_ e: EventRecord) -> Bool { (needle.isEmpty || (e.title ?? "").lowercased().contains(needle)) && (allowed == nil || allowed!.contains(e.id ?? "")) }
         let titles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
         listRows = []
+        // The default event comes first, under a heading of its own.
+        if let start = events.startEvent, matches(start) {
+            listRows.append(.heading(L("At the start of the book")))
+            listRows.append(.event(start))
+        }
         for group in events.groups(sceneOrder: sceneOrder) {
             let members = group.events.filter(matches)
             guard !members.isEmpty else { continue }
@@ -239,12 +257,12 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         guard isViewLoaded else { return }
         if !keepingRelations { relationFilter.invalidate(); relationFilter.rebuild() }
         makeRows(needle: filterField.stringValue.trimmingCharacters(in: .whitespaces).lowercased())
-        relationFilter.setCount(shown: shown.count, of: events.events.count)
+        relationFilter.setCount(shown: shown.filter { !$0.start }.count, of: events.events.count)
         list.reloadData()
         emptyLabel.isHidden = !events.events.isEmpty
         if let id = selected, let row = row(of: id) {
             list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        } else if selected == nil || events.event(selected ?? "") == nil, let first = shown.first, let id = first.id, let row = row(of: id) {
+        } else if selected == nil || events.event(selected ?? "") == nil, let first = shown.first(where: { !$0.start }) ?? shown.first, let id = first.id, let row = row(of: id) {
             selected = id
             list.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         } else if shown.isEmpty { selected = nil }
@@ -261,7 +279,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         showCard()
     }
 
-    var shownTitles: [String] { shown.compactMap(\.title) }
+    /// The titles of the events of the story that are listed (the default event, "Book starts", is apart).
+    var shownTitles: [String] { shown.filter { !$0.start }.compactMap(\.title) }
 
     func numberOfRows(in tableView: NSTableView) -> Int { tableView === list ? listRows.count : connections.count }
 
@@ -276,24 +295,54 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
                 return CenteredCell(l, leading: 2)
             }
             guard case .event(let e) = listRows[row] else { return nil }
-            // The scene is the heading above: the row is the title alone.
+            // The scene is the heading above: the row is the title alone, after a slot of a fixed width for the Δ of an event that changes something (so that the
+            // first letters of all the titles stay in one line).
             let l = NSTextField(labelWithString: e.title ?? "")
             l.font = .systemFont(ofSize: 13)
             l.lineBreakMode = .byTruncatingTail
-            return CenteredCell(l, leading: 14)
+            let mark = NSTextField(labelWithString: e.changesSomething && !e.start ? "Δ" : "")
+            mark.font = .systemFont(ofSize: 11, weight: .semibold)
+            mark.textColor = .controlAccentColor
+            mark.alignment = .center
+            mark.toolTip = mark.stringValue.isEmpty ? nil : L("This event changes something")
+            mark.translatesAutoresizingMaskIntoConstraints = false
+            mark.widthAnchor.constraint(equalToConstant: 14).isActive = true
+            let row = NSStackView(views: [mark, l])
+            row.spacing = 2
+            let cell = CenteredCell(row, leading: 4)
+            cell.textField = l   // (so that the title turns light on a chosen row)
+            return cell
         }
         guard connections.indices.contains(row), let id = tableColumn?.identifier.rawValue else { return nil }
         let c = connections[row]
         switch id {
         case "kind":
-            let l = NSTextField(labelWithString: c.kind.rawValue)
+            let l = NSTextField(labelWithString: L(c.kind.rawValue))
             l.textColor = .secondaryLabelColor
             return l
         case "name":
             let l = NSTextField(labelWithString: c.missing ? "(missing)" : c.name)
-            if c.missing { l.textColor = .systemOrange }
+            if c.missing || c.warning != nil { l.textColor = .systemOrange }
+            if let w = c.warning { l.toolTip = w }
             return l
+        case "changes":
+            guard c.kind != .scene, !c.missing else { return nil }
+            let b = NSButton(title: c.changes > 0 ? "▲ \(c.changes)" : "△", target: self, action: #selector(changesPressed(_:)))
+            b.tag = row
+            b.isBordered = false
+            b.font = .systemFont(ofSize: 12, weight: c.changes > 0 ? .semibold : .regular)
+            b.contentTintColor = c.changes > 0 ? .controlAccentColor : .secondaryLabelColor
+            b.toolTip = c.changes > 0 ? L("What this event changes here: click to see or edit") : L("This event changes nothing here yet: click to add a change")
+            b.setAccessibilityLabel(L("Changes"))
+            Hover.button(b)
+            return b
         default:
+            if c.kind == .relationship {
+                // What the event does to the relationship: its marker; nothing to type.
+                let l = NSTextField(labelWithString: c.marker == "starts" ? L("starts here") : (c.marker == "ends" ? L("ends here") : ""))
+                l.textColor = .secondaryLabelColor
+                return l
+            }
             // A field with a visible edge, so that it is plain that it can be typed in.
             let f = NSTextField(string: c.text)
             f.isBezeled = true; f.bezelStyle = .squareBezel; f.isEditable = true
@@ -385,7 +434,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     var listTitles: [String] { listRows.map { if case .heading(let t) = $0 { return "— " + t } else if case .event(let e) = $0 { return e.title ?? "" } else { return "" } } }
 
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
-        guard tableView === list, canReorder, listRows.indices.contains(row), case .event(let e) = listRows[row], let id = e.id else { return nil }
+        guard tableView === list, canReorder, listRows.indices.contains(row), case .event(let e) = listRows[row], let id = e.id, !e.start else { return nil }
         draggedID = id
         let item = NSPasteboardItem()
         item.setString(id, forType: Self.rowType)
@@ -451,6 +500,11 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         rebuildConnections(e)
         rebuildAddMenu()
         updatePlanRow()
+        // The default event cannot be deleted or put on the plan.
+        deleteButton.isHidden = e.start
+        if e.start { planLabel.stringValue = L("Where the relationships that are only stated start"); planButton.isHidden = true } else { planButton.isHidden = false }
+        warningLabel.stringValue = !e.start && e.changesSomething && RelationshipTimeline(events: events, sceneOrder: sceneOrder).order(of: id) == nil ? L("This event changes something but has no scene, so its changes do not apply.") : ""
+        warningLabel.isHidden = warningLabel.stringValue.isEmpty
     }
 
     private func setText(_ tv: NSTextView, _ text: String) {
@@ -462,20 +516,32 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         guard e.id != nil else { return }
         var rows: [EventConnection] = []
         let sceneTitles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
-        for scene in sceneOrder where e.links[scene] != nil {
+        // (The default event, "Book starts", holds relationships only.)
+        for scene in sceneOrder where e.links[scene] != nil && !e.start {
             rows.append(EventConnection(kind: .scene, refID: scene, name: sceneTitles[scene] ?? "", text: e.links[scene] ?? "", missing: false))
         }
-        for (key, text) in e.links.sorted(by: { $0.key < $1.key }) where sceneTitles[key] == nil {
+        for (key, text) in e.links.sorted(by: { $0.key < $1.key }) where sceneTitles[key] == nil && !e.start {
             rows.append(EventConnection(kind: .scene, refID: key, name: "", text: text, missing: true))
         }
-        for (key, text) in e.places.sorted(by: { (worlds.entry($0.key)?.name ?? "~") < (worlds.entry($1.key)?.name ?? "~") }) {
+        for (key, text) in e.places.sorted(by: { (worlds.entry($0.key)?.name ?? "~") < (worlds.entry($1.key)?.name ?? "~") }) where !e.start {
             let entry = worlds.entry(key)
-            rows.append(EventConnection(kind: .place, refID: key, name: entry?.name ?? "", text: text, missing: entry == nil))
+            rows.append(EventConnection(kind: .place, refID: key, name: entry?.name ?? "", text: text, missing: entry == nil, changes: e.effectCount(of: key)))
         }
         // The characters are the event's own (the links are kept in the event); in the order of their names.
-        for (cid, text) in e.characters.sorted(by: { (characters.character($0.key)?.name ?? "~").localizedLowercase < (characters.character($1.key)?.name ?? "~").localizedLowercase }) {
+        for (cid, text) in e.characters.sorted(by: { (characters.character($0.key)?.name ?? "~").localizedLowercase < (characters.character($1.key)?.name ?? "~").localizedLowercase }) where !e.start {
             let c = characters.character(cid)
-            rows.append(EventConnection(kind: .character, refID: cid, name: c?.name ?? "", text: text, missing: c == nil))
+            rows.append(EventConnection(kind: .character, refID: cid, name: c?.name ?? "", text: text, missing: c == nil, changes: e.effectCount(of: cid)))
+        }
+        // The relationships that start, change or end here.
+        let timeline = RelationshipTimeline(events: events, sceneOrder: sceneOrder)
+        let relationshipIDs = Set(e.relationships.keys).union(e.effects.keys.filter { relationships.relationship($0) != nil })
+        let named = relationshipIDs.map { ($0, ChangesWindowController.title(of: $0, relationships, characters)) }.sorted { $0.1.localizedLowercase < $1.1.localizedLowercase }
+        for (rid, title) in named {
+            guard relationships.relationship(rid) != nil else { continue }
+            var row = EventConnection(kind: .relationship, refID: rid, name: title, text: "", missing: false, changes: e.effectCount(of: rid), marker: e.relationships[rid] ?? "")
+            if let problem = timeline.broken(rid).first { row.warning = describe(problem) }
+            else if !e.start, timeline.order(of: e.id ?? "") == nil { row.warning = L("This event has no scene, so it does not apply") }
+            rows.append(row)
         }
         connections = rows
         table.reloadData()
@@ -496,9 +562,16 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
             menu.addItem(parent)
         }
         func plain(_ list: [(String, () -> Void)]) -> [NSMenuItem] { list.map { ClosureMenuItem(title: $0.0, action: $0.1) } }
+        if e.start {
+            menu.addItem(relationshipMenuItem(for: e))
+            addButton.menu = menu
+            addButton.isEnabled = true
+            return
+        }
         sub(L("Scene"), items: plain(scenes().filter { e.links[$0.id] == nil }.map { s in (s.title, { [weak self] in self?.addScene(s.id) }) }))
         sub(L("Place"), items: PlaceMenu.items(in: worlds, include: { e.places[$0] == nil }, choose: { [weak self] in self?.addPlace($0) }))
         sub(L("Character"), items: plain(characters.characters.filter { $0.id.map { e.characters[$0] == nil } ?? false }.map { c in (c.name ?? "", { [weak self] in self?.addCharacter(c.id ?? "") }) }))
+        menu.addItem(relationshipMenuItem(for: e))
         addButton.menu = menu
         addButton.isEnabled = menu.offersAnything
     }
@@ -557,6 +630,10 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case .scene: update { var l = $0.links; l.removeValue(forKey: c.refID); $0.links = l }
         case .place: update { var p = $0.places; p.removeValue(forKey: c.refID); $0.places = p }
         case .character: update { var l = $0.characters; l.removeValue(forKey: c.refID); $0.characters = l }
+        case .relationship:
+            // A relationship must start at some event: taking the row away from the event where it starts is refused (start it in another event instead).
+            guard c.marker != "starts" else { warn(L("It starts here"), L("A relationship starts at some event. Start it in another event first (right-click the row).")); return }
+            update { var m = $0.relationships; m.removeValue(forKey: c.refID); $0.relationships = m; var e = $0.effects; e.removeValue(forKey: c.refID); $0.effects = e }
         }
     }
 
@@ -569,6 +646,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case .scene: update(rebuild: false) { var l = $0.links; l[c.refID] = clean; $0.links = l }
         case .place: update(rebuild: false) { var p = $0.places; p[c.refID] = clean; $0.places = p }
         case .character: update(rebuild: false) { var l = $0.characters; l[c.refID] = clean; $0.characters = l }
+        case .relationship: return   // (a relationship row has no text to type: its marker says what the event does)
         }
         connections[row].text = clean
     }
@@ -584,6 +662,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case .scene: onOpenScene?(c.refID)
         case .place: onOpenPlace?(c.refID)
         case .character: onOpenCharacter?(c.refID)
+        case .relationship: changeTapped(row: row)
         }
     }
 
@@ -766,5 +845,255 @@ final class EventListTable: NSTableView {
         } else {
             super.keyDown(with: event)
         }
+    }
+}
+
+// MARK: Changes and relationships
+
+extension EventsViewController {
+    /// What is wrong with an order that would break, in a sentence.
+    func describe(_ problem: RelationshipTimeline.Problem) -> String {
+        switch problem {
+        case .noScene: return L("This event has no scene, so it has no place in the book.")
+        case .endsBeforeStart(let t): return L("It would end before it starts (it starts in “{title}”).", ["title": t])
+        case .startsAfterEnd(let t): return L("It would start after it ends (it ends in “{title}”).", ["title": t])
+        case .startsAfterChange(let t): return L("It would start after a change in “{title}”.", ["title": t])
+        case .endsBeforeChange(let t): return L("It would end before a change in “{title}”.", ["title": t])
+        case .endsWhereItStarts: return L("It cannot end in the event where it starts.")
+        }
+    }
+
+    func warn(_ title: String, _ text: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        if !CommandLine.arguments.contains("--selftest-app") { alert.runModal() }
+        lastWarning = (title, text)
+    }
+
+    private var timeline: RelationshipTimeline { RelationshipTimeline(events: events, sceneOrder: scenes().map(\.id)) }
+
+    // MARK: The changes window
+
+    @objc func changesPressed(_ sender: NSButton) { changeTapped(row: sender.tag) }
+
+    /// Opens the window of the changes of this event for the row's character, place or relationship (one window for each).
+    func changeTapped(row: Int) {
+        guard connections.indices.contains(row), let eid = selected else { return }
+        let c = connections[row]
+        let kind: EffectTarget
+        switch c.kind {
+        case .character: kind = .character
+        case .place: kind = .place
+        case .relationship: kind = .relationship
+        case .scene: return
+        }
+        let key = eid + "|" + c.refID
+        if let open = changeWindows[key] { open.showWindow(nil); return }
+        let context = ChangesContext(events: events, event: eid, characters: characters, worlds: worlds, relationships: relationships)
+        let w = ChangesWindowController(context: context, kind: kind, target: c.refID, startsHere: c.kind == .relationship && c.marker == "starts")
+        w.onSaved = { [weak self] removed in self?.changesSaved(event: eid, target: c.refID, removed: removed) }
+        w.onClosed = { [weak self] _ in self?.changeWindows[key] = nil }
+        changeWindows[key] = w
+        w.showWindow(nil)
+        w.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// For the checks: the window that is open for a row.
+    func changesWindow(forRow row: Int) -> ChangesWindowController? {
+        guard connections.indices.contains(row), let eid = selected else { return nil }
+        return changeWindows[eid + "|" + connections[row].refID]
+    }
+
+    private func changesSaved(event: String, target: String, removed: [(field: EffectField, text: String)]) {
+        refreshAfterChange()
+        guard !removed.isEmpty else { return }
+        // A change that was emptied is taken away; the owner shows "Change removed. Undo" for a moment.
+        onChangeRemoved?(L("Change removed.")) { [weak self] in
+            guard let self else { return }
+            try? self.events.update(event) { r in
+                for (field, text) in removed {
+                    switch field {
+                    case .aliases, .worlds: r.setEffect(field, of: target, list: text.split(separator: ",").map { String($0) })
+                    case .main: r.setEffectFlag(of: target, text == "true")
+                    default: r.setEffect(field, of: target, text: text)
+                    }
+                }
+            }
+            self.refreshAfterChange()
+        }
+    }
+
+    // MARK: Relationships
+
+    /// Has the event a place in the book (a scene), or is it the default event, which comes before everything?
+    private func hasPlace(_ id: String) -> Bool { events.event(id)?.start == true || timeline.order(of: id) != nil }
+
+    private func relationshipTitle(_ id: String) -> String { ChangesWindowController.title(of: id, relationships, characters) }
+
+    /// "Add… ▸ Relationship": start a new one, start an existing one, change one, end one.
+    func relationshipMenuItem(for e: EventRecord) -> NSMenuItem {
+        let parent = NSMenuItem(title: L("Relationship"), action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.addItem(ClosureMenuItem(title: L("Start a New One…")) { [weak self] in self?.startNewRelationship() })
+        func list(_ title: String, _ ids: [String], _ action: @escaping (String) -> Void) {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            if ids.isEmpty { let none = NSMenuItem(title: L("None left"), action: nil, keyEquivalent: ""); none.isEnabled = false; sub.addItem(none) }
+            for id in ids { sub.addItem(ClosureMenuItem(title: relationshipTitle(id)) { action(id) }) }
+            item.submenu = sub
+            menu.addItem(item)
+        }
+        let all = relationships.relationships.compactMap(\.id).sorted { relationshipTitle($0).localizedLowercase < relationshipTitle($1).localizedLowercase }
+        list(L("Start an Existing One…"), all.filter { e.relationships[$0] != "starts" }) { [weak self] in self?.startExisting($0) }
+        if !e.start, let eid = e.id {
+            let t = timeline
+            let active = t.active(at: eid, among: all)
+            list(L("Change One…"), active.filter { e.relationships[$0] == nil }) { [weak self] in self?.changeExisting($0) }
+            list(L("End One…"), active.filter { e.relationships[$0] != "ends" && t.marks(of: $0).end == nil }) { [weak self] in self?.endExisting($0) }
+        }
+        parent.submenu = menu
+        return parent
+    }
+
+    func startNewRelationship() {
+        guard let eid = selected else { return }
+        let people = characters.characters.compactMap { c in c.id.map { ($0, c.name ?? "") } }.sorted { $0.1.localizedLowercase < $1.1.localizedLowercase }
+        guard people.count >= 2 else { warn(L("Two characters are needed"), L("Make the characters first.")); return }
+        if !hasPlace(eid) { warn(L("This event cannot start a relationship"), describe(.noScene)); return }
+        let a = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 150, height: 26), pullsDown: false), b = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 150, height: 26), pullsDown: false)
+        for (_, name) in people { a.addItem(withTitle: name); b.addItem(withTitle: name) }
+        b.selectItem(at: 1)
+        let kind = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        kind.placeholderString = L("What they are to each other: “sisters”, “rivals”")
+        let pair = NSStackView(views: [a, NSTextField(labelWithString: "—"), b]); pair.spacing = 8
+        let stack = NSStackView(views: [pair, kind]); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 8
+        stack.frame = NSRect(x: 0, y: 0, width: 330, height: 66)
+        let alert = NSAlert()
+        alert.messageText = L("A relationship starts here")
+        alert.informativeText = L("Choose the two characters and say what they are to each other.")
+        alert.accessoryView = stack
+        alert.addButton(withTitle: L("Start"))
+        alert.addButton(withTitle: L("Cancel"))
+        alert.window.initialFirstResponder = kind
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        createRelationship(between: people[a.indexOfSelectedItem].0, and: people[b.indexOfSelectedItem].0, kind: kind.stringValue)
+    }
+
+    /// Makes a relationship that starts in the chosen event. Returns its id (nil when it cannot be made).
+    @discardableResult
+    func createRelationship(between a: String, and b: String, kind raw: String) -> String? {
+        guard let eid = selected else { return nil }
+        let kind = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard a != b, !kind.isEmpty else { warn(L("A relationship needs two different characters and a kind"), ""); return nil }
+        guard hasPlace(eid) else { warn(L("This event cannot start a relationship"), describe(.noScene)); return nil }
+        guard let rid = try? relationships.add(characters: [a, b], kind: kind) else { return nil }
+        update { var m = $0.relationships; m[rid] = "starts"; $0.relationships = m }
+        return rid
+    }
+
+    func startExisting(_ rel: String) {
+        guard let eid = selected else { return }
+        if let problem = timeline.problem(starting: rel, at: eid) { warn(L("It cannot start here"), describe(problem)); return }
+        let old = timeline.marks(of: rel).start
+        if let old, old != eid {
+            let alert = NSAlert()
+            alert.messageText = L("Move the start of “{name}” to this event?", ["name": relationshipTitle(rel)])
+            alert.informativeText = L("It starts in “{event}” now.", ["event": events.event(old)?.title ?? ""])
+            alert.addButton(withTitle: L("Move"))
+            alert.addButton(withTitle: L("Cancel"))
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            try? events.update(old) { var m = $0.relationships; m.removeValue(forKey: rel); $0.relationships = m }
+        }
+        update { var m = $0.relationships; m[rel] = "starts"; $0.relationships = m }
+    }
+
+    func changeExisting(_ rel: String) {
+        guard let eid = selected else { return }
+        if let problem = timeline.problem(changing: rel, at: eid) { warn(L("It cannot change here"), describe(problem)); return }
+        update { var m = $0.relationships; if m[rel] == nil { m[rel] = "" }; $0.relationships = m }
+    }
+
+    func endExisting(_ rel: String) {
+        guard let eid = selected else { return }
+        if let problem = timeline.problem(ending: rel, at: eid) { warn(L("It cannot end here"), describe(problem)); return }
+        update { var m = $0.relationships; m[rel] = "ends"; $0.relationships = m }
+    }
+
+    /// The start of a relationship moves to another event (refused when the order would break). Returns whether it moved.
+    @discardableResult
+    func moveStart(of rel: String, to event: String) -> Bool {
+        if let problem = timeline.problem(starting: rel, at: event) { warn(L("It cannot start there"), describe(problem)); return false }
+        if let old = timeline.marks(of: rel).start, old != event { try? events.update(old) { var m = $0.relationships; m.removeValue(forKey: rel); $0.relationships = m } }
+        try? events.update(event) { var m = $0.relationships; m[rel] = "starts"; $0.relationships = m }
+        refreshAfterChange()
+        return true
+    }
+
+    @discardableResult
+    func moveEnd(of rel: String, to event: String) -> Bool {
+        if let problem = timeline.problem(ending: rel, at: event) { warn(L("It cannot end there"), describe(problem)); return false }
+        if let old = timeline.marks(of: rel).end, old != event { try? events.update(old) { var m = $0.relationships; m.removeValue(forKey: rel); $0.relationships = m } }
+        try? events.update(event) { var m = $0.relationships; m[rel] = "ends"; $0.relationships = m }
+        refreshAfterChange()
+        return true
+    }
+
+    /// Takes the end away: the relationship is not deleted, it stays active.
+    func keepActive(_ rel: String) {
+        for e in events.allEvents where e.relationships[rel] == "ends" {
+            guard let id = e.id else { continue }
+            try? events.update(id) { var m = $0.relationships; m.removeValue(forKey: rel); $0.relationships = m }
+        }
+        refreshAfterChange()
+    }
+
+    // MARK: The row's menu
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let row = table.clickedRow
+        guard connections.indices.contains(row), connections[row].kind == .relationship else { return }
+        buildRowMenu(for: connections[row], into: menu)
+    }
+
+    func buildRowMenu(for c: EventConnection, into menu: NSMenu) {
+        let rel = c.refID
+        func events(_ title: String, _ action: @escaping (String) -> Void) {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            let t = timeline
+            var list: [EventRecord] = []
+            if let start = self.events.startEvent { list.append(start) }
+            list += self.events.ordered(sceneOrder: scenes().map(\.id))
+            for e in list {
+                guard let id = e.id, id != selected else { continue }
+                let entry = ClosureMenuItem(title: e.title ?? "") { action(id) }
+                // (An event with no scene has no place in the book: it is greyed.)
+                if t.order(of: id) == nil { entry.isEnabled = false; entry.toolTip = L("This event has no scene") }
+                sub.addItem(entry)
+            }
+            item.submenu = sub
+            menu.addItem(item)
+        }
+        events(L("Start It in Another Event…")) { [weak self] in self?.moveStart(of: rel, to: $0) }
+        events(L("End It in Another Event…")) { [weak self] in self?.moveEnd(of: rel, to: $0) }
+        if c.marker == "ends" { menu.addItem(ClosureMenuItem(title: L("Keep It Active")) { [weak self] in self?.keepActive(rel) }) }
+    }
+
+    // MARK: For the checks
+
+    var lastWarning: (title: String, text: String)? {
+        get { objc_getAssociatedObject(self, &EventsViewController.warningKey) as? (title: String, text: String) }
+        set { objc_setAssociatedObject(self, &EventsViewController.warningKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
+    nonisolated(unsafe) private static var warningKey = 0
+    var warningText: String { warningLabel.stringValue }
+    var deleteHidden: Bool { deleteButton.isHidden }
+    var addMenuTitles: [String] { (addButton.menu?.items ?? []).map(\.title) }
+    func deltaShown(forEvent id: String) -> Bool? {
+        guard let r = row(of: id), let cell = list.view(atColumn: 0, row: r, makeIfNecessary: true) else { return nil }
+        func labels(_ v: NSView) -> [NSTextField] { ((v as? NSTextField).map { [$0] } ?? []) + v.subviews.flatMap(labels) }
+        return labels(cell).contains { $0.stringValue == "Δ" }
     }
 }

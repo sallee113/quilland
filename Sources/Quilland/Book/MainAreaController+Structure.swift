@@ -239,6 +239,7 @@ extension MainAreaController {
 
     /// Does a structural change, then reads the book again: the files were renumbered, so every scene is loaded anew.
     func restructure(focusText: Bool, beginRename: Bool = false, cursorScene: String? = nil, undoName: String = L("Change"), _ change: (BookEditor) throws -> String?) {
+        effectUndo = nil
         saveAll()
         remember()
         // A change that touches files takes a snapshot first, and another after it, so that Undo can tell whether the book moved on since.

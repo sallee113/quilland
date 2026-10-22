@@ -6,6 +6,9 @@ extension MainAreaController {
     /// Puts the book back as it was before the last structural change (⌘Z in the tree or the Outline, or the banner's button).
     /// Anything written since is taken back too, so that is asked first; a safety snapshot is taken either way.
     func undoStructure(confirm: Bool = true) {
+        // "Change removed. Undo": for a moment the banner's Undo puts the removed change back (it is not a structural change).
+        if let pending = effectUndo, pending.until > Date() { effectUndo = nil; pending.run(); banner.close(); return }
+        effectUndo = nil
         guard let entry = undoStack.last else { return }
         saveAll()
         let snapshots = SnapshotStore(bookFolder: folder)

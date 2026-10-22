@@ -52,6 +52,8 @@ final class MainAreaController: NSViewController {
     private(set) var graphView: GraphViewController?
     /// What the Graph view is set to (kept here, as the view is made again each time).
     var graphState = GraphViewState()
+    /// A change that was emptied in the Events view, for the banner's Undo for a moment: what puts it back, and until when.
+    var effectUndo: (until: Date, run: () -> Void)?
     private(set) lazy var researchStore = ResearchStore(book: folder)
     private(set) var researchView: ResearchViewController?
     private(set) lazy var remindersStore = RemindersStore(book: folder)
@@ -451,6 +453,11 @@ final class MainAreaController: NSViewController {
         view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
         view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
         view.onShowPlan = { [weak self] in self?.setMode(.plan) }
+        view.relationships = relationships
+        view.onChangeRemoved = { [weak self] text, undo in
+            self?.effectUndo = (Date().addingTimeInterval(25), undo)
+            self?.banner.show(text, undoable: true)
+        }
         view.onDelete = { [weak self] id, started in self?.deleteEvent(id, started: started) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
