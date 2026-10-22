@@ -91,3 +91,56 @@ extension AppSelfTest {
 }
 
 private func - (a: CGPoint, b: CGPoint) -> CGVector { CGVector(dx: a.x - b.x, dy: a.y - b.y) }
+
+/// The Graph view comes back as it was left: its settings, its zoom and the place it was looking at.
+extension AppSelfTest {
+    func graphMemory() -> Int32? {
+        let main = self.main!
+        let anna = try! main.characters.add(name: "Память-Анна"), lev = try! main.characters.add(name: "Память-Лев")
+        let arrival = try! main.eventStore.add(title: "Память: приезд")
+        try! main.characters.update(anna) { $0.links = [arrival: ""] }
+        try! main.characters.update(lev) { $0.links = [arrival: ""] }
+        let extra = (0..<30).map { try! main.characters.add(name: "Память-\($0)") }
+        for (i, c) in extra.enumerated() { try! main.characters.update(c) { var l = $0.links; l[arrival] = ""; if i % 3 == 0 { l[arrival] = "" }; $0.links = l } }
+
+        main.setMode(.graph); spin(0.6)
+        guard let gv = main.graphView else { check(false, "the Graph view shows"); return 1 }
+        gv.setLook(.neighbourhood); gv.focus(on: arrival); gv.setDepth(2); gv.setShowUnlinked(false); spin(0.8)
+        gv.lookAt(GraphPoint(x: 40, y: -30), zoom: 1.5); spin(0.2)
+        let seen = gv.viewCenter
+        check(abs(gv.zoom - 1.5) < 0.01, "the zoom is set", "\(gv.zoom)")
+
+        // Away and back: the same settings, the same zoom, the same place.
+        main.setMode(.characters); spin(0.4)
+        main.setMode(.graph); spin(0.8)
+        guard let back = main.graphView else { check(false, "the Graph view shows again"); return 1 }
+        check(back.state.look == .neighbourhood && back.state.focus == arrival && back.state.depth == 2 && !back.state.showUnlinked, "coming back, the settings are as they were")
+        check(abs(back.zoom - 1.5) < 0.01 && abs(back.viewCenter.x - seen.x) < 4 && abs(back.viewCenter.y - seen.y) < 4, "and so are the zoom and the place in view", "\(back.zoom) \(back.viewCenter) \(seen)")
+
+        // After a restart: the state read from the book's file gives the same.
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("graph-memory-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        main.localState().save(book: tmp)
+        let restored = GraphViewState(memory: LocalBookState.load(book: tmp).graph)
+        try? FileManager.default.removeItem(at: tmp)
+        check(restored.look == .neighbourhood && restored.focus == arrival && restored.depth == 2 && !restored.showUnlinked && restored.kinds == back.state.kinds, "the settings are kept in the book's local state")
+        check(restored.zoom.map { abs($0 - 1.5) < 0.01 } == true && restored.center.map { abs($0.x - seen.x) < 4 && abs($0.y - seen.y) < 4 } == true, "with the zoom and the place in view", "\(String(describing: restored.zoom)) \(String(describing: restored.center))")
+
+        // A setting that changes the picture fits it again.
+        back.setLook(.whole); spin(0.2)
+        check(back.state.zoom == nil && back.state.center == nil, "changing a setting forgets the old place")
+        spin(1.2)
+        check(back.state.zoom != nil, "and the new picture is noted once it is fitted")
+
+        // What was remembered may be gone.
+        back.setLook(.neighbourhood); back.focus(on: arrival); spin(0.5)
+        try? main.eventStore.delete(arrival)
+        main.eventStore.reload()
+        back.reload(); spin(0.3)
+        check(back.state.focus == nil, "a focus that was deleted is forgotten")
+
+        for id in [anna, lev] + extra { try? main.characters.delete(id) }
+        main.setMode(main.writingMode); spin(0.3)
+        return nil
+    }
+}

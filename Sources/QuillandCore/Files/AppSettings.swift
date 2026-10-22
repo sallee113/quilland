@@ -95,6 +95,46 @@ public final class AppSettings {
     }
 }
 
+/// What the Graph view was set to and where it was looking, kept for the book on this machine (inside `LocalBookState`).
+public struct GraphViewMemory: Equatable, Sendable {
+    /// `whole`, `social` or `neighbourhood`.
+    public var look = "whole"
+    /// Kinds shown: `character`, `place`, `event`, `scene`.
+    public var kinds: [String] = ["character", "place", "event"]
+    public var showUnlinked = true
+    public var section: String?
+    public var focus: String?
+    public var depth = 1
+    /// The zoom, and the middle of what was in view, in the layout's own coordinates; nil: fit everything.
+    public var zoom: Double?
+    public var centerX: Double?
+    public var centerY: Double?
+
+    public init() {}
+
+    init?(object o: JSONObject) {
+        look = o.string("look") ?? "whole"
+        kinds = o.strings("kinds") ?? ["character", "place", "event"]
+        showUnlinked = o.bool("show_unlinked") ?? true
+        section = o.string("section")
+        focus = o.string("focus")
+        depth = o.int("depth") ?? 1
+        if let z = o.string("zoom"), let v = Double(z) { zoom = v }
+        centerX = o.int("center_x").map(Double.init)
+        centerY = o.int("center_y").map(Double.init)
+    }
+
+    var object: JSONObject {
+        var o: JSONObject = ["look": .string(look), "show_unlinked": .bool(showUnlinked), "depth": .int(depth)]
+        o.setStrings("kinds", kinds)
+        o.setString("section", section)
+        o.setString("focus", focus)
+        if let zoom { o["zoom"] = .string(String(format: "%.3f", zoom)) }
+        if let centerX, let centerY { o["center_x"] = .int(Int(centerX.rounded())); o["center_y"] = .int(Int(centerY.rounded())) }
+        return o
+    }
+}
+
 /// Where the author left off in one book (`<book>/.quilland/state.json`, ignored by Git): the scene and the place in it, and the view.
 public struct LocalBookState: Equatable, Sendable {
     public var scene: String?
@@ -112,9 +152,12 @@ public struct LocalBookState: Equatable, Sendable {
     public var planFrom: String?
     /// Is the Book view split into two panes?
     public var split: Bool = false
+    /// The Graph view's settings and place.
+    public var graph: GraphViewMemory?
 
-    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false) {
+    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false, graph: GraphViewMemory? = nil) {
         self.split = split
+        self.graph = graph
         self.exportFolder = exportFolder
         self.planFrom = planFrom
         self.rightPanel = rightPanel
@@ -136,7 +179,7 @@ public struct LocalBookState: Equatable, Sendable {
     public static func load(book: URL) -> LocalBookState {
         guard let data = try? Data(contentsOf: url(book)), let o = try? JSONParser.parseObject(data) else { return LocalBookState() }
         let cursor = o.object("cursor") ?? [:]
-        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false)
+        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false, graph: o.object("graph").flatMap(GraphViewMemory.init(object:)))
     }
 
     /// Keeps the keys it does not know (other parts of the state).
@@ -146,6 +189,7 @@ public struct LocalBookState: Equatable, Sendable {
         o["mode"] = .string(mode)
         o["right_panel"] = .bool(rightPanel)
         o["split"] = .bool(split)
+        if let graph { o["graph"] = .object(graph.object) } else { o.removeValue(forKey: "graph") }
         if let exportFolder { o["export_folder"] = .string(exportFolder) }
         if let planFrom { o["plan_from"] = .string(planFrom) } else { o.removeValue(forKey: "plan_from") }
         if let dayDate, let dayBaseline { o["today"] = .object(["baseline": .int(dayBaseline), "date": .string(dayDate)]) }

@@ -41,6 +41,7 @@ final class BookWindowController: NSObject, NSWindowDelegate {
         main.onCursorMoved = { [weak self] _, _ in self?.scheduleStateSave() }
         main.onChange = { [weak self] in self?.refreshStatus() }
         main.onModeChange = { [weak self] in self?.updateTitle() }
+        main.onStateChanged = { [weak self] in self?.scheduleStateSave() }
         main.onAIStatus = { [weak self] text in self?.aiStatus = text; self?.refreshStatus() }
         main.onFocusModeChange = { [weak self] on in self?.focusModeChanged(on) }
         startSnapshotTimer()

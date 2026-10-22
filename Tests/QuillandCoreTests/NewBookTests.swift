@@ -84,6 +84,13 @@ struct NewBookTests {
         #expect(LocalBookState.load(book: book) == LocalBookState())
         LocalBookState(scene: "s1", position: 1432, mode: "book", split: true).save(book: book)
         #expect(LocalBookState.load(book: book) == LocalBookState(scene: "s1", position: 1432, mode: "book", split: true))
+        var memory = GraphViewMemory()
+        memory.look = "neighbourhood"; memory.kinds = ["character", "scene"]; memory.showUnlinked = false; memory.section = "ch1"; memory.focus = "anna"; memory.depth = 2
+        memory.zoom = 0.625; memory.centerX = -120; memory.centerY = 340
+        LocalBookState(scene: "s1", mode: "graph", graph: memory).save(book: book)
+        #expect(LocalBookState.load(book: book).graph == memory, "the Graph view's settings and place are kept")
+        LocalBookState(scene: "s1", mode: "graph").save(book: book)
+        #expect(LocalBookState.load(book: book).graph == nil, "and left out when there are none")
         var o = try JSONParser.parseObject(Data(contentsOf: book.appendingPathComponent(".quilland/state.json")))
         o["x_keep"] = .string("yes")
         try JSONWriter.data(o).write(to: book.appendingPathComponent(".quilland/state.json"))

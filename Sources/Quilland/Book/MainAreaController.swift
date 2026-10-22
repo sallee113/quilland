@@ -15,6 +15,8 @@ final class MainAreaController: NSViewController {
     var onFocusModeChange: ((Bool) -> Void)?
     /// The view (mode) has changed: the window shows its name in the title.
     var onModeChange: (() -> Void)?
+    /// Something kept in the book's local state changed (the place the Graph view is looking at): it is to be saved.
+    var onStateChanged: (() -> Void)?
     private(set) var controllers: [BookViewController] = []
     private(set) var planController: PlanCanvasController?
     private(set) var tree: StructureTreeController?
@@ -90,6 +92,7 @@ final class MainAreaController: NSViewController {
         // (A book last left in the old Compare view opens in the Book view, split.)
         mode = state.mode == "compare" ? .book : (Mode(rawValue: state.mode) ?? .panels)
         isSplit = state.split || state.mode == "compare"
+        graphState = GraphViewState(memory: state.graph)
         if [.panels, .book].contains(mode) { writingMode = mode }
         showsRightPanel = state.rightPanel
         day = state
@@ -268,6 +271,7 @@ final class MainAreaController: NSViewController {
     }
 
     private func tearDownViews() {
+        graphView?.captureViewport()
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         writingSplit = nil
@@ -465,6 +469,7 @@ final class MainAreaController: NSViewController {
             }
         }
         view.onStateChange = { [weak self] in self?.graphState = $0 }
+        view.onViewChange = { [weak self] in self?.onStateChanged?() }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         _ = view.view
@@ -840,7 +845,8 @@ final class MainAreaController: NSViewController {
 
     func localState() -> LocalBookState {
         remember()
+        graphView?.captureViewport()
         _ = writtenToday
-        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit)
+        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit, graph: graphState.memory)
     }
 }

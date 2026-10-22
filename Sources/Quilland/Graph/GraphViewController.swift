@@ -10,6 +10,31 @@ struct GraphViewState {
     var section: String?
     var focus: String?
     var depth = 1
+    /// Where the view was looking: the zoom and the middle of what was in view, in the layout's own coordinates (nil: fit everything).
+    var zoom: Double?
+    var center: GraphPoint?
+
+    init() {}
+
+    init(memory m: GraphViewMemory?) {
+        guard let m else { return }
+        look = [Look.whole, .social, .neighbourhood].first { ["whole", "social", "neighbourhood"][$0.rawValue] == m.look } ?? .whole
+        kinds = Set(m.kinds.compactMap(GraphKind.init(rawValue:)))
+        showUnlinked = m.showUnlinked
+        section = m.section; focus = m.focus; depth = max(1, min(3, m.depth))
+        zoom = m.zoom
+        if let x = m.centerX, let y = m.centerY { center = GraphPoint(x: x, y: y) }
+    }
+
+    var memory: GraphViewMemory {
+        var m = GraphViewMemory()
+        m.look = ["whole", "social", "neighbourhood"][look.rawValue]
+        m.kinds = GraphKind.allCases.filter(kinds.contains).map(\.rawValue)
+        m.showUnlinked = showUnlinked
+        m.section = section; m.focus = focus; m.depth = depth
+        m.zoom = zoom; m.centerX = center?.x; m.centerY = center?.y
+        return m
+    }
 }
 
 /// The Graph view: the characters, places, events and scenes of the book as nodes, with the links between them as lines. It only shows; the cards are where
@@ -29,6 +54,8 @@ final class GraphViewController: NSViewController {
     var onChange: (() -> Void)?
     /// What the view is set to has changed (the owner keeps it).
     var onStateChange: ((GraphViewState) -> Void)?
+    /// The place in view or a setting changed (the book's state is to be saved).
+    var onViewChange: (() -> Void)?
     var state = GraphViewState()
 
     private(set) var graph = BookGraph()
@@ -98,7 +125,9 @@ final class GraphViewController: NSViewController {
         scroll.minMagnification = 0.1; scroll.maxMagnification = 3
         scroll.borderType = .noBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        magnificationObserver = scroll.observe(\.magnification, options: [.new]) { [weak self] _, _ in self?.updateControls() }
+        magnificationObserver = scroll.observe(\.magnification, options: [.new]) { [weak self] _, _ in self?.updateControls(); self?.captureSoon() }
+        scroll.contentView.postsBoundsChangedNotifications = true
+        boundsObserver = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scroll.contentView, queue: .main) { [weak self] _ in self?.captureSoon() }
         emptyLabel.font = .systemFont(ofSize: 15); emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -140,6 +169,9 @@ final class GraphViewController: NSViewController {
     /// Makes the graph again from the book (after a filter changed, or the book did) and lays it out around the nodes the author has moved.
     func reload() {
         guard isViewLoaded else { return }
+        // What was remembered may be gone (a deleted thing, a section that was removed).
+        if let f = state.focus, characters.character(f) == nil, worlds.entry(f) == nil, events.event(f) == nil { state.focus = nil }
+        if let sec = state.section, !sections().contains(where: { $0.id == sec }) { state.section = nil }
         store.reload()
         graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options)
         let ids = Set(graph.nodes.map(\.id))
@@ -155,14 +187,65 @@ final class GraphViewController: NSViewController {
         fillSectionPopup()
         updateControls()
         onStateChange?(state)
+        onViewChange?()
         DispatchQueue.main.async { [weak self] in self?.fitIfFirstTime() }
     }
 
+    /// What is in view is forgotten, so that the next picture is fitted to the window (a setting changed, or the layout was made again).
+    private func resetViewport() { state.zoom = nil; state.center = nil; fitted = false }
+
     private var fitted = false
-    private func fitIfFirstTime() {
+    /// A picture opens where the author left it, or fitted to the window when there is nothing to go back to.
+    private func fitIfFirstTime(tries: Int = 0) {
         guard !fitted, !graph.nodes.isEmpty else { return }
+        // The view has to be in the window and laid out first, or the middle of what is in view is not what it will be.
+        view.layoutSubtreeIfNeeded()
+        if (view.window == nil || scroll.contentView.bounds.width < 50), tries < 40 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.fitIfFirstTime(tries: tries + 1) }
+            return
+        }
         fitted = true
+        if let zoom = state.zoom, let center = state.center {
+            let point = CGPoint(x: center.x + offset.x, y: center.y + offset.y)
+            if canvas.bounds.contains(point) {
+                put(point, atZoom: CGFloat(zoom))
+                return
+            }
+        }
         zoomToFit()
+        captureSoon()
+    }
+
+    // MARK: Remembering where the view is looking
+
+    /// Zooms to a magnification and puts a point of the canvas in the middle of what is in view (as far as the canvas allows).
+    private func put(_ point: CGPoint, atZoom zoom: CGFloat) {
+        scroll.magnification = min(max(zoom, scroll.minMagnification), scroll.maxMagnification)
+        let clip = scroll.contentView
+        let size = clip.bounds.size
+        let wanted = NSRect(origin: CGPoint(x: point.x - size.width / 2, y: point.y - size.height / 2), size: size)
+        clip.scroll(to: clip.constrainBoundsRect(wanted).origin)
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    private var captureTimer: Timer?
+    private var boundsObserver: NSObjectProtocol?
+    deinit { boundsObserver.map(NotificationCenter.default.removeObserver) }
+
+    /// Notes the zoom and the middle of what is in view (in the layout's coordinates), a moment after the author stops scrolling or zooming.
+    private func captureSoon() {
+        captureTimer?.invalidate()
+        captureTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in self?.captureViewport() }
+    }
+
+    func captureViewport() {
+        captureTimer?.invalidate()
+        guard isViewLoaded, fitted, !graph.nodes.isEmpty, scroll.contentView.bounds.width > 0 else { return }
+        let visible = scroll.contentView.bounds
+        state.zoom = Double(scroll.magnification)
+        state.center = GraphPoint(x: Double(visible.midX - offset.x), y: Double(visible.midY - offset.y))
+        onStateChange?(state)
+        onViewChange?()
     }
 
     private func moved(_ id: String, to point: CGPoint) {
@@ -235,32 +318,32 @@ final class GraphViewController: NSViewController {
         state.look = GraphViewState.Look(rawValue: lookControl.selectedSegment) ?? .whole
         // "Neighbourhood" looks at what is chosen on the canvas when nothing was chosen before.
         if state.look == .neighbourhood, (state.focus ?? "").isEmpty, let s = canvas.selected { state.focus = s }
-        fitted = false
+        resetViewport()
         reload()
     }
 
-    @objc private func depthChanged() { state.depth = depthControl.selectedSegment + 1; fitted = false; reload() }
+    @objc private func depthChanged() { state.depth = depthControl.selectedSegment + 1; resetViewport(); reload() }
 
     @objc private func focusChanged() {
         let id = focusPopup.selectedItem?.representedObject as? String ?? ""
         state.focus = id.isEmpty ? nil : id
-        fitted = false
+        resetViewport()
         reload()
     }
 
     @objc private func kindChanged(_ sender: NSButton) {
         guard let kind = GraphKind.allCases.first(where: { Self.tag($0) == sender.tag }) else { return }
         if sender.state == .on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }
-        fitted = false
+        resetViewport()
         reload()
     }
 
-    @objc private func unlinkedChanged() { state.showUnlinked = unlinkedBox.state == .on; fitted = false; reload() }
+    @objc private func unlinkedChanged() { state.showUnlinked = unlinkedBox.state == .on; resetViewport(); reload() }
 
     @objc private func sectionChanged() {
         let id = sectionPopup.selectedItem?.representedObject as? String ?? ""
         state.section = id.isEmpty ? nil : id
-        fitted = false
+        resetViewport()
         reload()
     }
 
@@ -298,7 +381,7 @@ final class GraphViewController: NSViewController {
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
         try? store.releaseAll()
-        fitted = false
+        resetViewport()
         reload()
         onChange?()
     }
@@ -314,7 +397,7 @@ final class GraphViewController: NSViewController {
         state.look = .neighbourhood
         state.focus = id
         syncControlsFromState()
-        fitted = false
+        resetViewport()
         reload()
     }
 
@@ -340,15 +423,26 @@ final class GraphViewController: NSViewController {
 
     // MARK: For the checks
 
+    /// Where the view is looking now: the middle of what is in view, in the layout's own coordinates.
+    var viewCenter: GraphPoint {
+        let v = scroll.contentView.bounds
+        return GraphPoint(x: Double(v.midX - offset.x), y: Double(v.midY - offset.y))
+    }
+    /// Looks at a place (in the layout's coordinates) at a zoom, and notes it.
+    func lookAt(_ point: GraphPoint, zoom: Double) {
+        put(CGPoint(x: point.x + offset.x, y: point.y + offset.y), atZoom: CGFloat(zoom))
+        captureViewport()
+    }
+
     var shownIDs: [String] { graph.nodes.map(\.id) }
     var noteText: String { note.stringValue }
     var controlsEnabled: (focus: Bool, depth: Bool, kinds: Bool, reset: Bool, zoomOut: Bool, zoomIn: Bool, fit: Bool) {
         (focusPopup.isEnabled, depthControl.isEnabled, kindBoxes.values.allSatisfy(\.isEnabled), resetButton.isEnabled, zoomOutButton.isEnabled, zoomInButton.isEnabled, fitButton.isEnabled)
     }
     var emptyText: String? { emptyLabel.isHidden ? nil : emptyLabel.stringValue }
-    func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); fitted = false; reload() }
-    func setKind(_ kind: GraphKind, _ on: Bool) { if on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }; syncControlsFromState(); reload() }
-    func setShowUnlinked(_ on: Bool) { state.showUnlinked = on; syncControlsFromState(); reload() }
-    func setSection(_ id: String?) { state.section = id; reload() }
-    func setDepth(_ depth: Int) { state.depth = depth; syncControlsFromState(); fitted = false; reload() }
+    func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); resetViewport(); reload() }
+    func setKind(_ kind: GraphKind, _ on: Bool) { if on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }; syncControlsFromState(); resetViewport(); reload() }
+    func setShowUnlinked(_ on: Bool) { state.showUnlinked = on; syncControlsFromState(); resetViewport(); reload() }
+    func setSection(_ id: String?) { state.section = id; resetViewport(); reload() }
+    func setDepth(_ depth: Int) { state.depth = depth; syncControlsFromState(); resetViewport(); reload() }
 }
