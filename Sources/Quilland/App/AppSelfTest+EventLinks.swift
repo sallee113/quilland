@@ -19,7 +19,7 @@ extension AppSelfTest {
         check(cv.addableEvents.contains(storm) && cv.addableEvents.contains(calm), "the card offers the events to add", "\(cv.addableEvents)")
         check(!cv.addableScenes.contains { $0.hasPrefix("◆") }, "the scenes in the menu are not mixed with the events")
         check(!cv.removeLinkEnabled, "Remove Link is off while no row of the character's list is chosen")
-        cv.addScene(storm); spin(0.2)
+        cv.addEvent(storm); spin(0.2)
         cv.view.window?.makeFirstResponder(nil)
         cv.selectLinkRow(nil); spin(0.1)
         check(!cv.removeLinkEnabled, "and stays off with nothing chosen")
@@ -28,11 +28,11 @@ extension AppSelfTest {
         cv.selectLinkRow(nil); spin(0.1)
         cv.view.window?.makeFirstResponder(nil)  // (the cursor is in the new row's text cell, as the author would have it; leave it before using the API)
         check(cv.eventRowIDs == [storm], "the event is in the card's list", "\(cv.eventRowIDs)")
-        check(main.characters.character(gleb)?.links[storm] == "", "and the link is kept in the character's file")
+        check(main.eventStore.event(storm)?.characters[gleb] == "" && main.characters.character(gleb)?.links[storm] == nil, "and the link is kept in the event's file")
         check(!cv.addableEvents.contains(storm), "an event in the list is not offered again")
         cv.setSceneLine(row: cv.rows.firstIndex { $0.sceneID == storm } ?? 0, "борется со штормом")
-        check(main.characters.character(gleb)?.links[storm] == "борется со штормом", "what the character does in the event is saved")
-        check(main.eventStore.event(storm)?.links[scene] == "" && main.eventStore.event(storm)?.places.isEmpty == true, "the event's own file is not touched")
+        check(main.eventStore.event(storm)?.characters[gleb] == "борется со штормом", "what the character does in the event is saved")
+        check(main.eventStore.event(storm)?.links[scene] == "" && main.eventStore.event(storm)?.places.isEmpty == true, "the event's scenes and places are not touched")
         app.modeEvents(); spin(0.3)
         main.eventsView?.select(storm); spin(0.2)
         check(main.eventsView?.connections.contains { $0.name == "Глеб-связи" } == true, "the Events view shows the same link")
@@ -42,7 +42,7 @@ extension AppSelfTest {
         app.modeCharacters(); spin(0.3)
         main.charactersView?.select(gleb); spin(0.2)
         main.charactersView?.removeSceneLink(row: main.charactersView?.rows.firstIndex { $0.sceneID == storm } ?? 0); spin(0.2)
-        check(main.characters.character(gleb)?.links[storm] == nil && main.charactersView?.eventRowIDs.isEmpty == true, "removing the link takes the event out of the list")
+        check(main.eventStore.event(storm)?.characters[gleb] == nil && main.charactersView?.eventRowIDs.isEmpty == true, "removing the link takes the event out of the list")
 
         // The place's card.
         app.modeWorld(); spin(0.4)
@@ -71,7 +71,8 @@ extension AppSelfTest {
         if let cv = main.charactersView {
             cv.reload(); cv.select(gleb); spin(0.2)
             check(cv.addLinkEnabled, "the character's Add menu is on while scenes or events can be added")
-            try! main.characters.update(gleb) { r in var l = r.links; for id in sceneIDs + eventIDs { l[id] = "" }; r.links = l }
+            try! main.characters.update(gleb) { r in var l = r.links; for id in sceneIDs { l[id] = "" }; r.links = l }
+            for id in eventIDs { try! main.eventStore.update(id) { var l = $0.characters; l[gleb] = ""; $0.characters = l } }
             cv.reload(); cv.select(gleb); spin(0.2)
             check(!cv.addLinkEnabled, "and off when every scene and event is in the list")
             check(cv.newRelationshipEnabled == (main.characters.characters.count >= 2), "New Relationship is on only when there are two characters to relate")
@@ -106,6 +107,7 @@ extension AppSelfTest {
             plan.zoomToFit(); spin(0.2)
         } else { check(false, "the Plan has its controls") }
 
+        for id in eventIDs { try? main.eventStore.update(id) { var l = $0.characters; l.removeValue(forKey: gleb); $0.characters = l } }
         try? main.characters.delete(gleb)
         for id in [storm, calm] { try? main.eventStore.delete(id) }
         for id in eventIDs { try? main.eventStore.update(id) { var p = $0.places; p.removeValue(forKey: port); $0.places = p } }

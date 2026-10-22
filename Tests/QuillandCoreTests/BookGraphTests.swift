@@ -33,8 +33,10 @@ struct BookGraphTests {
         let arrival = try events.add(title: "Приезд"), departure = try events.add(title: "Отъезд")
         try events.update(arrival) { $0.links = ["s1": ""]; $0.places = [manor: ""] }
         try events.update(departure) { $0.links = ["s2": ""]; $0.places = [port: ""] }
-        try people.update(anna) { $0.links = [arrival: "", departure: "", "s1": "в доме"] }
-        try people.update(lev) { $0.links = [arrival: ""]; $0.povScenes = ["s2"] }
+        try events.update(arrival) { $0.characters = [anna: "", lev: ""] }
+        try events.update(departure) { $0.characters = [anna: ""] }
+        try people.update(anna) { $0.links = ["s1": "в доме"] }
+        try people.update(lev) { $0.povScenes = ["s2"] }
         try worlds.updateEntry(manor) { $0.links = ["s1": "тут"] }
         let relationships = RelationshipStore(book: book)
         _ = try relationships.add(characters: [anna, lev], kind: "сёстры")

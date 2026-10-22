@@ -136,6 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     func openBook(at folder: URL, mode: MainAreaController.Mode? = nil) -> Bool {
         if let existing = bookWindows.first(where: { $0.folder.standardizedFileURL == folder.standardizedFileURL }) { existing.show(); return true }
         guard Self.isBook(folder) else { return false }
+        // The links between characters and events live in the events now: an old book is asked about and moved first; a book that has none gets the default event.
+        guard let migrationNote = prepareEvents(of: folder) else { return false }
         // A book with no remembered view starts in the writing mode the author chose in Settings.
         let hasState = FileManager.default.fileExists(atPath: folder.appendingPathComponent(".quilland/state.json").path)
         let mode = mode ?? (hasState ? nil : MainAreaController.Mode(rawValue: AppPreferences.shared.values.defaultMode))
@@ -152,7 +154,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         welcome.window.orderOut(nil)
         controller.show()
         DispatchQueue.main.async { controller.showRemindersIfAny() }
+        if let migrationNote { controller.main.banner.show(migrationNote, undoable: false) }
         return true
+    }
+
+    /// Asks the author before the links between characters and events (and the relationships that start at no event) are moved; the decision can be replaced for the checks.
+    var migrationDecision: (EventLinkMigration.Plan, URL) -> Bool = { plan, folder in
+        let alert = NSAlert()
+        alert.messageText = L("This book needs to be migrated")
+        alert.informativeText = L("Quilland now keeps the links between characters and events in the events, and every relationship starts at an event. This book keeps them in the characters' files, so {links} in {characters} will be moved, and {relationships} will start at the event “Book starts”. A snapshot of the book is taken first, so you can go back.", [
+            "links": Lp("{n} link", "{n} links", plan.links), "characters": Lp("{n} character", "{n} characters", plan.characters), "relationships": Lp("{n} relationship", "{n} relationships", plan.relationships)])
+        alert.addButton(withTitle: L("Start migration"))
+        alert.addButton(withTitle: L("Not now"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// Nil: the book is not to be opened (the author said "Not now", or the migration failed; nothing was changed by "Not now"). Otherwise a line about what was moved, or an empty text.
+    private func prepareEvents(of folder: URL) -> String?? {
+        let plan = EventLinkMigration.plan(book: folder)
+        guard plan.isNeeded else {
+            try? EventLinkMigration.ensureStartEvent(book: folder)
+            return .some(nil)
+        }
+        guard migrationDecision(plan, folder) else {
+            showWelcome()
+            let alert = NSAlert()
+            alert.messageText = L("The book was not opened")
+            alert.informativeText = L("This version of Quilland needs the links between characters and events to be moved into the events first. Nothing in the book was changed.")
+            if !CommandLine.arguments.contains("--selftest-app") { alert.runModal() }
+            return nil
+        }
+        do {
+            let report = try EventLinkMigration.run(book: folder)
+            return .some(L("Moved {links} and {relationships} to the events. A snapshot was taken first.", ["links": Lp("{n} link", "{n} links", report.links), "relationships": Lp("{n} relationship", "{n} relationships", report.relationships)]))
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = L("The book could not be migrated")
+            alert.informativeText = "\(error)"
+            if !CommandLine.arguments.contains("--selftest-app") { alert.runModal() }
+            return nil
+        }
     }
 
     private func bookClosed(_ controller: BookWindowController) {
@@ -169,11 +210,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         panel.canChooseFiles = false
         panel.prompt = "Open"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        if !openBook(at: url) {
+        if !Self.isBook(url) {
             let alert = NSAlert()
             alert.messageText = L("This folder is not a Quilland book")
             alert.informativeText = L("A book has a book.json file. Importing a folder of text files is not built yet.")
             alert.runModal()
+        } else {
+            openBook(at: url)
         }
     }
 

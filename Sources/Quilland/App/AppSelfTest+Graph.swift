@@ -12,8 +12,7 @@ extension AppSelfTest {
         let manor = try! main.worlds.addEntry(name: "Граф-Усадьба", world: world), nowhere = try! main.worlds.addEntry(name: "Граф-Нигдевия", world: world)
         let arrival = try! main.eventStore.add(title: "Граф: приезд")
         try! main.eventStore.update(arrival) { $0.links = [scenes[0]: ""]; $0.places = [manor: ""] }
-        try! main.characters.update(anna) { $0.links = [arrival: ""] }
-        try! main.characters.update(lev) { $0.links = [arrival: ""] }
+        try! main.eventStore.update(arrival) { $0.characters = [anna: "", lev: ""] }
         let rel = try! main.relationships.add(characters: [anna, lev], kind: "граф-сёстры")
         let mine: Set<String> = [anna, lev, lone, manor, nowhere, arrival]
 
@@ -102,10 +101,8 @@ extension AppSelfTest {
         let main = self.main!
         let anna = try! main.characters.add(name: "Память-Анна"), lev = try! main.characters.add(name: "Память-Лев")
         let arrival = try! main.eventStore.add(title: "Память: приезд")
-        try! main.characters.update(anna) { $0.links = [arrival: ""] }
-        try! main.characters.update(lev) { $0.links = [arrival: ""] }
         let extra = (0..<30).map { try! main.characters.add(name: "Память-\($0)") }
-        for (i, c) in extra.enumerated() { try! main.characters.update(c) { var l = $0.links; l[arrival] = ""; if i % 3 == 0 { l[arrival] = "" }; $0.links = l } }
+        try! main.eventStore.update(arrival) { r in var l: [String: String] = [anna: "", lev: ""]; for c in extra { l[c] = "" }; r.characters = l }
 
         main.setMode(.graph); spin(0.6)
         guard let gv = main.graphView else { check(false, "the Graph view shows"); return 1 }

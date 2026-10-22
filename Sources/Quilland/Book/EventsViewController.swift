@@ -457,7 +457,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     func rebuildConnections(_ e: EventRecord) {
-        guard let id = e.id else { return }
+        guard e.id != nil else { return }
         var rows: [EventConnection] = []
         let sceneTitles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
         for scene in sceneOrder where e.links[scene] != nil {
@@ -470,8 +470,10 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
             let entry = worlds.entry(key)
             rows.append(EventConnection(kind: .place, refID: key, name: entry?.name ?? "", text: text, missing: entry == nil))
         }
-        for c in characters.characters {
-            if let cid = c.id, let text = c.links[id] { rows.append(EventConnection(kind: .character, refID: cid, name: c.name ?? "", text: text, missing: false)) }
+        // The characters are the event's own (the links are kept in the event); in the order of their names.
+        for (cid, text) in e.characters.sorted(by: { (characters.character($0.key)?.name ?? "~").localizedLowercase < (characters.character($1.key)?.name ?? "~").localizedLowercase }) {
+            let c = characters.character(cid)
+            rows.append(EventConnection(kind: .character, refID: cid, name: c?.name ?? "", text: text, missing: c == nil))
         }
         connections = rows
         table.reloadData()
@@ -494,7 +496,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         func plain(_ list: [(String, () -> Void)]) -> [NSMenuItem] { list.map { ClosureMenuItem(title: $0.0, action: $0.1) } }
         sub(L("Scene"), items: plain(scenes().filter { e.links[$0.id] == nil }.map { s in (s.title, { [weak self] in self?.addScene(s.id) }) }))
         sub(L("Place"), items: PlaceMenu.items(in: worlds, include: { e.places[$0] == nil }, choose: { [weak self] in self?.addPlace($0) }))
-        sub(L("Character"), items: plain(characters.characters.filter { $0.links[id] == nil }.map { c in (c.name ?? "", { [weak self] in self?.addCharacter(c.id ?? "") }) }))
+        sub(L("Character"), items: plain(characters.characters.filter { $0.id.map { e.characters[$0] == nil } ?? false }.map { c in (c.name ?? "", { [weak self] in self?.addCharacter(c.id ?? "") }) }))
         addButton.menu = menu
         addButton.isEnabled = menu.offersAnything
     }
@@ -526,9 +528,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     func addCharacter(_ id: String) {
-        guard let event = selected else { return }
-        try? characters.update(id) { var l = $0.links; l[event] = ""; $0.links = l }
-        refreshAfterChange()
+        update { var l = $0.characters; if l[id] == nil { l[id] = "" }; $0.characters = l }
         beginTyping(.character, id)
     }
 
@@ -549,28 +549,24 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     /// Takes a connection away (the row's number in the table).
     func removeConnection(row: Int) {
-        guard connections.indices.contains(row), let event = selected else { return }
+        guard connections.indices.contains(row), selected != nil else { return }
         let c = connections[row]
         switch c.kind {
         case .scene: update { var l = $0.links; l.removeValue(forKey: c.refID); $0.links = l }
         case .place: update { var p = $0.places; p.removeValue(forKey: c.refID); $0.places = p }
-        case .character:
-            try? characters.update(c.refID) { var l = $0.links; l.removeValue(forKey: event); $0.links = l }
-            refreshAfterChange()
+        case .character: update { var l = $0.characters; l.removeValue(forKey: c.refID); $0.characters = l }
         }
     }
 
     /// What happens in the row's scene, place or character (the text only; the connection stays).
     func setConnectionText(row: Int, _ text: String) {
-        guard connections.indices.contains(row), let event = selected else { return }
+        guard connections.indices.contains(row), selected != nil else { return }
         let c = connections[row]
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
         switch c.kind {
         case .scene: update(rebuild: false) { var l = $0.links; l[c.refID] = clean; $0.links = l }
         case .place: update(rebuild: false) { var p = $0.places; p[c.refID] = clean; $0.places = p }
-        case .character:
-            try? characters.update(c.refID) { var l = $0.links; l[event] = clean; $0.links = l }
-            onChange?()
+        case .character: update(rebuild: false) { var l = $0.characters; l[c.refID] = clean; $0.characters = l }
         }
         connections[row].text = clean
     }

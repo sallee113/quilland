@@ -131,7 +131,7 @@ extension AppSelfTest {
         let annaID = main.characters.characters.first { $0.name == "Анна Петровна" }!.id!
         ev.addCharacter(annaID)
         ev.setConnectionText(row: ev.connections.firstIndex { $0.kind == .character }!, "Не знает, что станция пуста.")
-        check(main.characters.character(annaID)?.links[arrival] == "Не знает, что станция пуста.", "a character who takes part is stored in the character's file")
+        check(main.eventStore.event(arrival)?.characters[annaID] == "Не знает, что станция пуста." && main.characters.character(annaID)?.links[arrival] == nil, "a character who takes part is stored in the event's own file")
         let placeID = main.worlds.entries.first?.id ?? (try! main.worlds.addEntry(name: "Посадочная площадка", world: main.worlds.worlds[0].id!))
         ev.addPlace(placeID)
         check(!ev.doubleClickOpens(column: 2) && ev.doubleClickOpens(column: 1), "a double-click in the What happens column is for typing and does not open anything")

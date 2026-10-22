@@ -396,6 +396,16 @@ final class MainAreaController: NSViewController {
         view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
         view.events = { [weak self] in self?.eventChoices() ?? [] }
+        view.eventLinks = { [weak self] character in
+            Dictionary(uniqueKeysWithValues: (self?.eventStore.events ?? []).compactMap { e in e.id.flatMap { id in e.characters[character].map { (id, $0) } } })
+        }
+        view.setEventLink = { [weak self] event, character, text in
+            try? self?.eventStore.update(event) { r in
+                var l = r.characters
+                if let text { l[character] = text } else { l.removeValue(forKey: character) }
+                r.characters = l
+            }
+        }
         view.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         view.onChange = { [weak self] in self?.charactersChanged() }
         view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }

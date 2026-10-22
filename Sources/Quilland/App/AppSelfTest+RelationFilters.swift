@@ -16,8 +16,8 @@ extension AppSelfTest {
         let arrival = try! main.eventStore.add(title: "Фильтр: приезд"), farewell = try! main.eventStore.add(title: "Фильтр: прощание")
         try! main.eventStore.update(arrival) { $0.links = [first: ""] }
         try! main.eventStore.update(farewell) { $0.links = [last: ""]; $0.places = [sorrento: "здесь"] }
-        // The link between a character and an event is kept in the character's file.
-        try! main.characters.update(borislav) { $0.links = [farewell: "уезжает"] }
+        // The link between a character and an event is kept in the event's own file.
+        try! main.eventStore.update(farewell) { $0.characters = [borislav: "уезжает"] }
 
         // Characters.
         app.modeCharacters(); spin(0.4)
@@ -34,7 +34,7 @@ extension AppSelfTest {
         cv.relationFilter.set(.event(farewell)); spin(0.2)
         check(cv.shownNames.isEmpty || !cv.shownNames.contains("Фёкла"), "two filters must both match: in that scene AND in that event")
         cv.relationFilter.remove(.section(first)); spin(0.2)
-        check(cv.shownNames == ["Борислав"], "filtered by an event: the characters whose link to it is kept in their own file", "\(cv.shownNames)")
+        check(cv.shownNames == ["Борислав"], "filtered by an event: the characters the event lists", "\(cv.shownNames)")
         cv.relationFilter.set(.place(sorrento)); spin(0.2)
         check(cv.shownNames == ["Борислав"], "and by a place: the characters in the scenes where it is", "\(cv.shownNames)")
         cv.filterField.stringValue = "бор"

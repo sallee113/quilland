@@ -95,14 +95,12 @@ public enum GraphBuilder {
         var eventsOf: [String: Set<String>] = [:]
         for c in characters.characters {
             guard let id = c.id else { continue }
-            for key in c.links.keys.sorted() {
-                if all[key]?.kind == .event { link(id, key, .takesPart); eventsOf[id, default: []].insert(key) }
-                else if all[key]?.kind == .scene { link(id, key, .inScene) }
-            }
+            for key in c.links.keys.sorted() where all[key]?.kind == .scene { link(id, key, .inScene) }
             for scene in c.povScenes where c.links[scene] == nil { link(id, scene, .inScene) }
         }
         for e in events.events {
             guard let id = e.id else { continue }
+            for cid in e.characters.keys.sorted() where all[cid]?.kind == .character { link(cid, id, .takesPart); eventsOf[cid, default: []].insert(id) }
             for key in e.places.keys.sorted() { link(id, key, .heldAt) }
             for key in e.links.keys.sorted() { link(id, key, .inScene) }
         }

@@ -34,8 +34,8 @@ struct RelationIndexTests {
         let arrival = try events.add(title: "Приезд"), departure = try events.add(title: "Отъезд")
         try events.update(arrival) { $0.links = ["s1": ""]; $0.places = [manor: "встреча"] }
         try events.update(departure) { $0.links = ["s3": ""]; $0.places = [port: ""] }
-        // The links that live on the character: Lev takes part in the departure; the narrator is in scene 1 by a line only.
-        try people.update(lev) { $0.links = [departure: "улетает"] }
+        // Lev takes part in the departure (the event keeps the link); the narrator is in scene 1 by a line only (the character keeps it).
+        try events.update(departure) { $0.characters = [lev: "улетает"] }
         try people.update(narrator) { $0.links = ["s1": "едет"] }
         let texts = ["s1": "Анна приехала в усадьбу.", "s2": "Лев смотрел на Анну.", "s3": "Лев ждал в космопорте."]
         let index = RelationIndex(characters: people, worlds: worlds, events: events, structure: structure, sceneText: { texts[$0] ?? "" })

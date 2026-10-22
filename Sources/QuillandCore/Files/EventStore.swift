@@ -16,13 +16,29 @@ public struct EventRecord: Equatable, Sendable {
     public var places: [String: String] { get { object.stringMap("places") ?? [:] } set { object.setStringMap("places", newValue) } }
     /// Scene (or fragment) ids to what happens there.
     public var links: [String: String] { get { object.stringMap("links") ?? [:] } set { object.setStringMap("links", newValue) } }
+    /// Character ids to what they do in the event. The event holds these links (the characters' files do not): quilland-format.md, section 12.
+    public var characters: [String: String] { get { object.stringMap("characters") ?? [:] } set { object.setStringMap("characters", newValue) } }
+    /// The book's default event ("Book starts"): it comes before everything in the book, needs no scene and cannot be deleted. Only relationships start there.
+    public var start: Bool { get { object.bool("start") ?? false } set { object.setBool("start", newValue ? true : nil) } }
+    /// What the event changes, by the id of what it changes (a character, a place, a relationship): only the fields that were filled in.
+    public var effects: JSONObject { get { object.object("effects") ?? [:] } set { if newValue.isEmpty { object.removeValue(forKey: "effects") } else { object["effects"] = .object(newValue) } } }
+    /// Relationship ids to `starts`, `ends` or an empty text (the event only changes it).
+    public var relationships: [String: String] { get { object.stringMap("relationships") ?? [:] } set { object.setStringMap("relationships", newValue) } }
+}
+
+public struct EventStoreError: Error, CustomStringConvertible {
+    public var description: String
 }
 
 /// The real events of a book: `bible/events/<id>.json` (quilland-format.md, section 12), with the free text in `<id>.md`.
-/// Where an event sits on the plan is not here but in `plan/canvas.json`; who takes part is in the characters' files.
+/// Where an event sits on the plan is not here but in `plan/canvas.json`. Who takes part is in the event itself (`characters`).
+///
+/// `events` are the events of the story. The default event "Book starts" is kept apart (`startEvent`), so that what lists, draws or counts the events of the
+/// story never meets it; `event(_:)` and `update(_:_:)` know both.
 public final class EventStore {
     public let book: URL
     public private(set) var events: [EventRecord] = []
+    public private(set) var startEvent: EventRecord?
     public private(set) var problems: [String] = []
 
     public init(book: URL) {
@@ -36,16 +52,35 @@ public final class EventStore {
 
     public func reload() {
         events = []
+        startEvent = nil
         problems = []
         for name in ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).sorted() where name.hasSuffix(".json") {
             do {
                 let r = EventRecord(object: try JSONParser.parseObject(Data(contentsOf: directory.appendingPathComponent(name))))
-                if r.id != nil, r.title != nil { events.append(r) } else { problems.append("\(name): no id or title") }
+                guard r.id != nil, r.title != nil else { problems.append("\(name): no id or title"); continue }
+                // (Two events that say they are the default one: the first is, the other is an event of the story.)
+                if r.start, startEvent == nil { startEvent = r } else { events.append(r) }
             } catch { problems.append("\(name): \(error)") }
         }
     }
 
-    public func event(_ id: String) -> EventRecord? { events.first { $0.id == id } }
+    public func event(_ id: String) -> EventRecord? { events.first { $0.id == id } ?? (startEvent?.id == id ? startEvent : nil) }
+
+    /// Every record, the default event first.
+    public var allEvents: [EventRecord] { (startEvent.map { [$0] } ?? []) + events }
+
+    /// The default event: made when the book has none. Returns its id.
+    @discardableResult
+    public func ensureStartEvent(title: String) throws -> String {
+        if let id = startEvent?.id { return id }
+        let id = UUID().uuidString.lowercased()
+        var record = EventRecord(object: ["id": .string(id), "title": .string(title)])
+        record.start = true
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try AtomicFile.write(JSONWriter.data(record.object), to: url(id))
+        startEvent = record
+        return id
+    }
 
     private static func before(_ a: EventRecord, _ b: EventRecord) -> Bool {
         switch (a.order, b.order) {
@@ -108,6 +143,14 @@ public final class EventStore {
     }
 
     public func update(_ id: String, _ change: (inout EventRecord) -> Void) throws {
+        if startEvent?.id == id, var r = startEvent {
+            change(&r)
+            r.start = true   // (it stays the default event whatever the change did)
+            guard r != startEvent else { return }
+            try AtomicFile.write(JSONWriter.data(r.object), to: url(id))
+            startEvent = r
+            return
+        }
         guard let i = events.firstIndex(where: { $0.id == id }) else { return }
         var r = events[i]
         change(&r)
@@ -124,6 +167,7 @@ public final class EventStore {
 
     /// Takes an event out of the book (into the trash folder).
     public func delete(_ id: String) throws {
+        if startEvent?.id == id { throw EventStoreError(description: L("The event the book starts with cannot be deleted.")) }
         let fm = FileManager.default
         let stamp = TrashFolder.newName()
         let trash = book.appendingPathComponent(".quilland/trash/\(stamp)/bible/events")

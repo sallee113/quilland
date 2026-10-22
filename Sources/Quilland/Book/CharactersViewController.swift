@@ -30,6 +30,10 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     var onOpenEvent: ((String) -> Void)?
     /// The events of the book in order, for the rows and the "Add…" menu.
     var events: () -> [EventChoice] = { [] }
+    /// The events a character takes part in, with what it does there (the links are kept in the events), and a way to change them: an event, the character and
+    /// the text (nil takes the link away).
+    var eventLinks: (String) -> [String: String] = { _ in [:] }
+    var setEventLink: (String, String, String?) -> Void = { _, _, _ in }
     var onChange: (() -> Void)?
     var onEscape: (() -> Void)?
     /// Merge Into…: the character to take out of the book and the one that keeps what is known of both. The owner of the book does it (and can undo it).
@@ -421,7 +425,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             heading.isEnabled = false
             menu.addItem(heading)
             for e in freeEvents {
-                let item = ClosureMenuItem(title: "◆ " + e.label) { [weak self] in self?.addScene(e.id) }
+                let item = ClosureMenuItem(title: "◆ " + e.label) { [weak self] in self?.addEvent(e.id) }
                 item.representedObject = e.id
                 menu.addItem(item)
             }
@@ -440,10 +444,32 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         sceneTable.editColumn(column, row: row, with: nil, select: false)
     }
 
-    /// Takes away what the card says about the scene of this row: the line and the point of view.
+    /// Makes the character take part in an event (the link is kept in the event); the cursor goes to the line.
+    func addEvent(_ event: String) {
+        guard let id = selected else { return }
+        setEventLink(event, id, "")
+        onChange?()
+        showCard()
+        guard let row = rows.firstIndex(where: { $0.sceneID == event }),
+              let column = sceneTable.tableColumns.firstIndex(where: { $0.identifier.rawValue == "text" }) else { return }
+        sceneTable.scrollRowToVisible(row)
+        sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        sceneTable.editColumn(column, row: row, with: nil, select: false)
+    }
+
+    /// Is the row an event the book has (not a link to something that is gone)?
+    private func isEventRow(_ row: Int) -> Bool { rows.indices.contains(row) && rows[row].isEvent && events().contains { $0.id == rows[row].sceneID } }
+
+    /// Takes away what the card says about the scene of this row: the line and the point of view; for an event, the character's part in it.
     func removeSceneLink(row: Int) {
         guard rows.indices.contains(row) else { return }
         let scene = rows[row].sceneID
+        if isEventRow(row), let id = selected {
+            setEventLink(scene, id, nil)
+            onChange?()
+            showCard()
+            return
+        }
         update { r in
             var links = r.links; links.removeValue(forKey: scene); r.links = links
             r.povScenes = r.povScenes.filter { $0 != scene }
@@ -470,6 +496,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         guard let id = record.id else { return }
         let named = mentions(id)
         let links = record.links
+        let eventLines = eventLinks(id)
         let pov = Set(record.povScenes)
         rows = scenes().compactMap { s in
             let n = named[s.id] ?? 0
@@ -481,8 +508,8 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         let known = Set(scenes().map(\.id))
         let all = events()
         let eventIDs = Set(all.map(\.id))
-        for e in all where links[e.id] != nil {
-            rows.append(CharacterSceneRow(sceneID: e.id, title: e.label, mentions: 0, pov: false, text: links[e.id] ?? "", isEvent: true))
+        for e in all where eventLines[e.id] != nil {
+            rows.append(CharacterSceneRow(sceneID: e.id, title: e.label, mentions: 0, pov: false, text: eventLines[e.id] ?? "", isEvent: true))
         }
         for key in links.keys.sorted() where !known.contains(key) && !eventIDs.contains(key) {
             rows.append(CharacterSceneRow(sceneID: key, title: L("(missing)"), mentions: 0, pov: false, text: links[key] ?? "", isEvent: true))
@@ -595,11 +622,17 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     func setSceneLine(row: Int, _ raw: String) {
         guard rows.indices.contains(row) else { return }
         let scene = rows[row].sceneID
-        let isEvent = rows[row].isEvent
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isEventRow(row), let id = selected {
+            setEventLink(scene, id, text)
+            rows[row].text = text
+            onChange?()
+            return
+        }
+        let keepsEmpty = rows[row].isEvent   // (a link to something that is gone stays until it is taken away)
         update(rebuild: false) { r in
             var links = r.links
-            if text.isEmpty && !isEvent { links.removeValue(forKey: scene) } else { links[scene] = text }
+            if text.isEmpty && !keepsEmpty { links.removeValue(forKey: scene) } else { links[scene] = text }
             r.links = links
         }
         rows[row].text = text

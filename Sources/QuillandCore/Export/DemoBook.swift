@@ -276,6 +276,9 @@ public enum DemoBook {
         ]
         try putJSON("export.json", ["format": .int(1), "last_profile": .string("Электронная книга"), "profiles": .array([.object(publisher), .object(ebook), .object(finished)])])
 
+        // The default event, and the relationships start at it.
+        try EventLinkMigration.run(book: folder, language: "ru", snapshot: false)
+
         // Two snapshots, the second after a change, so that there is something to compare.
         let snapshots = SnapshotStore(bookFolder: folder)
         _ = try snapshots.take(.manual, name: "Первый черновик")

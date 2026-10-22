@@ -295,10 +295,14 @@ final class CollectSession {
 
         for item in chosen where item.kind == .events {
             let found = main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) }
-            // Who takes part: the link is kept in the character's file. A name with no card (here or made in this run) is left out.
+            // Who takes part: the event keeps the link. A name with no card (here or made in this run) is left out.
             func linkParticipants(_ event: String) {
-                for cid in Set(item.members.compactMap { characterIDs[Names.normalize($0)] }) {
-                    try? main.characters.update(cid) { r in var l = r.links; if l[event] == nil { l[event] = "" }; r.links = l }
+                let who = Set(item.members.compactMap { characterIDs[Names.normalize($0)] })
+                guard !who.isEmpty else { return }
+                try? main.eventStore.update(event) { r in
+                    var l = r.characters
+                    for cid in who where l[cid] == nil { l[cid] = "" }
+                    r.characters = l
                 }
             }
             if let id = found?.id {

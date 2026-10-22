@@ -99,6 +99,9 @@ public enum BookCreator {
             "name": .object(["many": .string(words.kindMany), "one": .string(words.kindOne)]),
         ]
         try write("bible/kinds/\(kindID).json", kind)
+
+        // The default event, where the relationships that are only stated start.
+        try EventStore(book: folder).ensureStartEvent(title: EventLinkMigration.startTitle(language: request.language))
         return folder
     }
 }

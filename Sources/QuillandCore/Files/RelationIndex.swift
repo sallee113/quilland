@@ -9,9 +9,9 @@ import Foundation
 /// - a character is in a scene when its name is in the text, or the scene has a line for it, or it is its point of view (`SceneMembers`); a place when its
 ///   name is in the text or the scene has a line for it;
 /// - an event is in a scene when the event is linked to it (stored on the event);
-/// - a character takes part in an event when the character has a link to it (stored on the character);
+/// - a character takes part in an event when the event lists it (stored on the event);
 /// - an event happens at a place when the place is in the event's list of places (stored on the event);
-/// - a character has been at a place when they take part in an event held there (the character's link to the event, the event's place); sharing a
+/// - a character has been at a place when they take part in an event held there (the event's character, the event's place); sharing a
 ///   scene with it is not enough.
 public final class RelationIndex {
     public enum Anchor: Hashable, Sendable {
@@ -62,8 +62,8 @@ public final class RelationIndex {
     private func charactersIn(_ scenes: [String]) -> Set<String> { scenes.reduce(into: Set<String>()) { $0.formUnion(members(of: $1).characters) } }
     private func placesIn(_ scenes: [String]) -> Set<String> { scenes.reduce(into: Set<String>()) { $0.formUnion(members(of: $1).places) } }
 
-    /// The events a character takes part in (the character's own links that are events).
-    private func events(ofCharacter id: String) -> [String] { (characters.character(id)?.links.keys.map { $0 } ?? []).filter { events.event($0) != nil } }
+    /// The events a character takes part in (the events that list it).
+    private func events(ofCharacter id: String) -> [String] { events.events.compactMap { $0.characters[id] != nil ? $0.id : nil } }
 
     // MARK: Answers
 
@@ -81,11 +81,10 @@ public final class RelationIndex {
     private func answer(_ kind: Kind, _ anchor: Anchor) -> Set<String>? {
         switch (kind, anchor) {
         case (.character, .section(let s)): return charactersIn(scenes(inSection: s))
-        case (.character, .event(let e)): return Set(characters.characters.compactMap { c in c.links[e] != nil ? c.id : nil })
+        case (.character, .event(let e)): return Set(events.event(e)?.characters.keys.map { $0 } ?? [])
         case (.character, .place(let p)):
             // Who has really been there: those who take part in an event held at the place.
-            let held = events.events.compactMap { $0.places[p] != nil ? $0.id : nil }
-            return Set(characters.characters.compactMap { c in held.contains { c.links[$0] != nil } ? c.id : nil })
+            return Set(events.events.filter { $0.places[p] != nil }.flatMap { $0.characters.keys })
         case (.place, .section(let s)): return placesIn(scenes(inSection: s))
         case (.place, .event(let e)): return Set(events.event(e)?.places.keys.map { $0 } ?? [])
         case (.place, .character(let c)): return Set(events(ofCharacter: c).flatMap { events.event($0)?.places.keys.map { $0 } ?? [] })

@@ -78,10 +78,29 @@ public enum CharacterMerger {
                 if relative == "bible/characters", name == source + ".json" || name == target + ".json" { continue }
                 let url = dir.appendingPathComponent(name)
                 guard var object = try? JSONParser.parseObject(Data(contentsOf: url)) else { continue }
+                var touched = false
                 var links = object.stringMap("links") ?? [:]
-                guard let text = links.removeValue(forKey: source) else { continue }
-                links = joined(links, [target: text])
-                object.setStringMap("links", links)
+                if let text = links.removeValue(forKey: source) {
+                    links = joined(links, [target: text])
+                    object.setStringMap("links", links)
+                    touched = true
+                }
+                if relative == "bible/events" {
+                    // An event holds its characters, and what it changes in them, itself.
+                    var characters = object.stringMap("characters") ?? [:]
+                    if let text = characters.removeValue(forKey: source) {
+                        characters = joined(characters, [target: text])
+                        object.setStringMap("characters", characters)
+                        touched = true
+                    }
+                    var effects = object.object("effects") ?? [:]
+                    if let moved = effects.removeValue(forKey: source) {
+                        if effects[target] == nil { effects[target] = moved }
+                        if effects.isEmpty { object.removeValue(forKey: "effects") } else { object["effects"] = .object(effects) }
+                        touched = true
+                    }
+                }
+                guard touched else { continue }
                 try AtomicFile.write(JSONWriter.data(object), to: url)
                 report.linksRepointed += 1
             }
