@@ -123,6 +123,7 @@ final class AppSelfTest {
         if let code = relationFilters() { return code }
         if let code = eventLinks() { return code }
         if let code = graphView() { return code }
+        if let code = deleting() { return code }
         if let code = eventMigration() { return code }
         if let code = outlineMoves() { return code }
         if let code = graphMemory() { return code }

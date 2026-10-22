@@ -32,6 +32,43 @@ extension MainAreaController {
         charactersView?.select(target)
     }
 
+    // MARK: Deleting
+    //
+    // A deletion takes everything that refers to the item along (`BookIntegrity`, in the core), as one undoable change: the snapshots before and after are the ones
+    // of `restructure`, and Undo (the banner, ⌘Z) brings back everything.
+
+    func deleteCharacter(_ id: String) {
+        let name = characters.character(id)?.name ?? ""
+        restructure(focusText: false, undoName: L("Delete “{name}”", ["name": name])) { editor in
+            try BookIntegrity.deleteCharacter(id, book: editor.folder, snapshot: false)
+            return nil
+        }
+    }
+
+    func deletePlace(_ id: String, isWorld: Bool) {
+        let name = worldName(id)
+        restructure(focusText: false, undoName: L("Delete “{name}”", ["name": name])) { editor in
+            if isWorld { try BookIntegrity.deleteWorld(id, book: editor.folder, snapshot: false) } else { try BookIntegrity.deletePlace(id, book: editor.folder, snapshot: false) }
+            return nil
+        }
+    }
+
+    func deleteRelationship(_ id: String) {
+        let kind = relationships.relationship(id)?.kind ?? ""
+        restructure(focusText: false, undoName: L("Delete “{name}”", ["name": kind])) { editor in
+            try BookIntegrity.deleteRelationship(id, book: editor.folder, snapshot: false)
+            return nil
+        }
+    }
+
+    func deleteEvent(_ id: String, started: BookIntegrity.StartedRelationships) {
+        let title = eventStore.event(id)?.title ?? ""
+        restructure(focusText: false, undoName: L("Delete “{name}”", ["name": title])) { editor in
+            try BookIntegrity.deleteEvent(id, book: editor.folder, started: started, snapshot: false)
+            return nil
+        }
+    }
+
     private func worldName(_ id: String) -> String { worlds.world(id)?.name ?? worlds.entry(id)?.name ?? "" }
 
     func mergePlaces(_ source: String, into target: String) {

@@ -5,6 +5,9 @@ import Foundation
 extension Notification.Name {
     /// The state of the connection to the local model changed (checking, answered, not answering, switched off): what depends on the AI is drawn again.
     static let aiStatusChanged = Notification.Name("QuillandAIStatusChanged")
+    /// The book's data files were changed under the stores (a deletion or a merge with all that follows from it, an undo, a restore): what is on screen reads them again.
+    /// The clean-up itself is done in the core (`BookIntegrity`), never by a subscriber; this only tells the screens.
+    static let bookDataChanged = Notification.Name("QuillandBookDataChanged")
 }
 
 /// A subscription to an event. It lasts as long as it is kept: the view that subscribes holds it, and when the view goes, so does the subscription.

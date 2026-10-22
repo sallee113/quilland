@@ -78,8 +78,8 @@ extension AppSelfTest {
         app.modeCharacters(); spin(0.4)
         let cv2 = main.charactersView!
         cv2.select(petr)
-        cv2.deleteSelected(confirm: false)
-        check(main.characters.character(petr) == nil && cv2.shownNames == ["Анна Петровна"], "deleting a character takes it out of the list")
+        cv2.deleteSelected(confirm: false); spin(0.8)   // (the views are made again after a deletion)
+        check(main.characters.character(petr) == nil && main.charactersView?.shownNames == ["Анна Петровна"], "deleting a character takes it out of the list")
         check(!(((try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(".quilland/trash").path)) ?? []).isEmpty), "and into the trash folder")
         self.cv2 = cv2
         return nil

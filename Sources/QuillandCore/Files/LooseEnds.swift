@@ -31,7 +31,8 @@ public struct LooseEnds {
     private static let dataFolders = ["manuscript", "bible", "plan"]
     private static let rootFiles = ["book.json", "dictionary.json", "export.json", "reminders.json"]
     /// The link fields of an owner: a map of ids to text, or a list of ids; `places` point to world entries.
-    static let mapFields = ["links", "places"]
+    /// (An event keeps its `characters` and `relationships` as maps too; in a relationship `characters` is a list.)
+    static let mapFields = ["links", "places", "characters", "relationships"]
     static let listFields = ["pov_scenes", "worlds", "characters"]
 
     private func files() -> [String] {
@@ -78,6 +79,10 @@ public struct LooseEnds {
                     out.append(LooseEnd(kind: .missingLink, file: name, owner: owner, field: field, target: target, message: ""))
                 }
             }
+            // What an event changes is kept by the id of what it changes.
+            for target in (object.object("effects") ?? [:]).keys.sorted() where !ids.contains(target) {
+                out.append(LooseEnd(kind: .missingLink, file: name, owner: owner, field: "effects", target: target, message: ""))
+            }
             if name == "plan/canvas.json" {
                 for entry in object.objects("entries") ?? [] {
                     if let event = entry.string("event"), !ids.contains(event) { out.append(LooseEnd(kind: .missingLink, file: name, owner: L("The plan"), field: "entries", target: event, message: "")) }
@@ -101,12 +106,13 @@ public struct LooseEnds {
             if Self.mapFields.contains(end.field) { var map = o.stringMap(end.field) ?? [:]; map.removeValue(forKey: end.target); o.setStringMap(end.field, map) }
             else if Self.listFields.contains(end.field) { o.setStrings(end.field, (o.strings(end.field) ?? []).filter { $0 != end.target }) }
             else if end.field == "entries" { o["entries"] = .array((o.objects("entries") ?? []).filter { $0.string("event") != end.target }.map { .object($0) }) }
+            else if end.field == "effects" { var all = o.object("effects") ?? [:]; all.removeValue(forKey: end.target); if all.isEmpty { o.removeValue(forKey: "effects") } else { o["effects"] = .object(all) } }
         }
     }
 
     /// Points the link at another thing; its text stays. If the owner already links to the new one, the old link just goes.
     public func repoint(_ end: LooseEnd, to new: String) throws {
-        guard end.kind == .missingLink, end.field != "entries" else { return }
+        guard end.kind == .missingLink, end.field != "entries", end.field != "effects" else { return }
         try edit(end.file) { o in
             if Self.mapFields.contains(end.field) {
                 var map = o.stringMap(end.field) ?? [:]

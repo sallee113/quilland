@@ -72,7 +72,7 @@ public enum CharacterMerger {
 
         // Everything else that is linked to the removed character is linked to the kept one.
         let fm = FileManager.default
-        for relative in ["bible/characters", "bible/places", "bible/events", "bible/things", "plan/cards"] {
+        for relative in ["bible/characters", "bible/places", "bible/events", "bible/things", "plan/cards", "research"] {
             let dir = book.appendingPathComponent(relative)
             for name in ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).sorted() where name.hasSuffix(".json") {
                 if relative == "bible/characters", name == source + ".json" || name == target + ".json" { continue }

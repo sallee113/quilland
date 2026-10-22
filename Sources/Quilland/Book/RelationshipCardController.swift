@@ -11,6 +11,8 @@ final class RelationshipCardController: NSViewController, NSTableViewDataSource,
     var onChange: (() -> Void)?
     var onOpenScene: ((String) -> Void)?
     var onDeleted: (() -> Void)?
+    /// Delete…: the owner of the book deletes it with everything that refers to it (and can undo it).
+    var onDelete: ((String) -> Void)?
 
     private(set) var shownID: String?
     private(set) var members: [String] = []
@@ -284,6 +286,7 @@ final class RelationshipCardController: NSViewController, NSTableViewDataSource,
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
         commitEdits()
+        if let onDelete { shownID = nil; onDelete(id); return }
         do { try store.delete(id) } catch { return }
         shownID = nil
         onDeleted?()

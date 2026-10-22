@@ -20,6 +20,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     var scenes: () -> [(id: String, title: String)] = { [] }
     var onOpenScene: ((String) -> Void)?
     var onOpenPlace: ((String) -> Void)?
+    /// Delete…: the owner of the book deletes the event with everything that refers to it (and can undo it), and is told what becomes of the relationships that start in it.
+    var onDelete: ((String, BookIntegrity.StartedRelationships) -> Void)?
     var onOpenCharacter: ((String) -> Void)?
     var onShowPlan: (() -> Void)?
     var onChange: (() -> Void)?
@@ -711,11 +713,42 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
         commitEdits()
+        if let onDelete {
+            var started = BookIntegrity.StartedRelationships.deleteThem
+            if confirm, !BookIntegrity.relationshipsStarting(in: id, book: events.book).isEmpty {
+                guard let choice = askAboutStartedRelationships(of: id) else { return }
+                started = choice
+            }
+            selected = nil
+            onDelete(id, started)
+            return
+        }
         try? planStore()?.removeEntry(forEvent: id)
         do { try events.delete(id) } catch { return }
         selected = nil
         reload()
         onChange?()
+    }
+
+    /// The relationships that start in the event need a decision: they are deleted with it, or they start in another event (the default one, "Book starts", or any).
+    private func askAboutStartedRelationships(of id: String) -> BookIntegrity.StartedRelationships? {
+        let count = BookIntegrity.relationshipsStarting(in: id, book: events.book).count
+        let alert = NSAlert()
+        alert.messageText = Lp("{n} relationship starts in this event", "{n} relationships start in this event", count)
+        alert.informativeText = L("They can be deleted with the event, or start in another event instead.")
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26), pullsDown: false)
+        popup.addItem(withTitle: L("Delete them with the event"))
+        var targets: [String?] = [nil]
+        if let start = events.startEvent, let sid = start.id, sid != id { popup.addItem(withTitle: L("Start them at “{title}”", ["title": start.title ?? ""])); targets.append(sid) }
+        for e in events.ordered(sceneOrder: sceneOrder) where e.id != id {
+            guard let eid = e.id else { continue }
+            popup.addItem(withTitle: L("Start them at “{title}”", ["title": e.title ?? ""])); targets.append(eid)
+        }
+        alert.accessoryView = popup
+        alert.addButton(withTitle: L("Delete the Event"))
+        alert.addButton(withTitle: L("Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn, targets.indices.contains(popup.indexOfSelectedItem) else { return nil }
+        return targets[popup.indexOfSelectedItem].map { .moveStart(to: $0) } ?? .deleteThem
     }
 
     override func keyDown(with event: NSEvent) {

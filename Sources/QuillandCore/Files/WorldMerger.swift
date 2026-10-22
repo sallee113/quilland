@@ -37,7 +37,7 @@ public enum WorldMerger {
     static func repoint(book: URL, from old: String, to new: String) throws -> Int {
         let fm = FileManager.default
         var changed = 0
-        for relative in ["bible/characters", "bible/events", "bible/things", "plan/cards"] {
+        for relative in ["bible/characters", "bible/events", "bible/things", "plan/cards", "research"] {
             let dir = book.appendingPathComponent(relative)
             for name in ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).sorted() where name.hasSuffix(".json") {
                 let url = dir.appendingPathComponent(name)
@@ -49,6 +49,12 @@ public enum WorldMerger {
                         object.setStringMap(key, CharacterMerger.joined(map, [new: text]))
                         touched = true
                     }
+                }
+                // What an event changes in a place follows the place that is kept.
+                if relative == "bible/events", var effects = object.object("effects"), let moved = effects.removeValue(forKey: old) {
+                    if effects[new] == nil { effects[new] = moved }
+                    if effects.isEmpty { object.removeValue(forKey: "effects") } else { object["effects"] = .object(effects) }
+                    touched = true
                 }
                 if var worlds = object.strings("worlds"), worlds.contains(old) {
                     worlds = worlds.map { $0 == old ? new : $0 }

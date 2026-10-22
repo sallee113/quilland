@@ -38,6 +38,9 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
     var onEscape: (() -> Void)?
     /// Merge Into…: the character to take out of the book and the one that keeps what is known of both. The owner of the book does it (and can undo it).
     var onMerge: ((String, String) -> Void)?
+    /// Delete…: the owner of the book deletes the character with everything that refers to it (and can undo it). Without it the card is only taken out.
+    var onDelete: ((String) -> Void)?
+    var onDeleteRelationship: ((String) -> Void)?
     private let addSceneButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let removeSceneButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
     private let mergeButton = NSButton(title: L("Merge Into…"), target: nil, action: nil)
@@ -93,6 +96,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         relCard.scenes = { [weak self] in self?.scenes() ?? [] }
         relCard.mentions = { [weak self] in self?.mentions($0) ?? [:] }
         relCard.onChange = { [weak self] in self?.reloadRelationships(); self?.onChange?() }
+        relCard.onDelete = { [weak self] id in self?.onDeleteRelationship?(id) }
         relCard.onOpenScene = { [weak self] in self?.onOpenScene?($0) }
         relCard.onDeleted = { [weak self] in
             self?.selectedRelationship = nil
@@ -794,6 +798,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
         commitEdits()
+        if let onDelete { selected = nil; onDelete(id); return }
         do { try store.delete(id) } catch { return }
         _ = try? relationships.characterDeleted(id)
         selected = nil

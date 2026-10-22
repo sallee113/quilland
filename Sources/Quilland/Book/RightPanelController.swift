@@ -89,6 +89,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     override func loadView() {
         subscriptions.append(subscribe(to: .aiStatusChanged) { [weak self] in self?.updateWriteButton() })
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.refresh() })
         let root = NSView()
         view = root
         tabs.selectedSegment = 0

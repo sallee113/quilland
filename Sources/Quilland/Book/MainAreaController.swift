@@ -409,6 +409,8 @@ final class MainAreaController: NSViewController {
         view.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         view.onChange = { [weak self] in self?.charactersChanged() }
         view.onMerge = { [weak self] source, target in self?.mergeCharacters(source, into: target) }
+        view.onDelete = { [weak self] id in self?.deleteCharacter(id) }
+        view.onDeleteRelationship = { [weak self] id in self?.deleteRelationship(id) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         view.relationFilter.source = relationFilterSource()
         _ = view.view
@@ -428,6 +430,7 @@ final class MainAreaController: NSViewController {
         view.onChange = { [weak self] in self?.onChange?() }
         view.onMergePlace = { [weak self] source, target in self?.mergePlaces(source, into: target) }
         view.onMergeWorld = { [weak self] source, target in self?.mergeWorlds(source, into: target) }
+        view.onDelete = { [weak self] id, isWorld in self?.deletePlace(id, isWorld: isWorld) }
         view.onPlaceToWorld = { [weak self] id in self?.placeToWorld(id) }
         view.onWorldToPlace = { [weak self] world, into, parent in self?.worldToPlace(world, intoWorld: into, parent: parent) }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
@@ -448,6 +451,7 @@ final class MainAreaController: NSViewController {
         view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
         view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
         view.onShowPlan = { [weak self] in self?.setMode(.plan) }
+        view.onDelete = { [weak self] id, started in self?.deleteEvent(id, started: started) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         view.relationFilter.source = relationFilterSource()

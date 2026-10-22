@@ -63,6 +63,7 @@ extension MainAreaController {
         eventStore.reload()
         researchStore.reload()
         remindersStore.reload()
+        NotificationCenter.default.post(name: .bookDataChanged, object: nil)
     }
 
     func reloadFromDisk() {

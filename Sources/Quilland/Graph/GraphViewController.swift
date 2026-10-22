@@ -74,11 +74,13 @@ final class GraphViewController: NSViewController {
     private let note = NSTextField(labelWithString: "")
     private let emptyLabel = NSTextField(labelWithString: "")
     private var magnificationObserver: NSKeyValueObservation?
+    private var subscriptions: [Subscription] = []
     private static let margin: CGFloat = 500
     /// Where the layout puts the origin on the canvas, to turn canvas points into the book's own (what is saved).
     private var offset = CGPoint.zero
 
     override func loadView() {
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.reload() })
         let root = NSView()
         lookControl.target = self; lookControl.action = #selector(lookChanged)
         lookControl.controlSize = .small

@@ -21,6 +21,8 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     /// The merges and conversions: the owner of the book does them (with a snapshot, so that Undo takes them back).
     var onMergePlace: ((String, String) -> Void)?
     var onMergeWorld: ((String, String) -> Void)?
+    /// Delete…: the owner of the book deletes the place or world with everything that refers to it (and can undo it). Without it the card is only taken out.
+    var onDelete: ((String, Bool) -> Void)?
     var onPlaceToWorld: ((String) -> Void)?
     /// The world, the world it goes into and the place there it goes inside (nil: at the top).
     var onWorldToPlace: ((String, String, String?) -> Void)?
@@ -747,6 +749,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
         commitEdits()
+        if let onDelete { selected = nil; onDelete(id, isWorld); return }
         do { if isWorld { try store.deleteWorld(id) } else { try store.deleteEntry(id) } } catch { return }
         selected = nil
         reload()
