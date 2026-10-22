@@ -9,6 +9,14 @@
       "one": "Delete {n} place?",
       "other": "Delete {n} places?"
     },
+    "Delete {n} sections": {
+      "one": "Delete {n} section",
+      "other": "Delete {n} sections"
+    },
+    "Delete {n} sections?": {
+      "one": "Delete {n} section?",
+      "other": "Delete {n} sections?"
+    },
     "Deleted {n} places": {
       "one": "Deleted {n} place",
       "other": "Deleted {n} places"
@@ -28,6 +36,10 @@
     "Its {n} chapters": {
       "one": "Its {n} chapter",
       "other": "Its {n} chapters"
+    },
+    "Move {n} sections to:": {
+      "one": "Move {n} section to:",
+      "other": "Move {n} sections to:"
     },
     "Replace {n} places?": {
       "one": "Replace {n} place?",
@@ -372,6 +384,8 @@
     "Choose an action, then Change… and press the new shortcut. Standard commands such as ⌘C and ⌘Z keep their keys.": "",
     "Choose an event": "",
     "Choose one or more chapters that are not in a part.": "",
+    "Choose one section for this.": "",
+    "Choose scenes, or chapters, to move them into another chapter or part.": "",
     "Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
     "Choose the place to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept place, its description, notes and scenes are added to theirs, and what is inside it moves into the kept place. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
     "Choose the world to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept world, and all its places move to the top of the kept world. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
@@ -599,6 +613,7 @@
     "Merge Chosen Scenes": "",
     "Merge Into…": "",
     "Merge scenes": "",
+    "Merge the Chosen Scenes": "",
     "Merge the chosen scenes into “{first}”?": "",
     "Merge with Next Scene": "",
     "Merge with Previous Scene": "",
@@ -613,8 +628,10 @@
     "Move Left": "",
     "Move Line": "",
     "Move Right": "",
+    "Move To…": "",
     "Move Up": "",
     "Move or delete the places of this world first.": "",
+    "Move “{title}” to:": "",
     "My own title page": "",
     "My profile": "",
     "Name": "",
@@ -1007,10 +1024,12 @@
     "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "",
     "The thing to look at": "",
     "The title of the part:": "",
+    "The top level of the book": "",
     "The whole book": "",
     "There is no other character to merge into.": "",
     "There is no scene after this one in the chapter.": "",
     "There is no scene before this one in the chapter.": "",
+    "They hold {scenes} with {size} in all. Their files go to the book's trash folder (.quilland/trash).": "",
     "Things with no line to anything shown: a place no event uses, a character in no event": "",
     "This character is not linked to an event that has a place.": "",
     "This folder is not a Quilland book": "",

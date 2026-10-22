@@ -12,8 +12,10 @@ extension MainAreaController {
         case .newPart: add(.part, place: .after, anchor: id, fromTree: true)
         case .moveUp: move(id, by: -1)
         case .moveDown: move(id, by: 1)
-        case .delete: delete(id)
-        case .status(let s): setStatus(id, to: s)
+        case .delete: if chosenSections().count > 1 { deleteChosen() } else { delete(id) }
+        case .status(let s): let ids = chosenSections(); if ids.count > 1 { setStatus(ids: ids, to: s) } else { setStatus(id, to: s) }
+        case .moveTo: moveChosenTo()
+        case .mergeChosen: mergeSelected()
         case .mergeNext: merge(id, direction: 1)
         case .mergePrevious: merge(id, direction: -1)
         case .group: groupIntoPart()
@@ -80,6 +82,95 @@ extension MainAreaController {
             }
             return ids.first
         }
+    }
+
+    /// The sections chosen now: in the Outline all the chosen rows, in book order; elsewhere the one section.
+    func chosenSections() -> [String] {
+        if mode == .outline, let ids = tree?.selectedIDs, !ids.isEmpty { return ids }
+        return selectedSectionID.map { [$0] } ?? []
+    }
+
+    /// The chosen sections without the ones inside another chosen one (moving or deleting a chapter takes its scenes along).
+    func topmost(_ ids: [String]) -> [String] {
+        var inside = Set<String>()
+        func collect(_ n: BookStructure.Node) { for c in n.children { inside.insert(c.id); collect(c) } }
+        for id in ids { if let n = findNode(id) { collect(n) } }
+        return ids.filter { !inside.contains($0) }
+    }
+
+    /// Where these sections can go: all scenes → the chapters ("Part › Chapter"); all chapters → the top level of the book and the parts. Nothing for parts or a mixed choice.
+    func moveTargets(for ids: [String]) -> [MoveTarget] {
+        let nodes = topmost(ids).compactMap(findNode)
+        guard !nodes.isEmpty, let kind = nodes.first?.kind, nodes.allSatisfy({ $0.kind == kind }) else { return [] }
+        let roots = session.structure.roots
+        switch kind {
+        case .scene:
+            var out: [MoveTarget] = []
+            for r in roots {
+                if r.kind == .chapter { out.append(MoveTarget(id: r.id, title: r.title)) }
+                if r.kind == .part { for c in r.children where c.kind == .chapter { out.append(MoveTarget(id: c.id, title: r.title + " › " + c.title)) } }
+            }
+            return out
+        case .chapter:
+            return [MoveTarget(id: nil, title: L("The top level of the book"))] + roots.filter { $0.kind == .part }.map { MoveTarget(id: $0.id, title: $0.title) }
+        case .part: return []
+        }
+    }
+
+    struct MoveTarget: Equatable {
+        var id: String?
+        var title: String
+    }
+
+    /// Move To…: asks where the chosen sections should go, then moves them there (to the end, in their order).
+    func moveChosenTo() {
+        let ids = topmost(chosenSections())
+        let targets = moveTargets(for: ids)
+        guard !targets.isEmpty else { banner.show(L("Choose scenes, or chapters, to move them into another chapter or part."), undoable: false); return }
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26), pullsDown: false)
+        for t in targets { popup.addItem(withTitle: t.title) }
+        let alert = NSAlert()
+        alert.messageText = ids.count == 1 ? L("Move “{title}” to:", ["title": findNode(ids[0])?.title ?? ""]) : Lp("Move {n} section to:", "Move {n} sections to:", ids.count)
+        alert.accessoryView = popup
+        alert.addButton(withTitle: L("Move"))
+        alert.addButton(withTitle: L("Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn, targets.indices.contains(popup.indexOfSelectedItem) else { return }
+        moveSections(ids, parent: targets[popup.indexOfSelectedItem].id, index: nil)
+    }
+
+    /// Takes the chosen sections out of the book after one question (a snapshot and the trash folder keep them).
+    func deleteChosen(confirm: Bool = true) {
+        let ids = topmost(chosenSections())
+        guard ids.count > 1 else { delete(ids.first, confirm: confirm); return }
+        let editor = BookEditor(structure: session.structure)
+        let weights = ids.map { id in editor.weight(of: id) { [session] in session.document($0)?.counts.characters ?? 0 } }
+        if confirm {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = Lp("Delete {n} section?", "Delete {n} sections?", ids.count)
+            alert.informativeText = L("They hold {scenes} with {size} in all. Their files go to the book's trash folder (.quilland/trash).", ["scenes": Lp("{n} scene", "{n} scenes", weights.reduce(0) { $0 + $1.scenes }), "size": Lp("{n} character||text", "{n} characters||text", weights.reduce(0) { $0 + $1.characters })])
+            let cancel = alert.addButton(withTitle: L("Cancel"))
+            cancel.keyEquivalent = "\r"
+            let remove = alert.addButton(withTitle: L("Delete"))
+            remove.keyEquivalent = ""
+            remove.hasDestructiveAction = true
+            guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
+        restructure(focusText: !treeHasFocus, undoName: Lp("Delete {n} section", "Delete {n} sections", ids.count)) { [folder] _ in
+            for id in ids { try BookEditor(structure: try BookStructure.load(folder: folder)).delete(id) }
+            return nil
+        }
+    }
+
+    /// A status for several scenes at once.
+    func setStatus(ids: [String], to status: String) {
+        let scenes = Set(session.structure.scenes.map(\.id))
+        let chosen = ids.filter(scenes.contains)
+        guard !chosen.isEmpty else { return }
+        do {
+            for id in chosen { try BookEditor(structure: session.structure).setStatus(id, to: status); session.applyInfo(id: id, status: status) }
+        } catch { report(error); return }
+        afterInfoChange()
     }
 
     /// Rename from the menu: the tree edits in place; elsewhere a small window asks.

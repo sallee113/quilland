@@ -478,6 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         section.addItem(.separator())
         add(section, L("Move Up"), #selector(moveSectionUp), String(UnicodeScalar(NSUpArrowFunctionKey)!), [.command, .option], target: self)
         add(section, L("Move Down"), #selector(moveSectionDown), String(UnicodeScalar(NSDownArrowFunctionKey)!), [.command, .option], target: self)
+        add(section, L("Move To…"), #selector(moveSectionTo), "", target: self)
         section.addItem(.separator())
         add(section, L("Split Scene Here"), #selector(splitScene), "\r", [.command, .option], target: self)
         add(section, L("Merge with Next Scene"), #selector(mergeNextScene), "", target: self)
@@ -565,6 +566,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func newPart() { keyBook?.main.add(.part) }
     @objc func renameSection() { keyBook?.main.renameSelected() }
     @objc func setSectionStatus(_ sender: NSMenuItem) { if let name = sender.representedObject as? String { keyBook?.main.setStatus(to: name) } }
+    @objc func moveSectionTo() { keyBook?.main.moveChosenTo() }
     @objc func moveSectionUp() { keyBook?.main.move(by: -1) }
     @objc func moveSectionDown() { keyBook?.main.move(by: 1) }
     @objc func splitScene() { keyBook?.main.splitSceneHere() }
@@ -583,7 +585,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
 
     /// Focus Mode is for Book mode only; its item shows whether it is on.
     static let sectionActions: Set<Selector> = [#selector(newScene), #selector(newSceneBefore), #selector(newChapter), #selector(newPart), #selector(renameSection), #selector(setSectionStatus(_:)),
-                                                #selector(moveSectionUp), #selector(moveSectionDown), #selector(splitScene), #selector(mergeNextScene), #selector(mergePreviousScene),
+                                                #selector(moveSectionUp), #selector(moveSectionDown), #selector(moveSectionTo), #selector(splitScene), #selector(mergeNextScene), #selector(mergePreviousScene),
                                                 #selector(mergeChosenScenes), #selector(groupIntoPart), #selector(ungroupPart), #selector(deleteSection)]
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -623,6 +625,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             case #selector(renameSection), #selector(deleteSection): return state.hasSection
             case #selector(moveSectionUp): return state.canMoveUp
             case #selector(moveSectionDown): return state.canMoveDown
+            case #selector(moveSectionTo): return state.canMoveTo
             case #selector(mergeNextScene): return state.hasNextScene
             case #selector(mergePreviousScene): return state.hasPreviousScene
             case #selector(mergeChosenScenes): return state.canMergeChosen

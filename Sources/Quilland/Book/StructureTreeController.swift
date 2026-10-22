@@ -81,7 +81,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     /// Can the command be done now? (A command that cannot is shown grey in the context menu.)
     var canDo: ((Command) -> Bool)?
 
-    enum Command { case newSceneAfter, newSceneBefore, newChapter, newPart, moveUp, moveDown, delete, status(String), mergeNext, mergePrevious, group, ungroup }
+    enum Command { case newSceneAfter, newSceneBefore, newChapter, newPart, moveUp, moveDown, moveTo, delete, status(String), mergeNext, mergePrevious, mergeChosen, group, ungroup }
 
     override func loadView() {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("title"))
@@ -100,7 +100,8 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         outline.action = #selector(clicked)
         outline.allowsMultipleSelection = isOutline
         if isOutline { outline.registerForDraggedTypes([Self.dragType]) }
-        outline.draggingDestinationFeedbackStyle = .gap
+        // (A line where the drop would land, and a box round a part or chapter it would go into.)
+        outline.draggingDestinationFeedbackStyle = .regular
         outline.setAccessibilityLabel(L("Structure"))
         outline.onKey = { [weak self] event in self?.handleKey(event) ?? false }
         let menu = NSMenu()
@@ -285,31 +286,60 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
 
     private func parent(of item: Item) -> Item? { roots.contains { $0 === item } ? nil : byID.values.first { $0.children.contains { $0 === item } } }
 
+    /// What is being dragged: the sections on the drag board (the ones the drag was started on, whether or not they were chosen before), in book order.
     private func draggedIDs(_ info: NSDraggingInfo) -> [String] {
-        let all = info.draggingPasteboard.pasteboardItems?.compactMap { $0.string(forType: Self.dragType) } ?? []
-        return selectedIDs.filter(all.contains)
+        orderedDraggedIDs(info.draggingPasteboard.pasteboardItems?.compactMap { $0.string(forType: Self.dragType) } ?? [])
+    }
+
+    /// The ids that are sections of the book, in book order (a part, then its chapters, then their scenes).
+    func orderedDraggedIDs(_ ids: [String]) -> [String] {
+        var order: [String: Int] = [:]
+        func walk(_ items: [Item]) { for i in items { order[i.id] = order.count; walk(i.children) } }
+        walk(roots)
+        return Set(ids).filter { order[$0] != nil }.sorted { order[$0]! < order[$1]! }
     }
 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
         let ids = draggedIDs(info)
-        guard isOutline, let first = ids.first.flatMap({ byID[$0] }), ids.allSatisfy({ byID[$0]?.node.kind == first.node.kind }) else { return [] }
-        var target = item as? Item
+        var lowerHalf = false
+        if let t = item as? Item {
+            let row = outlineView.row(forItem: t)
+            if row >= 0 { lowerHalf = outlineView.convert(info.draggingLocation, from: nil).y > outlineView.rect(ofRow: row).midY }
+        }
+        guard isOutline, let plan = dropPlan(ids: ids, item: item as? Item, index: index, lowerHalf: lowerHalf) else { return [] }
+        outlineView.setDropItem(plan.parent, dropChildIndex: plan.at)
+        return .move
+    }
+
+    /// Where a drop lands. Over a row of the dragged kind's own level it means next to that row: before it in the upper half, after it in the lower half.
+    /// Over a part or chapter that can hold the dragged kind it means into it (`at` is -1: on the item, which is shown as a box round it).
+    func dropPlan(ids: [String], item: Item?, index: Int, lowerHalf: Bool) -> (parent: Item?, at: Int)? {
+        guard let first = ids.first.flatMap({ byID[$0] }), ids.allSatisfy({ byID[$0]?.node.kind == first.node.kind }) else { return nil }
+        var target = item
         var at = index
-        // A drop on a row of the dragged kind's own level means "next to it".
         if let t = target, t.node.kind == first.node.kind {
-            at = (parent(of: t)?.children ?? roots).firstIndex { $0 === t } ?? 0
+            // (Not onto itself, which would only show a mark where nothing can happen.)
+            if ids.contains(t.id) { return nil }
+            let place = (parent(of: t)?.children ?? roots).firstIndex { $0 === t } ?? 0
+            at = lowerHalf ? place + 1 : place
             target = parent(of: t)
         }
         switch first.node.kind {
-        case .scene: guard target?.node.kind == .chapter else { return [] }
-        case .chapter: guard target == nil || target?.node.kind == .part else { return [] }
-        case .part: guard target == nil else { return [] }
+        case .scene: guard target?.node.kind == .chapter else { return nil }
+        case .chapter: guard target == nil || target?.node.kind == .part else { return nil }
+        case .part: guard target == nil else { return nil }
         }
         // Not into itself.
-        if let t = target, ids.contains(t.id) { return [] }
-        outlineView.setDropItem(target, dropChildIndex: at)
-        return .move
+        if let t = target, ids.contains(t.id) { return nil }
+        return (target, at)
     }
+
+    /// For the checks: the drop of these sections on a row, as (the id of the new parent, the place), nil when it is refused.
+    func dropPlanForTests(ids: [String], on id: String?, index: Int = -1, lowerHalf: Bool = false) -> (parent: String?, at: Int)? {
+        guard let plan = dropPlan(ids: ids, item: id.flatMap { byID[$0] }, index: index, lowerHalf: lowerHalf) else { return nil }
+        return (plan.parent?.id, plan.at)
+    }
+    var dropFeedbackStyle: NSTableView.DraggingDestinationFeedbackStyle { outline.draggingDestinationFeedbackStyle }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
         let ids = draggedIDs(info)
@@ -389,44 +419,85 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         menu.removeAllItems()
         menu.autoenablesItems = false
         guard !choosesOnClick else { return }
-        let clicked = outline.clickedRow
-        if clicked >= 0 { outline.selectRowIndexes(IndexSet(integer: clicked), byExtendingSelection: false) }
-        guard let id = selectedID, let item = byID[id] else { return }
-        func add(_ title: String, _ command: Command) {
+        prepareContextSelection(clickedRow: outline.clickedRow)
+        buildMenu(into: menu)
+    }
+
+    /// A right click on a row that is already chosen keeps the choice (so a command can be about all of them); on any other row it chooses that row alone.
+    func prepareContextSelection(clickedRow clicked: Int) {
+        guard clicked >= 0 else { return }
+        if isOutline, outline.selectedRowIndexes.contains(clicked) { return }
+        outline.selectRowIndexes(IndexSet(integer: clicked), byExtendingSelection: false)
+    }
+
+    /// The context menu for what is chosen: a command that cannot be done with this choice is grey, with a tooltip that says why.
+    func buildMenu(into menu: NSMenu) {
+        let ids = isOutline ? selectedIDs : [selectedID].compactMap { $0 }
+        guard let id = ids.first, let item = byID[id] else { return }
+        let kinds = Set(ids.compactMap { byID[$0]?.node.kind })
+        let single = ids.count == 1
+        let oneOnly = L("Choose one section for this.")
+        func add(_ title: String, _ command: Command, needsOne: Bool = false) {
             let entry = ClosureMenuItem(title: title) { [weak self] in self?.onCommand?(command, id) }
-            entry.isEnabled = canDo?(command) ?? true
+            if needsOne && !single { entry.isEnabled = false; entry.toolTip = oneOnly } else { entry.isEnabled = canDo?(command) ?? true }
             menu.addItem(entry)
         }
-        add(L("New Scene After"), .newSceneAfter)
-        add(L("New Scene Before"), .newSceneBefore)
-        add(L("New Chapter"), .newChapter)
-        add(L("New Part"), .newPart)
+        add(L("New Scene After"), .newSceneAfter, needsOne: true)
+        add(L("New Scene Before"), .newSceneBefore, needsOne: true)
+        add(L("New Chapter"), .newChapter, needsOne: true)
+        add(L("New Part"), .newPart, needsOne: true)
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(title: L("Rename")) { [weak self] in self?.beginRename() })
-        if item.node.kind == .scene {
+        let rename = ClosureMenuItem(title: L("Rename")) { [weak self] in self?.beginRename() }
+        if !single { rename.isEnabled = false; rename.toolTip = oneOnly }
+        menu.addItem(rename)
+        if kinds == [.scene] {
             let statuses = NSMenuItem(title: L("Status"), action: nil, keyEquivalent: "")
             let sub = NSMenu()
             for s in SceneRecord.knownStatuses {
                 let it = ClosureMenuItem(title: L(s).capitalized) { [weak self] in self?.onCommand?(.status(s), id) }
-                it.state = item.node.status == s ? .on : .off
+                it.state = single && item.node.status == s ? .on : .off
                 sub.addItem(it)
             }
             statuses.submenu = sub
             menu.addItem(statuses)
         }
         menu.addItem(.separator())
-        if item.node.kind == .scene {
-            add(L("Merge with Next Scene"), .mergeNext)
-            add(L("Merge with Previous Scene"), .mergePrevious)
+        if kinds == [.scene] {
+            if single {
+                add(L("Merge with Next Scene"), .mergeNext)
+                add(L("Merge with Previous Scene"), .mergePrevious)
+            } else {
+                add(L("Merge the Chosen Scenes"), .mergeChosen)
+            }
         }
-        if item.node.kind == .chapter { add(L("Group into a New Part…"), .group) }
-        if item.node.kind == .part { add(L("Ungroup Part…"), .ungroup) }
+        if kinds == [.chapter] { add(L("Group into a New Part…"), .group) }
+        if kinds == [.part] { add(L("Ungroup Part…"), .ungroup, needsOne: true) }
         menu.addItem(.separator())
-        add(L("Move Up"), .moveUp)
-        add(L("Move Down"), .moveDown)
+        let moveTo = ClosureMenuItem(title: L("Move To…")) { [weak self] in self?.onCommand?(.moveTo, id) }
+        moveTo.isEnabled = canDo?(.moveTo) ?? true
+        if !moveTo.isEnabled { moveTo.toolTip = L("Choose scenes, or chapters, to move them into another chapter or part.") }
+        menu.addItem(moveTo)
+        add(L("Move Up"), .moveUp, needsOne: true)
+        add(L("Move Down"), .moveDown, needsOne: true)
         menu.addItem(.separator())
         add(L("Delete…"), .delete)
     }
+
+    /// For the checks: the titles and states of the context menu for what is chosen now.
+    var contextMenuState: [(title: String, enabled: Bool)] {
+        let menu = NSMenu()
+        buildMenu(into: menu)
+        return menu.items.filter { !$0.isSeparatorItem }.map { ($0.title, $0.isEnabled) }
+    }
+
+    /// For the checks: chooses these sections (several), as the Outline allows.
+    func choose(_ ids: [String]) {
+        for id in ids { for root in roots { if let chain = path(to: id, in: root) { for parent in chain.dropLast() { outline.expandItem(parent) } } } }
+        outline.selectRowIndexes(IndexSet(ids.compactMap { byID[$0] }.map { outline.row(forItem: $0) }.filter { $0 >= 0 }), byExtendingSelection: false)
+    }
+
+    /// For the checks: the row of a section.
+    func row(of id: String) -> Int { byID[id].map { outline.row(forItem: $0) } ?? -1 }
 }
 
 /// One row of the tree: a status dot for scenes, the title, the size.

@@ -417,3 +417,49 @@ struct InterruptedMoveTests {
         #expect(kept == "старый файл", "the file that was already there is not replaced")
     }
 }
+
+@Suite("Moving several chapters one after another")
+struct ChapterMovesTests {
+    @Test("chapters that were in a part that was ungrouped go one by one into another part")
+    func oneByOne() throws {
+        let (parent, book) = try BookEditorTests.book()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let first = try BookEditorTests.editor(book).structure.scenes[0].id
+        var last = try BookEditorTests.editor(book).structure.roots[0].id
+        var chapters = [last]
+        for i in 2...6 { last = try BookEditorTests.editor(book).add(.chapter, relativeTo: last, title: "C\(i)"); chapters.append(last) }
+        _ = first
+        // C1, C2 in the old part; C3..C6 imported into a new part, which is then ungrouped.
+        let old = try BookEditorTests.editor(book).group([chapters[0], chapters[1]], intoNewPart: "Old")
+        let new = try BookEditorTests.editor(book).group(Array(chapters[2...]), intoNewPart: "New")
+        try BookEditorTests.editor(book).ungroup(new)
+        var s = try BookStructure.load(folder: book)
+        #expect(s.roots.map(\.title) == ["Old", "C3", "C4", "C5", "C6"], "\(s.roots.map(\.title))")
+        for c in chapters[2...] {
+            s = try BookStructure.load(folder: book)
+            let count = s.roots.first { $0.id == old }?.children.count ?? 0
+            #expect(try BookEditor(structure: s).move(c, toParent: old, at: count), "chapter \(c) goes into the part")
+            let t = try BookStructure.load(folder: book)
+            #expect(t.problems.isEmpty, "\(t.problems)")
+        }
+        s = try BookStructure.load(folder: book)
+        #expect(s.roots.count == 1 && s.roots[0].children.map(\.title) == ["Chapter 1", "C2", "C3", "C4", "C5", "C6"], "\(s.roots.map(\.title)) \(s.roots.first?.children.map(\.title) ?? [])")
+    }
+}
+
+@Suite("Taking several sections out one after another")
+struct SeveralDeletesTests {
+    @Test("two chapters deleted one after another, each from the book as it is then, leave the rest consecutive")
+    func twoChapters() throws {
+        let (parent, book) = try BookEditorTests.book()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        var last = try BookEditorTests.editor(book).structure.roots[0].id
+        var ids: [String] = []
+        for i in 2...5 { last = try BookEditorTests.editor(book).add(.chapter, relativeTo: last, title: "C\(i)"); ids.append(last) }
+        for id in [ids[0], ids[2]] { try BookEditor(structure: try BookStructure.load(folder: book)).delete(id) }
+        let s = try BookStructure.load(folder: book)
+        #expect(s.roots.map(\.title) == ["Chapter 1", "C3", "C5"] && s.problems.isEmpty, "\(s.roots.map(\.title)) \(s.problems)")
+        let names = try FileManager.default.contentsOfDirectory(atPath: book.appendingPathComponent("manuscript").path).sorted()
+        #expect(names.filter { $0.hasSuffix("-chapter") }.count == 3)
+    }
+}

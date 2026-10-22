@@ -12,6 +12,14 @@
       "one": "Supprimer {n} lieu ?",
       "other": "Supprimer {n} lieux ?"
     },
+    "Delete {n} sections": {
+      "one": "Supprimer {n} section",
+      "other": "Supprimer {n} sections"
+    },
+    "Delete {n} sections?": {
+      "one": "Supprimer {n} section ?",
+      "other": "Supprimer {n} sections ?"
+    },
     "Deleted {n} places": {
       "one": "{n} lieu supprimé",
       "other": "{n} lieux supprimés"
@@ -31,6 +39,10 @@
     "Its {n} chapters": {
       "one": "Son {n} chapitre",
       "other": "Ses {n} chapitres"
+    },
+    "Move {n} sections to:": {
+      "one": "Déplacer {n} section vers :",
+      "other": "Déplacer {n} sections vers :"
     },
     "Replace {n} places?": {
       "one": "Remplacer {n} lieu ?",
@@ -375,6 +387,8 @@
     "Choose an action, then Change… and press the new shortcut. Standard commands such as ⌘C and ⌘Z keep their keys.": "Choisissez une action, puis Modifier… et appuyez sur le nouveau raccourci. Les commandes standard comme ⌘C et ⌘Z gardent leurs raccourcis.",
     "Choose an event": "Choisir un événement",
     "Choose one or more chapters that are not in a part.": "Choisissez un ou plusieurs chapitres qui ne sont pas dans une partie.",
+    "Choose one section for this.": "Choisissez une seule section pour cela.",
+    "Choose scenes, or chapters, to move them into another chapter or part.": "Choisissez des scènes ou des chapitres pour les déplacer dans un autre chapitre ou une autre partie.",
     "Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le personnage à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du personnage gardé, et son profil, ses notes, ses scènes et ses relations s’ajoutent aux siens. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
     "Choose the place to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept place, its description, notes and scenes are added to theirs, and what is inside it moves into the kept place. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le lieu à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du lieu gardé, sa description, ses notes et ses scènes s’ajoutent aux siennes, et ce qu’il contient passe dans le lieu gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
     "Choose the world to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept world, and all its places move to the top of the kept world. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le monde à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du monde gardé, et tous ses lieux passent au premier niveau du monde gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
@@ -602,6 +616,7 @@
     "Merge Chosen Scenes": "Fusionner les scènes choisies",
     "Merge Into…": "Fusionner avec…",
     "Merge scenes": "Fusionner les scènes",
+    "Merge the Chosen Scenes": "Fusionner les scènes choisies",
     "Merge the chosen scenes into “{first}”?": "Fusionner les scènes choisies dans « {first} » ?",
     "Merge with Next Scene": "Fusionner avec la scène suivante",
     "Merge with Previous Scene": "Fusionner avec la scène précédente",
@@ -616,8 +631,10 @@
     "Move Left": "Déplacer à gauche",
     "Move Line": "Déplacer la ligne",
     "Move Right": "Déplacer à droite",
+    "Move To…": "Déplacer vers…",
     "Move Up": "Monter",
     "Move or delete the places of this world first.": "Déplacez ou supprimez d’abord les lieux de ce monde.",
+    "Move “{title}” to:": "Déplacer « {title} » vers :",
     "My own title page": "Ma propre page de titre",
     "My profile": "Mon profil",
     "Name": "Nom",
@@ -1010,10 +1027,12 @@
     "The text, synopsis, note and tags of the other scene are added after those of the first, the links to it point at the first, and the other scene goes to the book's trash folder (.quilland/trash). You can undo this.": "Le texte, le synopsis, la note et les étiquettes de l’autre scène sont ajoutés après ceux de la première, les liens vers elle pointent vers la première, et l’autre scène va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
     "The thing to look at": "Ce qu’il faut regarder",
     "The title of the part:": "Le titre de la partie :",
+    "The top level of the book": "Le niveau supérieur du livre",
     "The whole book": "Tout le livre",
     "There is no other character to merge into.": "Il n’y a pas d’autre personnage avec qui fusionner.",
     "There is no scene after this one in the chapter.": "Il n’y a pas de scène après celle-ci dans le chapitre.",
     "There is no scene before this one in the chapter.": "Il n’y a pas de scène avant celle-ci dans le chapitre.",
+    "They hold {scenes} with {size} in all. Their files go to the book's trash folder (.quilland/trash).": "Ils contiennent {scenes} pour {size} au total. Leurs fichiers vont dans le dossier corbeille du livre (.quilland/trash).",
     "Things with no line to anything shown: a place no event uses, a character in no event": "Ce qui n’a aucun lien avec ce qui est affiché : un lieu qu’aucun événement n’utilise, un personnage sans événement",
     "This character is not linked to an event that has a place.": "Ce personnage n’est lié à aucun événement qui ait un lieu.",
     "This folder is not a Quilland book": "Ce dossier n’est pas un livre Quilland",

@@ -12,6 +12,7 @@ extension MainAreaController {
         var hasNextScene = false
         var hasPreviousScene = false
         var canMergeChosen = false
+        var canMoveTo = false
         var canGroup = false
         var canSplit = false
         var status: String?
@@ -57,6 +58,7 @@ extension MainAreaController {
             let neighbours = picked.first.map { siblingScenes(of: $0) } ?? []
             if picked.count >= 2, let start = neighbours.firstIndex(of: picked[0]), start + picked.count <= neighbours.count { state.canMergeChosen = Array(neighbours[start..<(start + picked.count)]) == picked }
         }
+        state.canMoveTo = !moveTargets(for: chosenSections()).isEmpty
         if mode != .outline, mode != .plan, mode != .characters, mode != .world, mode != .events, mode != .research, mode != .reminders,
            let area = controllers.first(where: { $0.currentSceneID != nil }), let id = area.currentSceneID, let doc = session.document(id), let tv = area.currentSheet?.textView {
             state.canSplit = Self.splitCut(in: doc.storage.string as NSString, caret: tv.selectedRange().location) != nil
@@ -72,6 +74,8 @@ extension MainAreaController {
         case .moveDown: return state.canMoveDown
         case .mergeNext: return state.hasNextScene
         case .mergePrevious: return state.hasPreviousScene
+        case .mergeChosen: return state.canMergeChosen
+        case .moveTo: return state.canMoveTo
         case .group: return state.canGroup
         case .ungroup: return state.isPart
         default: return true
