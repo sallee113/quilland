@@ -22,6 +22,10 @@ extension AppSelfTest {
         check(main.mode == .graph && again.window.title.hasSuffix(" — Graph"), "View ▸ Graph shows the graph", again.window.title)
         check(mine.isSubset(of: Set(gv.shownIDs)) && !gv.shownIDs.contains(scenes[0]), "all the characters, places and events are shown, and not the scenes")
         check(gv.graph.edges.contains { $0.kind == .relationship && $0.label == "граф-сёстры" } && gv.graph.edges.contains { $0.kind == .heldAt && Set([$0.a, $0.b]) == Set([arrival, manor]) }, "with their links, a relationship carrying its kind")
+        check(gv.graph.node(anna)?.isMain == false, "an ordinary character has no thick border")
+        try! main.characters.update(anna) { $0.main = true }
+        gv.reload(); spin(0.2)
+        check(gv.graph.node(anna)?.isMain == true && gv.graph.node(lev)?.isMain == false && gv.graph.node(manor)?.isMain == false, "a main character is marked in the graph, and no other node")
         check(gv.noteText.contains("nodes") && gv.noteText.contains("links"), "and the count of nodes and links is told", gv.noteText)
         check(gv.canvas.center(of: anna) != nil && gv.canvas.node(at: gv.canvas.center(of: anna)!)?.id == anna, "a node is found where it is drawn")
 

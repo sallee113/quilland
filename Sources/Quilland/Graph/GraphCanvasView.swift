@@ -54,8 +54,8 @@ final class GraphCanvasView: NSView {
 
     static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : 14 }
 
-    private func shape(_ kind: GraphKind, at c: CGPoint) -> NSBezierPath {
-        let r = Self.radius(kind)
+    private func shape(_ kind: GraphKind, at c: CGPoint, grow: CGFloat = 0) -> NSBezierPath {
+        let r = Self.radius(kind) + grow
         switch kind {
         case .character, .scene: return NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
         case .place: return NSBezierPath(roundedRect: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), xRadius: 5, yRadius: 5)
@@ -105,7 +105,13 @@ final class GraphCanvasView: NSView {
             path.fill()
             Self.color(n.kind).withAlphaComponent(lit ? 1 : 0.2).setFill()
             path.fill()
-            if n.id == selected { NSColor.labelColor.setStroke(); path.lineWidth = 3; path.stroke() }
+            // A main character has a thick border. The chosen node has a ring of the accent colour round it, so that it shows on any colour (and on a main
+            // character's thick border).
+            if n.id == selected {
+                NSColor.labelColor.setStroke(); path.lineWidth = n.isMain ? 4 : 3; path.stroke()
+                let ring = shape(n.kind, at: c, grow: n.isMain ? 7 : 6)
+                NSColor.controlAccentColor.setStroke(); ring.lineWidth = 2.5; ring.stroke()
+            } else if n.isMain { NSColor.labelColor.withAlphaComponent(lit ? 0.95 : 0.25).setStroke(); path.lineWidth = 4; path.stroke() }
             else if pinned.contains(n.id) { NSColor.labelColor.withAlphaComponent(lit ? 0.7 : 0.2).setStroke(); path.lineWidth = 1.5; path.stroke() }
             let title = n.title.count > 24 ? String(n.title.prefix(23)) + "…" : n.title
             let text = NSAttributedString(string: title, attributes: [.font: labelFont, .foregroundColor: NSColor.labelColor.withAlphaComponent(lit ? 1 : 0.3), .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(lit ? 0.6 : 0)])

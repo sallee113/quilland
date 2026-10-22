@@ -61,6 +61,15 @@ struct BookGraphTests {
         #expect(hasAll(id["arrival"]!, "s1") && hasAll(id["anna"]!, "s1") && hasAll(id["manor"]!, "s1") && hasAll(id["lev"]!, "s2"), "an event's scene, a character's line, a place's line, a point of view")
     }
 
+    @Test("a character marked as a main one is marked in the graph, and only a character")
+    func mainCharacters() throws {
+        let f = try Self.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        try f.characters.update(f.ids["anna"]!) { $0.main = true }
+        let g = f.graph()
+        #expect(g.node(f.ids["anna"]!)?.isMain == true, "a main character")
+        #expect(g.nodes.filter(\.isMain).map(\.id) == [f.ids["anna"]!], "and no one else, nor any place or event")
+    }
+
     @Test("a relationship is one line between two characters, whatever order and however many are made")
     func relationships() throws {
         let f = try Self.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }

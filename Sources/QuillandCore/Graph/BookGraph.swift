@@ -9,6 +9,8 @@ public struct GraphNode: Equatable, Sendable {
     public var id: String
     public var kind: GraphKind
     public var title: String
+    /// A character marked as a main one (drawn with a thick border).
+    public var isMain = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
@@ -76,11 +78,11 @@ public enum GraphBuilder {
         let sceneTitles = Dictionary(structure.scenes.map { ($0.id, $0.node.title) }, uniquingKeysWith: { a, _ in a })
         var all: [String: GraphNode] = [:]
         var order: [String] = []
-        func add(_ id: String?, _ kind: GraphKind, _ title: String?) {
+        func add(_ id: String?, _ kind: GraphKind, _ title: String?, main: Bool = false) {
             guard let id, all[id] == nil else { return }
-            all[id] = GraphNode(id: id, kind: kind, title: title ?? ""); order.append(id)
+            all[id] = GraphNode(id: id, kind: kind, title: title ?? "", isMain: main); order.append(id)
         }
-        for c in characters.characters { add(c.id, .character, c.name) }
+        for c in characters.characters { add(c.id, .character, c.name, main: c.main) }
         for p in worlds.entries { add(p.id, .place, p.name) }
         for e in events.events { add(e.id, .event, e.title) }
         for s in structure.scenes { add(s.id, .scene, sceneTitles[s.id]) }
