@@ -105,6 +105,8 @@ public struct GraphViewMemory: Equatable, Sendable {
     /// Draw the relationships that have ended, and keep only the events that change something.
     public var showEnded = true
     public var changesOnly = false
+    /// The scene the graph is as of (nil: the whole book).
+    public var asOf: String?
     public var section: String?
     public var focus: String?
     public var depth = 1
@@ -121,6 +123,7 @@ public struct GraphViewMemory: Equatable, Sendable {
         showUnlinked = o.bool("show_unlinked") ?? true
         showEnded = o.bool("show_ended") ?? true
         changesOnly = o.bool("changes_only") ?? false
+        asOf = o.string("as_of")
         section = o.string("section")
         focus = o.string("focus")
         depth = o.int("depth") ?? 1
@@ -134,6 +137,7 @@ public struct GraphViewMemory: Equatable, Sendable {
         o.setStrings("kinds", kinds)
         o.setString("section", section)
         o.setString("focus", focus)
+        o.setString("as_of", asOf)
         if let zoom { o["zoom"] = .string(String(format: "%.3f", zoom)) }
         if let centerX, let centerY { o["center_x"] = .int(Int(centerX.rounded())); o["center_y"] = .int(Int(centerY.rounded())) }
         return o

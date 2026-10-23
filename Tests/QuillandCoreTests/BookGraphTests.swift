@@ -233,6 +233,36 @@ struct BookGraphChangeTests {
         #expect(!hidden.edges.contains { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([id["anna"]!, id["vera"]!]) } && hidden.edges.contains { $0.kind == .relationship }, "with the switch off the ended one is not drawn, the others are")
     }
 
+    @Test("as of a scene: what has not come yet is flagged and kept in place; relationships are as they were; a main character is one by then")
+    func asOf() throws {
+        let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }
+        let id = c.f.ids
+        // Вера is met only at the departure; Лев and Вера become neighbours there.
+        let neighbours = try c.f.relationships.add(characters: [id["lev"]!, id["vera"]!], kind: "соседи")
+        try c.f.events.update(id["departure"]!) { var m = $0.relationships; m[neighbours] = "starts"; $0.relationships = m; var l = $0.characters; l[id["vera"]!] = ""; $0.characters = l }
+        func graph(_ scene: String?, showEnded: Bool = true) -> BookGraph { var o = GraphOptions(); o.asOf = scene; o.showEnded = showEnded; return c.f.graph(o) }
+        func pair(_ g: BookGraph, _ a: String, _ b: String) -> GraphEdge? { g.edges.first { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([a, b]) } }
+
+        let whole = graph(nil)
+        #expect(whole.nodes.allSatisfy { !$0.notYet } && whole.edges.allSatisfy { !$0.notYet && !$0.hidden } && whole.node(id["anna"]!)?.isMain == false, "no point: the book as it is, the base cards")
+        let first = graph("s1")
+        #expect(first.node(id["departure"]!)?.notYet == true && first.node(id["arrival"]!)?.notYet == false, "an event after the point has not come")
+        #expect(first.node(id["vera"]!)?.notYet == true && first.node(id["anna"]!)?.notYet == false && first.node(id["port"]!)?.notYet == true && first.node(id["manor"]!)?.notYet == false, "nor a character or a place that is met later")
+        #expect(first.node(id["anna"]!)?.isMain == true, "a main character by the events up to the point (the arrival makes Анна one)")
+        let friends = pair(first, id["anna"]!, id["vera"]!)
+        #expect(friends?.ended == false && friends?.hidden == false && friends?.label == "подруги", "friends have not ended yet")
+        #expect(pair(first, id["anna"]!, id["lev"]!)?.label == "сёстры, соперники", "the sisters have not become enemies yet")
+        let neighbour = pair(first, id["lev"]!, id["vera"]!)
+        #expect(neighbour != nil && neighbour?.notYet == true && neighbour?.hidden == true && neighbour?.label == "", "a relationship that starts later is there (so that the layout does not move) but not drawn")
+        let second = graph("s2")
+        #expect(pair(second, id["anna"]!, id["vera"]!)?.ended == true && pair(second, id["anna"]!, id["lev"]!)?.label == "сёстры → враги, соперники", "later: friends have ended, the sisters have become enemies")
+        #expect(pair(second, id["lev"]!, id["vera"]!)?.notYet == false && second.node(id["departure"]!)?.notYet == false && second.node(id["vera"]!)?.notYet == false)
+        #expect(first.nodes.map(\.id) == whole.nodes.map(\.id) && first.edges.map { $0.a + $0.b } == whole.edges.map { $0.a + $0.b }, "the same nodes and lines at every point")
+        let hiddenEnded = graph("s2", showEnded: false)
+        #expect(pair(hiddenEnded, id["anna"]!, id["vera"]!)?.hidden == true && pair(graph(nil, showEnded: false), id["anna"]!, id["vera"]!) == nil, "with the ended ones off they are hidden as of a point (kept for the layout), and removed with no point")
+        #expect(graph("no-such-scene").nodes.allSatisfy { !$0.notYet }, "a scene that is gone is no point")
+    }
+
     @Test("Changes only keeps the events that change something, what they change and the relationships that turn")
     func changesOnly() throws {
         let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }

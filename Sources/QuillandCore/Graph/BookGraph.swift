@@ -35,6 +35,8 @@ public struct GraphNode: Equatable, Sendable {
     public var changes: [GraphChange] = []
     /// A card's colour on the plan (its name: `teal`, `pink`…; nil is the plan's default).
     public var color: String?
+    /// As of a point in the book: it has not come yet (an event after the point, a character or place not met yet, a scene after it). Drawn faded.
+    public var notYet = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
@@ -53,6 +55,10 @@ public struct GraphEdge: Equatable, Sendable {
     public var ended = false
     /// For a relationship line: the relationships it stands for.
     public var periods: [GraphPeriod] = []
+    /// As of a point in the book: no relationship between the pair has started yet.
+    public var notYet = false
+    /// Not drawn (it is there only to keep the layout where it was): a relationship not started yet, or ended with the ended ones switched off, as of a point.
+    public var hidden = false
     /// The relationship changes its kind, ends, or starts at an event after the start of the book.
     public var turns: Bool { periods.contains { $0.kinds.count > 1 || $0.to != nil || $0.from != nil } }
 }
@@ -78,6 +84,9 @@ public struct GraphOptions: Equatable, Sendable {
     public var showEnded = true
     /// Keep only the events that change something, with what they change: the turning points of the story.
     public var changesOnly = false
+    /// A scene: the book as it is after it (relationships started, changed or ended by then, who has been met, who is a main character). The nodes and lines are all kept, so that
+    /// the layout does not move; what is not there yet is flagged. nil: the whole book.
+    public var asOf: String?
 
     public init() {}
 }
@@ -93,7 +102,7 @@ public struct BookGraph: Equatable, Sendable {
     /// The ids of the nodes joined to `id` by a line.
     public func neighbours(of id: String) -> Set<String> {
         var out = Set<String>()
-        for e in edges { if e.a == id { out.insert(e.b) } else if e.b == id { out.insert(e.a) } }
+        for e in edges where !e.hidden { if e.a == id { out.insert(e.b) } else if e.b == id { out.insert(e.a) } }
         return out
     }
 
@@ -141,6 +150,11 @@ public enum GraphBuilder {
         for c in characters.characters { add(c.id, .character, c.name, main: c.main) }
         for p in worlds.entries { add(p.id, .place, p.name) }
         let sceneOrder = structure.scenes.map(\.id)
+        let scenePos = Dictionary(sceneOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        let point: Int? = options.asOf.flatMap { scenePos[$0] }
+        func eventPos(_ e: EventRecord) -> Int? { e.start ? -1 : e.links.keys.compactMap { scenePos[$0] }.min() }
+        func applies(_ e: EventRecord) -> Bool { guard let p = point else { return true }; return eventPos(e).map { $0 <= p } ?? false }
+        func appliesEvent(_ id: String?) -> Bool { id.flatMap { events.event($0) }.map(applies) ?? false }
         let timeline = RelationshipTimeline(events: events, sceneOrder: sceneOrder)
         func fields(_ e: EventRecord, _ target: String) -> GraphChange? { change(of: e, target: target, characters: characters, worlds: worlds, relationships: relationships) }
         for e in events.events {
@@ -152,9 +166,11 @@ public enum GraphBuilder {
         for id in (plan?.cards.keys.sorted() ?? []) { if let card = plan?.cards[id], all[id] == nil { all[id] = GraphNode(id: id, kind: .card, title: card.title ?? "", color: card.color); order.append(id) } }
 
         var edges: [GraphEdge] = []
-        func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = []) {
+        func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = [], notYet: Bool = false) {
             guard all[a] != nil, all[b] != nil, a != b else { return }
-            edges.append(GraphEdge(a: a, b: b, kind: kind, label: label, weight: weight, changes: changes, ended: ended, periods: periods))
+            var edge = GraphEdge(a: a, b: b, kind: kind, label: label, weight: weight, changes: changes, ended: ended, periods: periods)
+            edge.notYet = notYet; edge.hidden = notYet || (point != nil && ended && !options.showEnded)
+            edges.append(edge)
         }
         var eventsOf: [String: Set<String>] = [:]
         for c in characters.characters {
@@ -177,21 +193,24 @@ public enum GraphBuilder {
         // A card is joined to the events that realise it.
         if let plan { for id in plan.cards.keys.sorted() { for event in plan.realisedBy(id) { link(id, event, .realises) } } }
         // Relationships: one line for each pair of characters; the kinds of the relationships between the same two are put together.
-        var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod])] = [:]
+        var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod], started: Bool)] = [:]
         var pairOrder: [String] = []
         for r in relationships.relationships {
             let members = Array(NSOrderedSet(array: r.characters)) as? [String] ?? r.characters
             for i in 0..<members.count { for j in (i + 1)..<max(members.count, i + 1) {
                 let (a, b) = members[i] < members[j] ? (members[i], members[j]) : (members[j], members[i])
                 let key = a + "|" + b
-                if pairs[key] == nil { pairs[key] = (a, b, [], []); pairOrder.append(key) }
+                if pairs[key] == nil { pairs[key] = (a, b, [], [], point == nil); pairOrder.append(key) }
                 // Its kinds in the order of the book ("friends → enemies"), and where it starts and ends.
                 let marks = r.id.map { timeline.marks(of: $0) }
+                // (As of a point, a relationship that has not started is left out of what the line says.)
+                if point != nil, let start = marks?.start, events.startEvent?.id != start, !appliesEvent(start) { continue }
+                pairs[key]!.started = true
                 var kinds = [r.kind ?? ""]
-                for ev in marks?.changes ?? [] { if let k = events.event(ev)?.effect(of: r.id ?? "").string(EffectField.kind.rawValue), k != kinds.last { kinds.append(k) } }
+                for ev in marks?.changes ?? [] where appliesEvent(ev) { if let k = events.event(ev)?.effect(of: r.id ?? "").string(EffectField.kind.rawValue), k != kinds.last { kinds.append(k) } }
                 func title(_ id: String?) -> String? { id.flatMap { events.event($0) }.map { $0.title ?? "" } }
                 let from = marks?.start.flatMap { events.startEvent?.id == $0 ? nil : title($0) }
-                let period = GraphPeriod(kinds: kinds, from: from, to: title(marks?.end))
+                let period = GraphPeriod(kinds: kinds, from: from, to: appliesEvent(marks?.end) ? title(marks?.end) : nil)
                 let label = kinds.filter { !$0.isEmpty }.joined(separator: " → ")
                 if !label.isEmpty, !pairs[key]!.labels.contains(label) { pairs[key]!.labels.append(label) }
                 pairs[key]!.periods.append(period)
@@ -200,9 +219,9 @@ public enum GraphBuilder {
         for key in pairOrder {
             let p = pairs[key]!
             let shared = (eventsOf[p.a] ?? []).intersection(eventsOf[p.b] ?? []).count
-            link(p.a, p.b, .relationship, label: p.labels.joined(separator: ", "), weight: 1 + shared, ended: p.periods.allSatisfy { $0.to != nil }, periods: p.periods)
+            link(p.a, p.b, .relationship, label: p.labels.joined(separator: ", "), weight: 1 + shared, ended: p.started && p.periods.allSatisfy { $0.to != nil }, periods: p.periods, notYet: !p.started)
         }
-        if !options.showEnded { edges.removeAll { $0.kind == .relationship && $0.ended } }
+        if !options.showEnded, point == nil { edges.removeAll { $0.kind == .relationship && $0.ended } }
 
         // Only the turning points: the events that change something, what they change, and the relationships that turn.
         var keep: Set<String>?
@@ -223,6 +242,33 @@ public enum GraphBuilder {
                 }
             }
             keep = kept
+        }
+
+        // As of a point: what has not come yet is flagged, and a character is a main one as the events up to the point say.
+        if let point {
+            var first: [String: Int] = [:]
+            func see(_ id: String?, _ pos: Int?) { guard let id, let pos else { return }; first[id] = min(first[id] ?? Int.max, pos) }
+            for c in characters.characters { for k in c.links.keys { see(c.id, scenePos[k]) }; for k in c.povScenes { see(c.id, scenePos[k]) } }
+            for p in worlds.entries { for k in p.links.keys { see(p.id, scenePos[k]) } }
+            for e in events.events {
+                let pos = eventPos(e)
+                for cid in e.characters.keys { see(cid, pos) }
+                for pid in e.places.keys { see(pid, pos) }
+                see(e.id, pos)
+            }
+            for (scene, i) in scenePos { see(scene, i) }
+            var mainNow: [String: Bool] = [:]
+            for e in events.ordered(sceneOrder: sceneOrder) where applies(e) { for c in characters.characters { if let id = c.id, let flag = e.effectFlag(of: id) { mainNow[id] = flag } } }
+            for id in order {
+                guard var n = all[id] else { continue }
+                switch n.kind {
+                case .event: n.notYet = events.event(id).map { !applies($0) } ?? false
+                case .character, .place, .scene: n.notYet = first[id].map { $0 > point } ?? false
+                case .card: break
+                }
+                if n.kind == .character, let flag = mainNow[id] { n.isMain = flag }
+                all[id] = n
+            }
         }
 
         // What is shown.

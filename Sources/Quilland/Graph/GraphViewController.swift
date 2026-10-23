@@ -9,6 +9,8 @@ struct GraphViewState {
     var showUnlinked = true
     var showEnded = true
     var changesOnly = false
+    /// The scene the graph is as of (nil: the whole book).
+    var asOf: String?
     var section: String?
     var focus: String?
     var depth = 1
@@ -23,7 +25,7 @@ struct GraphViewState {
         look = [Look.whole, .social, .neighbourhood].first { ["whole", "social", "neighbourhood"][$0.rawValue] == m.look } ?? .whole
         kinds = Set(m.kinds.compactMap(GraphKind.init(rawValue:)))
         showUnlinked = m.showUnlinked
-        showEnded = m.showEnded; changesOnly = m.changesOnly
+        showEnded = m.showEnded; changesOnly = m.changesOnly; asOf = m.asOf
         section = m.section; focus = m.focus; depth = max(1, min(3, m.depth))
         zoom = m.zoom
         if let x = m.centerX, let y = m.centerY { center = GraphPoint(x: x, y: y) }
@@ -34,7 +36,7 @@ struct GraphViewState {
         m.look = ["whole", "social", "neighbourhood"][look.rawValue]
         m.kinds = GraphKind.allCases.filter(kinds.contains).map(\.rawValue)
         m.showUnlinked = showUnlinked
-        m.showEnded = showEnded; m.changesOnly = changesOnly
+        m.showEnded = showEnded; m.changesOnly = changesOnly; m.asOf = asOf
         m.section = section; m.focus = focus; m.depth = depth
         m.zoom = zoom; m.centerX = center?.x; m.centerY = center?.y
         return m
@@ -74,6 +76,10 @@ final class GraphViewController: NSViewController {
     private let unlinkedBox = NSButton(checkboxWithTitle: L("Show unlinked"), target: nil, action: nil)
     private let endedBox = NSButton(checkboxWithTitle: L("Show ended relationships"), target: nil, action: nil)
     private let changesOnlyBox = NSButton(checkboxWithTitle: L("Changes only"), target: nil, action: nil)
+    private let asOfSlider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+    private let asOfBack = NSButton(title: "◀", target: nil, action: nil)
+    private let asOfForward = NSButton(title: "▶", target: nil, action: nil)
+    private let asOfLabel = NSTextField(labelWithString: "")
     private let sectionPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let zoomOutButton = NSButton(title: "−", target: nil, action: nil)
     private let zoomInButton = NSButton(title: "+", target: nil, action: nil)
@@ -124,7 +130,18 @@ final class GraphViewController: NSViewController {
 
         let row1 = NSStackView(views: [lookControl, NSTextField(labelWithString: L("Look at")), focusPopup, NSTextField(labelWithString: L("Steps")), depthControl, NSTextField(labelWithString: L("Section")), sectionPopup])
         let row2 = NSStackView(views: [kindBoxes[.character]!, kindBoxes[.place]!, kindBoxes[.event]!, kindBoxes[.scene]!, kindBoxes[.card]!, unlinkedBox, zoomOutButton, zoomInButton, fitButton, resetButton, note])
-        let row3 = NSStackView(views: [endedBox, changesOnlyBox])
+        asOfSlider.target = self; asOfSlider.action = #selector(asOfChanged(_:)); asOfSlider.isContinuous = true
+        asOfSlider.numberOfTickMarks = 0; asOfSlider.allowsTickMarkValuesOnly = true
+        asOfSlider.controlSize = .small
+        asOfSlider.toolTip = L("The book as it is after a scene: the relationships then, who has been met, who is a main character. The nodes stay where they are.")
+        asOfSlider.setAccessibilityLabel(L("As of"))
+        for (b, tip) in [(asOfBack, L("The scene before")), (asOfForward, L("The next scene"))] { b.target = self; b.action = #selector(asOfStep(_:)); b.bezelStyle = .rounded; b.controlSize = .small; b.toolTip = tip }
+        asOfBack.tag = -1; asOfForward.tag = 1
+        asOfLabel.font = .systemFont(ofSize: 11); asOfLabel.textColor = .secondaryLabelColor
+        asOfLabel.lineBreakMode = .byTruncatingTail
+        asOfSlider.widthAnchor.constraint(equalToConstant: 220).isActive = true
+        asOfLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
+        let row3 = NSStackView(views: [endedBox, changesOnlyBox, NSTextField(labelWithString: L("As of")), asOfBack, asOfSlider, asOfForward, asOfLabel])
         for r in [row1, row2, row3] { r.spacing = 10; r.alignment = .centerY }
         let bar = NSStackView(views: [row1, row2, row3])
         bar.orientation = .vertical; bar.alignment = .leading; bar.spacing = 6
@@ -169,6 +186,7 @@ final class GraphViewController: NSViewController {
         o.showUnlinked = state.showUnlinked
         o.showEnded = state.showEnded
         o.changesOnly = state.changesOnly
+        o.asOf = state.asOf
         switch state.look {
         case .whole: o.mode = .whole
         case .social: o.mode = .social
@@ -189,11 +207,15 @@ final class GraphViewController: NSViewController {
         // What was remembered may be gone (a deleted thing, a section that was removed).
         if let f = state.focus, characters.character(f) == nil, worlds.entry(f) == nil, events.event(f) == nil { state.focus = nil }
         if let sec = state.section, !sections().contains(where: { $0.id == sec }) { state.section = nil }
+        if let scene = state.asOf, !structure().scenes.contains(where: { $0.id == scene }) { state.asOf = nil }
         store.reload()
         graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: plan())
         let ids = Set(graph.nodes.map(\.id))
         let pinned = store.positions.filter { ids.contains($0.key) }
-        let placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned)
+        // (As of a point only flags change, not the nodes and lines: the layout is not made again, so that the picture stays still while the point moves.)
+        let key = graph.nodes.map(\.id).joined(separator: ",") + "|" + graph.edges.map { "\($0.a)-\($0.b)-\($0.kind.rawValue)-\($0.weight)" }.joined(separator: ",") + "|" + pinned.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.x),\($0.value.y)" }.joined(separator: ";")
+        let placed: [String: GraphPoint]
+        if key == lastLayoutKey, let kept = lastPlaced { placed = kept } else { placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned); lastLayoutKey = key; lastPlaced = placed }
         let xs = placed.values.map(\.x), ys = placed.values.map(\.y)
         let minX = xs.min() ?? 0, minY = ys.min() ?? 0, maxX = xs.max() ?? 0, maxY = ys.max() ?? 0
         offset = CGPoint(x: Self.margin - minX, y: Self.margin - minY)
@@ -211,6 +233,8 @@ final class GraphViewController: NSViewController {
     /// What is in view is forgotten, so that the next picture is fitted to the window (a setting changed, or the layout was made again).
     private func resetViewport() { state.zoom = nil; state.center = nil; fitted = false }
 
+    private var lastLayoutKey = ""
+    private var lastPlaced: [String: GraphPoint]?
     private var fitted = false
     /// A picture opens where the author left it, or fitted to the window when there is nothing to go back to.
     private func fitIfFirstTime(tries: Int = 0) {
@@ -326,7 +350,8 @@ final class GraphViewController: NSViewController {
         zoomInButton.isEnabled = scroll.magnification < scroll.maxMagnification - 0.001
         fitButton.isEnabled = !graph.nodes.isEmpty
         resetButton.isEnabled = !store.positions.isEmpty
-        note.stringValue = graph.nodes.isEmpty ? "" : Lp("{n} node", "{n} nodes", graph.nodes.count) + " · " + Lp("{n} link", "{n} links", graph.edges.count)
+        updateAsOfControls()
+        note.stringValue = graph.nodes.isEmpty ? "" : Lp("{n} node", "{n} nodes", graph.nodes.count) + " · " + Lp("{n} link", "{n} links", graph.edges.filter { !$0.hidden }.count)
         if graph.nodes.isEmpty {
             emptyLabel.stringValue = hood && (state.focus ?? "").isEmpty ? L("Choose a thing to look at") : L("Nothing to show with these settings")
         }
@@ -356,6 +381,34 @@ final class GraphViewController: NSViewController {
         resetViewport()
         reload()
     }
+
+    // MARK: As of a scene
+
+    private var asOfScenes: [(id: String, title: String)] { structure().scenes.map { ($0.id, $0.node.title) } }
+
+    private func updateAsOfControls() {
+        let scenes = asOfScenes
+        asOfSlider.maxValue = Double(max(1, scenes.count))
+        asOfSlider.isEnabled = !scenes.isEmpty
+        let index = state.asOf.flatMap { id in scenes.firstIndex { $0.id == id } }.map { $0 + 1 } ?? 0
+        asOfSlider.integerValue = index
+        asOfBack.isEnabled = index > 0
+        asOfForward.isEnabled = index < scenes.count
+        asOfLabel.stringValue = index == 0 ? L("Whole book") : L("after “{scene}”", ["scene": scenes[index - 1].title])
+    }
+
+    /// Puts the graph as of the scene with this number (0: the whole book). The view stays where it is, and so do the nodes.
+    private func setAsOf(index: Int) {
+        let scenes = asOfScenes
+        let i = max(0, min(scenes.count, index))
+        let wanted = i == 0 ? nil : scenes[i - 1].id
+        guard wanted != state.asOf else { updateAsOfControls(); return }
+        state.asOf = wanted
+        reload()
+    }
+
+    @objc private func asOfChanged(_ sender: NSSlider) { setAsOf(index: sender.integerValue) }
+    @objc private func asOfStep(_ sender: NSButton) { setAsOf(index: asOfSlider.integerValue + sender.tag) }
 
     @objc private func endedChanged() { state.showEnded = endedBox.state == .on; resetViewport(); reload() }
     @objc private func changesOnlyChanged() { state.changesOnly = changesOnlyBox.state == .on; resetViewport(); reload() }
@@ -463,6 +516,10 @@ final class GraphViewController: NSViewController {
     var emptyText: String? { emptyLabel.isHidden ? nil : emptyLabel.stringValue }
     func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); resetViewport(); reload() }
     func setKind(_ kind: GraphKind, _ on: Bool) { if on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }; syncControlsFromState(); resetViewport(); reload() }
+    func setAsOf(_ scene: String?) { state.asOf = scene; reload() }
+    var asOfText: String { asOfLabel.stringValue }
+    var asOfControls: (back: Bool, forward: Bool) { (asOfBack.isEnabled, asOfForward.isEnabled) }
+    func stepAsOf(_ by: Int) { setAsOf(index: asOfSlider.integerValue + by) }
     func setShowEnded(_ on: Bool) { state.showEnded = on; syncControlsFromState(); resetViewport(); reload() }
     func setChangesOnly(_ on: Bool) { state.changesOnly = on; syncControlsFromState(); resetViewport(); reload() }
     func setShowUnlinked(_ on: Bool) { state.showUnlinked = on; syncControlsFromState(); resetViewport(); reload() }

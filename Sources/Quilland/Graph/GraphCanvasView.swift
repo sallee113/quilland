@@ -87,10 +87,10 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
 
     override func draw(_ dirtyRect: NSRect) {
         let labelFont = NSFont.systemFont(ofSize: 11)
-        for e in graph.edges {
+        for e in graph.edges where !e.hidden {
             guard let a = points[e.a], let b = points[e.b] else { continue }
             if !dirtyRect.insetBy(dx: -40, dy: -40).intersects(NSRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y)).insetBy(dx: -1, dy: -1)) { continue }
-            let lit = selected == nil || e.a == selected || e.b == selected
+            let lit = (selected == nil || e.a == selected || e.b == selected) && byID[e.a]?.notYet != true && byID[e.b]?.notYet != true
             let path = NSBezierPath()
             path.move(to: a); path.line(to: b)
             path.lineWidth = min(1 + CGFloat(e.weight - 1) * 0.8, 5)
@@ -107,7 +107,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         }
         for n in graph.nodes {
             guard let c = points[n.id], dirtyRect.insetBy(dx: -120, dy: -40).contains(c) else { continue }
-            let lit = isLit(n.id)
+            let lit = isLit(n.id) && !n.notYet
             let path = shape(n.kind, at: c)
             // (An opaque ground first, so that the lines under a node do not show through it.)
             NSColor.textBackgroundColor.setFill()
@@ -164,7 +164,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             tipTexts.append(text); tipRects.append(rect)
             addToolTip(rect, owner: self, userData: UnsafeMutableRawPointer(bitPattern: tipTexts.count))
         }
-        for e in graph.edges {
+        for e in graph.edges where !e.hidden {
             guard let a = points[e.a], let b = points[e.b] else { continue }
             let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
             if !e.changes.isEmpty { add(NSRect(x: mid.x - 9, y: mid.y - 9, width: 18, height: 18), GraphTexts.summary(e.changes)) }
