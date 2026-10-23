@@ -64,6 +64,11 @@ struct ConsistencyTests {
         let got = CollectTests.Gathered()
         let summary = await ConsistencyJob.run(scenes: scenes, language: "ru", context: 8192, client: client, progress: { got.add($0) }, found: { found in got.add(found.map { _ in CollectedItem(kind: .characters, name: "f") }) })
         #expect(summary.scenesDone == 2 && summary.scenesTooShort == 1 && summary.found == 2 && summary.error == nil)
+        // The bar and the count are live here too: a report after each request, not only when a scene starts.
+        let steps = got.progress
+        let total = steps.first?.pieces ?? 0
+        #expect(total > 0 && steps.allSatisfy { $0.pieces == total } && steps.last?.piece == total && steps.map(\.piece) == steps.map(\.piece).sorted(), "the steps done grow to the total: \(steps.map { "\($0.piece)/\($0.pieces)" })")
+        #expect(steps.count > 2 && steps.map(\.found) == steps.map(\.found).sorted() && steps.last?.found == 2, "and the findings are counted as they come")
         let body = String(decoding: server.requests.first!.body, as: UTF8.self)
         #expect(body.contains("CONTRADICTIONS") && body.contains("[C1] Анна") && body.contains("Russian") && body.contains("no_think"))
         let last = String(decoding: server.requests.last!.body, as: UTF8.self)

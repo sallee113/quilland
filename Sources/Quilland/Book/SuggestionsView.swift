@@ -105,10 +105,11 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
         status.font = .systemFont(ofSize: 11, weight: running ? .semibold : .regular)
         status.textColor = running ? .systemOrange : .secondaryLabelColor
         bar.isHidden = !running
-        if let p = session.progress { bar.doubleValue = Double(p.scene - 1) / Double(max(1, p.of)) }
+        // The bar moves with every request the model is asked (the steps done out of all of them), not only from one scene to the next.
+        if let p = session.progress { bar.doubleValue = p.pieces > 0 ? Double(p.piece) / Double(p.pieces) : Double(p.scene - 1) / Double(max(1, p.of)) }
         if running {
             let p = session.progress
-            status.stringValue = p.map { L("Scene {n} of {total}: {title} · {found} found", ["n": $0.scene, "total": $0.of, "title": $0.title, "found": $0.found]) } ?? session.message
+            status.stringValue = p.map { q in L("Scene {n} of {total}: {title} · {found} found", ["n": q.scene, "total": q.of, "title": q.title, "found": q.found]) + (q.pieces > 1 ? " · " + L("part {piece} of {pieces}", ["piece": min(q.piece + 1, q.pieces), "pieces": q.pieces]) : "") } ?? session.message
         } else {
             status.stringValue = session.message.isEmpty ? (rows.isEmpty ? L("Nothing yet. Collect from the Book… asks the model to read the scenes, and Check Consistency… looks for contradictions.") : "") : session.message
         }
@@ -129,6 +130,9 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     }
 
     private var selectedRow: Row? { table.selectedRow >= 0 && table.selectedRow < rows.count ? rows[table.selectedRow] : nil }
+    /// For the checks: how far the bar is, and what the status line says.
+    var barFraction: Double { bar.doubleValue }
+    var statusText: String { status.stringValue }
     var itemCount: Int { session?.items.count ?? 0 }
     var findingCount: Int { session?.findings.count ?? 0 }
     var checkedCount: Int { session?.checked.count ?? 0 }

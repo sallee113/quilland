@@ -85,13 +85,21 @@ public enum CollectJob {
         let passes = CollectKind.Pass.allCases.filter { pass in request.kinds.contains { $0.pass == pass } }
         let knownBudget = max(600, min(3000, (request.context - 3500) / 4))
         let knownCards = CollectKnown(cards: request.cards)
+        // How many requests the run will make: for each scene it will read, its pieces times the passes (a pass left out of a piece still counts as a step done).
+        var totalSteps = 0
+        for scene in request.scenes {
+            if !request.reanalyse, request.analysed[scene.id] == fingerprint(scene.text, kinds: request.kinds) { continue }
+            if scene.text.trimmingCharacters(in: .whitespacesAndNewlines).count < minimumCharacters { continue }
+            totalSteps += CollectChunker.chunks(scene.text, maxCharacters: size).filter { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumCharacters / 2 }.count * max(1, passes.count)
+        }
+        var stepsDone = 0
         for (index, scene) in request.scenes.enumerated() {
             if Task.isCancelled { summary.stopped = true; break }
             let print = fingerprint(scene.text, kinds: request.kinds)
             if !request.reanalyse, request.analysed[scene.id] == print { summary.scenesSkipped += 1; continue }
             let prose = scene.text.trimmingCharacters(in: .whitespacesAndNewlines)
             if prose.count < minimumCharacters { summary.scenesTooShort += 1; continue }
-            progress(CollectProgress(scene: index + 1, of: request.scenes.count, title: scene.title, found: total))
+            progress(CollectProgress(scene: index + 1, of: request.scenes.count, title: scene.title, found: total, piece: stepsDone, pieces: totalSteps))
             var sceneFailed = false
             for piece in CollectChunker.chunks(scene.text, maxCharacters: size) {
                 if Task.isCancelled { summary.stopped = true; break }
@@ -99,6 +107,8 @@ public enum CollectJob {
                 var foundNames: [String] = []
                 var cast = false
                 for pass in passes {
+                    // (Each step, done or left out, moves the bar and tells how many findings there are by now.)
+                    defer { stepsDone += 1; progress(CollectProgress(scene: index + 1, of: request.scenes.count, title: scene.title, found: total, piece: min(stepsDone, totalSteps), pieces: totalSteps)) }
                     if Task.isCancelled { summary.stopped = true; break }
                     let kinds = request.kinds.filter { $0.pass == pass }
                     let known = pass == .story ? knownCards.text(in: piece.text, budget: knownBudget) : ""

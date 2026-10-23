@@ -177,7 +177,13 @@ struct CollectTests {
         let gathered = Gathered()
         let summary = await CollectJob.run(request, client: client, progress: { gathered.add($0) }, found: { gathered.add($0) })
         #expect(summary.scenesDone == 3 && summary.scenesTooShort == 1 && summary.failedPieces == 1 && !summary.stopped && summary.error == nil)
-        #expect(gathered.items.count == 2 && gathered.progress.map(\.scene) == [1, 2, 4], "scene two's answer was not JSON")
+        let scenesReported = gathered.progress.map(\.scene).reduce(into: [Int]()) { if $1 != $0.last { $0.append($1) } }
+        #expect(gathered.items.count == 2 && scenesReported == [1, 2, 4], "scene two's answer was not JSON: \(scenesReported)")
+        // The bar and the count are live: a report after every request, the steps done never going back, the findings counted as they come, and the last step is the total.
+        let steps = gathered.progress
+        #expect(steps.count == 3 + 3 && steps.allSatisfy { $0.pieces == 3 }, "each of the three scenes read reports when it starts and when its request is done: \(steps.map { "\($0.scene):\($0.piece)/\($0.pieces)" })")
+        #expect(steps.map(\.piece) == steps.map(\.piece).sorted() && steps.last?.piece == 3 && steps.map(\.found) == steps.map(\.found).sorted() && steps.last?.found == 2, "steps and findings only grow, ending at the true totals")
+        #expect(steps.first { $0.scene == 2 && $0.piece == 1 }?.found == 1, "the status line is told what was found so far, not what was found before the scene")
         #expect(Set(summary.analysed.keys) == ["one", "three"], "a scene whose answer failed is not remembered as read")
         // Again with the memory: the scenes read before are skipped; Re-analyse reads them all.
         var again = request
@@ -208,8 +214,9 @@ struct CollectTests {
         request.context = 8192
         request.cards = [CollectCard(name: "Анна", text: "Тихая девочка.")]
         let gathered = Gathered()
-        let summary = await CollectJob.run(request, client: client, progress: { _ in }, found: { gathered.add($0) })
+        let summary = await CollectJob.run(request, client: client, progress: { gathered.add($0) }, found: { gathered.add($0) })
         #expect(summary.scenesDone == 2 && summary.failedPieces == 0)
+        #expect(gathered.progress.allSatisfy { $0.pieces == 4 } && gathered.progress.last?.piece == 4, "four steps in all (two passes over two scenes), and the one left out for the rain still counts: \(gathered.progress.map { "\($0.piece)/\($0.pieces)" })")
         #expect(gathered.items.map(\.kind).sorted { $0.rawValue < $1.rawValue } == [.changes, .characters], "one scene gave a character and a change")
         let bodies = server.requests.map { String(decoding: $0.body, as: UTF8.self) }
         #expect(bodies.count == 3, "two requests for the scene with someone in it, one for the rain: \(bodies.count)")

@@ -68,6 +68,14 @@ extension AppSelfTest {
         check(main.characters.character(lev)?.notes.isEmpty == true, "a fact is not written into the notes")
         check(RelationshipTimeline(events: main.eventStore, sceneOrder: scenes.map(\.id)).broken(friends).isEmpty, "the order of the relationship is sound")
 
+        // The bar and the status line follow a run request by request (not only from scene to scene).
+        main.showSearch(.suggestions); spin(0.3)
+        let view = main.searchPanel.suggestView
+        main.collect.injectProgress(CollectProgress(scene: 1, of: 1, title: "Одна сцена", found: 7, piece: 2, pieces: 5)); spin(0.3)
+        check(abs(view.barFraction - 0.4) < 0.001, "the bar shows the steps done out of all of them, so it moves while the only scene is read", "\(view.barFraction)")
+        check(view.statusText.contains("Scene 1 of 1: Одна сцена") && view.statusText.contains("7 found") && view.statusText.contains("part 3 of 5"), "the status line says what has been found so far and which part is being read", view.statusText)
+        main.collect.injectProgress(nil); spin(0.2)
+
         // Clean up.
         main.searchPanel.onClose?(); spin(0.2)
         main.collect.clear()

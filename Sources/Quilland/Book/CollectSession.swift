@@ -116,6 +116,9 @@ final class CollectSession {
 
     func stop() { task?.cancel() }
 
+    /// For the checks: shows a run in progress (or none), as a run would.
+    func injectProgress(_ p: CollectProgress?) { running = p != nil; progress = p; onChange?() }
+
     /// For the checks: puts findings in the list as a run would.
     func inject(_ items: [CollectedItem]) { collected.merge(withFieldsOfCards(items)); onChange?() }
 

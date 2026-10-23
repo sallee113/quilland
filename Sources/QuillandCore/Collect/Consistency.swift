@@ -192,20 +192,33 @@ public enum ConsistencyJob {
         var summary = ConsistencySummary()
         let system = ConsistencyPrompt.system(language: language)
         let size = min(6000, max(1500, (context - 5000) * 2))
+        // How many requests the run will make (one for each card and one for the earlier scenes, for each piece of each scene it will read).
+        func groups(of scene: ConsistencyScene) -> [[ConsistencySource]] {
+            let cards = scene.sources.filter { $0.kind != .scene }.map { [$0] }
+            let earlier = scene.sources.filter { $0.kind == .scene }
+            return cards + (earlier.isEmpty ? [] : [earlier])
+        }
+        var totalSteps = 0
+        for scene in scenes {
+            let ns = scene.text as NSString
+            let text = ns.substring(with: scene.within ?? NSRange(location: 0, length: ns.length))
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).count < (scene.within == nil ? 80 : 15) { continue }
+            totalSteps += CollectChunker.chunks(text, maxCharacters: size).count * groups(of: scene).count
+        }
+        var stepsDone = 0
         for (index, scene) in scenes.enumerated() {
             if Task.isCancelled { summary.stopped = true; break }
             let ns = scene.text as NSString
             let base = scene.within ?? NSRange(location: 0, length: ns.length)
             let text = ns.substring(with: base)
             if text.trimmingCharacters(in: .whitespacesAndNewlines).count < (scene.within == nil ? 80 : 15) { summary.scenesTooShort += 1; continue }
-            progress(CollectProgress(scene: index + 1, of: scenes.count, title: scene.title, found: summary.found))
+            progress(CollectProgress(scene: index + 1, of: scenes.count, title: scene.title, found: summary.found, piece: stepsDone, pieces: totalSteps))
             // One request for each card, and one for what the earlier scenes say: a model checks a single source against a passage far more
             // carefully than ten at once.
-            let cards = scene.sources.filter { $0.kind != .scene }.map { [$0] }
-            let earlier = scene.sources.filter { $0.kind == .scene }
-            let groups = cards + (earlier.isEmpty ? [] : [earlier])
+            let groups = groups(of: scene)
             pieces: for piece in CollectChunker.chunks(text, maxCharacters: size) {
                 for group in groups {
+                    defer { stepsDone += 1; progress(CollectProgress(scene: index + 1, of: scenes.count, title: scene.title, found: summary.found, piece: min(stepsDone, totalSteps), pieces: totalSteps)) }
                     if Task.isCancelled { summary.stopped = true; break pieces }
                     let messages = [ChatMessage("system", system), ChatMessage("user", ConsistencyPrompt.user(passage: piece.text, sceneTitle: scene.title, sources: group))]
                     do {
