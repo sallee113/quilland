@@ -225,6 +225,10 @@
       "one": "{n} too short",
       "other": "{n} too short"
     },
+    "{n} warnings": {
+      "one": "{n} warning",
+      "other": "{n} warnings"
+    },
     "{n} words": {
       "one": "{n} word",
       "other": "{n} words"
@@ -253,6 +257,8 @@
     "A book keeps at least one world.": "",
     "A book needs a title.": "",
     "A book with no remembered view opens in": "",
+    "A change in “{title}” comes after it ends.": "",
+    "A change in “{title}” comes before it starts.": "",
     "A character cannot be merged into itself.": "",
     "A character…": "",
     "A dash for “ - ” (with a non-breaking space before it) and for “--”": "",
@@ -280,6 +286,7 @@
     "A snapshot could not be taken: {error}": "",
     "A snapshot of the book as it is now is taken first, so this can be undone from this list.": "",
     "A snapshot of the book could not be taken, so nothing was changed.": "",
+    "A start, change or end of it is in an event with no scene.": "",
     "A word to accept — type it, press Return": "",
     "A world cannot be merged into itself.": "",
     "A {kind} cannot go into a {parent}.": "",
@@ -598,6 +605,8 @@
     "It cannot end there": "",
     "It cannot start here": "",
     "It cannot start there": "",
+    "It ends (in “{title}”) before it starts.": "",
+    "It ends in the event where it starts.": "",
     "It goes to the book's trash folder (.quilland/trash). The characters stay.": "",
     "It has no language code (\"code\": \"ru\").": "",
     "It has no name of the language (\"name\": \"Русский\").": "",
@@ -605,6 +614,7 @@
     "It is added after what the note already says.": "",
     "It is not loaded yet; LM Studio loads it when the first request comes.": "",
     "It is not valid JSON: {error}": "",
+    "It starts after it ends (in “{title}”).": "",
     "It starts here": "",
     "It starts in “{event}” now.": "",
     "It will appear in the AI menu under Actions. Nothing is attached when it runs.": "",

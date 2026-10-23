@@ -39,6 +39,8 @@ public struct GraphNode: Equatable, Sendable {
     public var notYet = false
     /// The plot lines (ids, in the order of the plan) it belongs to: an event, its line on the plan; a card, its line; a character or place, the lines of the events it is linked to.
     public var lines: [String] = []
+    /// An event that changes something but has no scene: it has no place in the book, so its changes do not apply (a warning).
+    public var doesNotApply = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
@@ -63,6 +65,8 @@ public struct GraphEdge: Equatable, Sendable {
     public var hidden = false
     /// For a line from or to an event: the plot line that event is on (nil: none).
     public var line: String?
+    /// For a relationship line: what is out of order in the relationships it stands for (an end before its start, a change after the end, a mark in an event with no scene).
+    public var problems: [RelationshipTimeline.Problem] = []
     /// The relationship changes its kind, ends, or starts at an event after the start of the book.
     public var turns: Bool { periods.contains { $0.kinds.count > 1 || $0.to != nil || $0.from != nil } }
 }
@@ -104,6 +108,9 @@ public struct BookGraph: Equatable, Sendable {
     public init(nodes: [GraphNode] = [], edges: [GraphEdge] = []) { self.nodes = nodes; self.edges = edges }
 
     public func node(_ id: String) -> GraphNode? { nodes.first { $0.id == id } }
+
+    /// How many things are marked with a warning (an event that does not apply, a relationship out of order).
+    public var warningCount: Int { nodes.filter(\.doesNotApply).count + edges.filter { !$0.problems.isEmpty && !$0.hidden }.count }
 
     /// The ids of the nodes joined to `id` by a line.
     public func neighbours(of id: String) -> Set<String> {
@@ -166,15 +173,18 @@ public enum GraphBuilder {
         for e in events.events {
             let changes = changes(of: e, characters: characters, worlds: worlds, relationships: relationships)
             guard let id = e.id, all[id] == nil else { continue }
-            all[id] = GraphNode(id: id, kind: .event, title: e.title ?? "", changes: changes); order.append(id)
+            var node = GraphNode(id: id, kind: .event, title: e.title ?? "", changes: changes)
+            node.doesNotApply = e.changesSomething && !e.start && timeline.order(of: id) == nil
+            all[id] = node; order.append(id)
         }
         for s in structure.scenes { add(s.id, .scene, sceneTitles[s.id]) }
         for id in (plan?.cards.keys.sorted() ?? []) { if let card = plan?.cards[id], all[id] == nil { all[id] = GraphNode(id: id, kind: .card, title: card.title ?? "", color: card.color); order.append(id) } }
 
         var edges: [GraphEdge] = []
-        func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = [], notYet: Bool = false) {
+        func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = [], notYet: Bool = false, problems: [RelationshipTimeline.Problem] = []) {
             guard all[a] != nil, all[b] != nil, a != b else { return }
             var edge = GraphEdge(a: a, b: b, kind: kind, label: label, weight: weight, changes: changes, ended: ended, periods: periods)
+            edge.problems = problems
             edge.notYet = notYet; edge.hidden = notYet || (point != nil && ended && !options.showEnded)
             edges.append(edge)
         }
@@ -199,14 +209,15 @@ public enum GraphBuilder {
         // A card is joined to the events that realise it.
         if let plan { for id in plan.cards.keys.sorted() { for event in plan.realisedBy(id) { link(id, event, .realises) } } }
         // Relationships: one line for each pair of characters; the kinds of the relationships between the same two are put together.
-        var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod], started: Bool)] = [:]
+        var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod], started: Bool, problems: [RelationshipTimeline.Problem])] = [:]
         var pairOrder: [String] = []
         for r in relationships.relationships {
             let members = Array(NSOrderedSet(array: r.characters)) as? [String] ?? r.characters
             for i in 0..<members.count { for j in (i + 1)..<max(members.count, i + 1) {
                 let (a, b) = members[i] < members[j] ? (members[i], members[j]) : (members[j], members[i])
                 let key = a + "|" + b
-                if pairs[key] == nil { pairs[key] = (a, b, [], [], point == nil); pairOrder.append(key) }
+                if pairs[key] == nil { pairs[key] = (a, b, [], [], point == nil, []); pairOrder.append(key) }
+                for p in r.id.map({ timeline.broken($0) }) ?? [] where !pairs[key]!.problems.contains(p) { pairs[key]!.problems.append(p) }
                 // Its kinds in the order of the book ("friends → enemies"), and where it starts and ends.
                 let marks = r.id.map { timeline.marks(of: $0) }
                 // (As of a point, a relationship that has not started is left out of what the line says.)
@@ -225,7 +236,7 @@ public enum GraphBuilder {
         for key in pairOrder {
             let p = pairs[key]!
             let shared = (eventsOf[p.a] ?? []).intersection(eventsOf[p.b] ?? []).count
-            link(p.a, p.b, .relationship, label: p.labels.joined(separator: ", "), weight: 1 + shared, ended: p.started && p.periods.allSatisfy { $0.to != nil }, periods: p.periods, notYet: !p.started)
+            link(p.a, p.b, .relationship, label: p.labels.joined(separator: ", "), weight: 1 + shared, ended: p.started && p.periods.allSatisfy { $0.to != nil }, periods: p.periods, notYet: !p.started, problems: p.problems)
         }
         // The plot lines (of the plan): each event is on at most one; a character or place is on those of its events.
         let laneIDs = plan?.lines.compactMap(\.id) ?? []

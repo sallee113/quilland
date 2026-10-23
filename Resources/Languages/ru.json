@@ -340,6 +340,12 @@
       "one": "{n} слишком короткая",
       "other": "{n} слишком короткие"
     },
+    "{n} warnings": {
+      "few": "{n} предупреждения",
+      "many": "{n} предупреждений",
+      "one": "{n} предупреждение",
+      "other": "{n} предупреждения"
+    },
     "{n} words": {
       "few": "{n} слова",
       "many": "{n} слов",
@@ -372,6 +378,8 @@
     "A book keeps at least one world.": "В книге всегда остаётся хотя бы один мир.",
     "A book needs a title.": "У книги должно быть название.",
     "A book with no remembered view opens in": "Книга, для которой не запомнен вид, открывается в режиме",
+    "A change in “{title}” comes after it ends.": "Изменение в «{title}» идёт после её конца.",
+    "A change in “{title}” comes before it starts.": "Изменение в «{title}» идёт раньше её начала.",
     "A character cannot be merged into itself.": "Персонаж не может быть объединён сам с собой.",
     "A character…": "Персонаж…",
     "A dash for “ - ” (with a non-breaking space before it) and for “--”": "Тире вместо « - » (с неразрывным пробелом перед ним) и вместо «--»",
@@ -399,6 +407,7 @@
     "A snapshot could not be taken: {error}": "Не удалось сделать снимок: {error}",
     "A snapshot of the book as it is now is taken first, so this can be undone from this list.": "Сначала делается снимок книги в её нынешнем виде, поэтому это можно будет отменить из этого списка.",
     "A snapshot of the book could not be taken, so nothing was changed.": "Снимок книги сделать не удалось, поэтому ничего не изменено.",
+    "A start, change or end of it is in an event with no scene.": "Начало, изменение или конец её отмечены в событии без сцены.",
     "A word to accept — type it, press Return": "Слово, которое нужно принимать, — введите его и нажмите Return",
     "A world cannot be merged into itself.": "Мир нельзя объединить с самим собой.",
     "A {kind} cannot go into a {parent}.": "{kind} нельзя поместить в {parent}.",
@@ -717,6 +726,8 @@
     "It cannot end there": "Там она не может закончиться",
     "It cannot start here": "Здесь она не может начаться",
     "It cannot start there": "Там она не может начаться",
+    "It ends (in “{title}”) before it starts.": "Она заканчивается (в «{title}») раньше, чем начинается.",
+    "It ends in the event where it starts.": "Она заканчивается в том же событии, где начинается.",
     "It goes to the book's trash folder (.quilland/trash). The characters stay.": "Они попадут в папку корзины книги (.quilland/trash). Персонажи останутся.",
     "It has no language code (\"code\": \"ru\").": "В нём нет кода языка (\"code\": \"ru\").",
     "It has no name of the language (\"name\": \"Русский\").": "В нём нет названия языка (\"name\": \"Русский\").",
@@ -724,6 +735,7 @@
     "It is added after what the note already says.": "Оно добавляется после того, что в заметке уже есть.",
     "It is not loaded yet; LM Studio loads it when the first request comes.": "Она ещё не загружена; LM Studio загрузит её при первом запросе.",
     "It is not valid JSON: {error}": "Это не корректный JSON: {error}",
+    "It starts after it ends (in “{title}”).": "Она начинается после своего конца (в «{title}»).",
     "It starts here": "Она начинается здесь",
     "It starts in “{event}” now.": "Сейчас она начинается в событии «{event}».",
     "It will appear in the AI menu under Actions. Nothing is attached when it runs.": "Он появится в меню «ИИ» в разделе «Действия». При запуске ничего не прикрепляется.",

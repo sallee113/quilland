@@ -373,7 +373,7 @@ final class GraphViewController: NSViewController {
         fitButton.isEnabled = !graph.nodes.isEmpty
         resetButton.isEnabled = !store.positions.isEmpty
         updateAsOfControls()
-        note.stringValue = graph.nodes.isEmpty ? "" : Lp("{n} node", "{n} nodes", graph.nodes.count) + " · " + Lp("{n} link", "{n} links", graph.edges.filter { !$0.hidden }.count)
+        note.stringValue = graph.nodes.isEmpty ? "" : Lp("{n} node", "{n} nodes", graph.nodes.count) + " · " + Lp("{n} link", "{n} links", graph.edges.filter { !$0.hidden }.count) + (graph.warningCount > 0 ? " · ⚠ " + Lp("{n} warning", "{n} warnings", graph.warningCount) : "")
         if graph.nodes.isEmpty {
             emptyLabel.stringValue = hood && (state.focus ?? "").isEmpty ? L("Choose a thing to look at") : L("Nothing to show with these settings")
         }

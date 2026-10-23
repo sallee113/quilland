@@ -233,6 +233,28 @@ struct BookGraphChangeTests {
         #expect(!hidden.edges.contains { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([id["anna"]!, id["vera"]!]) } && hidden.edges.contains { $0.kind == .relationship }, "with the switch off the ended one is not drawn, the others are")
     }
 
+    @Test("warnings: a relationship out of order, and an event that changes something but has no scene")
+    func warnings() throws {
+        let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }
+        let id = c.f.ids
+        let g0 = c.f.graph()
+        #expect(g0.warningCount == 0 && g0.edges.allSatisfy { $0.problems.isEmpty } && g0.nodes.allSatisfy { !$0.doesNotApply }, "a sound book has none")
+        // Лев and Вера are neighbours from the departure (second scene) to the arrival (first): the end comes before the start.
+        let neighbours = try c.f.relationships.add(characters: [id["lev"]!, id["vera"]!], kind: "соседи")
+        try c.f.events.update(id["departure"]!) { var m = $0.relationships; m[neighbours] = "starts"; $0.relationships = m }
+        try c.f.events.update(id["arrival"]!) { var m = $0.relationships; m[neighbours] = "ends"; $0.relationships = m }
+        // An event with no scene that changes a card.
+        let loose = try c.f.events.add(title: "Без сцены")
+        try c.f.events.update(loose) { $0.setEffect(.profile, of: id["anna"]!, text: "Где-то.") }
+        let quiet = try c.f.events.add(title: "Тихое без сцены")
+        let g = c.f.graph()
+        let edge = g.edges.first { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([id["lev"]!, id["vera"]!]) }
+        #expect(edge?.problems == [.endsBeforeStart(eventTitle: "Приезд")], "the neighbours end before they start: \(String(describing: edge?.problems))")
+        #expect(g.edges.filter { $0.kind == .relationship && !$0.problems.isEmpty }.count == 1, "no other line is marked")
+        #expect(g.node(loose)?.doesNotApply == true && g.node(quiet)?.doesNotApply == false && g.node(id["arrival"]!)?.doesNotApply == false, "an event with changes and no scene does not apply; one that changes nothing, or has a scene, is fine")
+        #expect(g.warningCount == 2)
+    }
+
     @Test("as of a scene: what has not come yet is flagged and kept in place; relationships are as they were; a main character is one by then")
     func asOf() throws {
         let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }

@@ -115,6 +115,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             ((colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
             path.stroke()
             if !e.changes.isEmpty { drawDelta(at: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), lit: lit) }
+            if !e.problems.isEmpty { drawWarning(at: warningPoint(e, a, b), lit: lit) }
             if e.kind == .relationship, !e.label.isEmpty, lit {
                 let text = NSAttributedString(string: e.label, attributes: [.font: labelFont, .foregroundColor: NSColor.systemPurple, .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(0.85)])
                 let size = text.size()
@@ -139,6 +140,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             } else if n.isMain { NSColor.labelColor.withAlphaComponent(lit ? 0.95 : 0.25).setStroke(); path.lineWidth = 4; path.stroke() }
             else if pinned.contains(n.id) { NSColor.labelColor.withAlphaComponent(lit ? 0.7 : 0.2).setStroke(); path.lineWidth = 1.5; path.stroke() }
             if !n.changes.isEmpty { drawDeltaOnNode(at: c, lit: lit) }
+            if n.doesNotApply { drawWarning(at: CGPoint(x: c.x + Self.radius(n.kind) + 2, y: c.y - Self.radius(n.kind) - 2), lit: lit) }
             let dots = dotLines(of: n)
             for (i, line) in dots.prefix(8).enumerated() {
                 // Small dots in the colours of the lines, along the upper edge (the name is below).
@@ -167,6 +169,18 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         t.draw(at: CGPoint(x: p.x - s.width / 2, y: p.y - s.height / 2))
     }
 
+    /// A small warning triangle (an event that does not apply, a relationship out of order).
+    private func drawWarning(at p: CGPoint, lit: Bool) {
+        let t = NSBezierPath()
+        t.move(to: CGPoint(x: p.x, y: p.y - 7)); t.line(to: CGPoint(x: p.x + 7, y: p.y + 5)); t.line(to: CGPoint(x: p.x - 7, y: p.y + 5)); t.close()
+        NSColor.systemRed.withAlphaComponent(lit ? 1 : 0.3).setFill(); t.fill()
+        let mark = NSAttributedString(string: "!", attributes: [.font: NSFont.systemFont(ofSize: 9, weight: .heavy), .foregroundColor: NSColor.white.withAlphaComponent(lit ? 1 : 0.5)])
+        let s = mark.size()
+        mark.draw(at: CGPoint(x: p.x - s.width / 2, y: p.y - s.height / 2 + 1))
+    }
+
+    private func warningPoint(_ e: GraphEdge, _ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2 + 16, y: (a.y + b.y) / 2 - 14) }
+
     /// The Δ in the middle of an event's diamond.
     private func drawDeltaOnNode(at c: CGPoint, lit: Bool) {
         let t = NSAttributedString(string: "Δ", attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .heavy), .foregroundColor: NSColor.black.withAlphaComponent(lit ? 0.75 : 0.2)])
@@ -192,6 +206,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         for e in graph.edges where !e.hidden {
             guard let a = points[e.a], let b = points[e.b] else { continue }
             let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+            if !e.problems.isEmpty { let w = warningPoint(e, a, b); add(NSRect(x: w.x - 9, y: w.y - 9, width: 18, height: 18), GraphTexts.eventWarningLines(e.problems)) }
             if !e.changes.isEmpty { add(NSRect(x: mid.x - 9, y: mid.y - 9, width: 18, height: 18), GraphTexts.summary(e.changes)) }
             else if e.kind == .relationship { add(NSRect(x: mid.x - 40, y: mid.y - 10, width: 80, height: 20), GraphTexts.periods(e.periods)) }
         }
@@ -199,6 +214,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             guard let c = points[n.id] else { continue }
             var parts: [String] = []
             if !n.changes.isEmpty { parts.append(GraphTexts.summary(n.changes)) }
+            if n.doesNotApply { parts.append("⚠ " + GraphTexts.eventWarning) }
             if colourByLine, !n.lines.isEmpty, n.kind != .scene { parts.append(L("Plot lines: {names}", ["names": n.lines.map { lineStyles[$0]?.name ?? "" }.joined(separator: ", ")])) }
             guard !parts.isEmpty else { continue }
             let r = Self.radius(n.kind) + 4

@@ -228,6 +228,10 @@
       "one": "{n} trop court",
       "other": "{n} trop courts"
     },
+    "{n} warnings": {
+      "one": "{n} avertissement",
+      "other": "{n} avertissements"
+    },
     "{n} words": {
       "one": "{n} mot",
       "other": "{n} mots"
@@ -256,6 +260,8 @@
     "A book keeps at least one world.": "Un livre garde au moins un monde.",
     "A book needs a title.": "Un livre a besoin d’un titre.",
     "A book with no remembered view opens in": "Un livre sans vue mémorisée s’ouvre en",
+    "A change in “{title}” comes after it ends.": "Une modification dans « {title} » vient après sa fin.",
+    "A change in “{title}” comes before it starts.": "Une modification dans « {title} » vient avant son début.",
     "A character cannot be merged into itself.": "Un personnage ne peut pas être fusionné avec lui-même.",
     "A character…": "Un personnage…",
     "A dash for “ - ” (with a non-breaking space before it) and for “--”": "Un tiret pour « - » (avec une espace insécable avant) et pour « -- »",
@@ -283,6 +289,7 @@
     "A snapshot could not be taken: {error}": "Impossible de prendre un instantané : {error}",
     "A snapshot of the book as it is now is taken first, so this can be undone from this list.": "Un instantané du livre dans son état actuel est pris d’abord, ce qui permet d’annuler depuis cette liste.",
     "A snapshot of the book could not be taken, so nothing was changed.": "Impossible de prendre un instantané du livre ; rien n’a été modifié.",
+    "A start, change or end of it is in an event with no scene.": "Un début, une modification ou une fin est dans un événement sans scène.",
     "A word to accept — type it, press Return": "Un mot à accepter — saisissez-le, appuyez sur Entrée",
     "A world cannot be merged into itself.": "Un monde ne peut pas être fusionné avec lui-même.",
     "A {kind} cannot go into a {parent}.": "Un(e) {kind} ne peut pas aller dans un(e) {parent}.",
@@ -601,6 +608,8 @@
     "It cannot end there": "Elle ne peut pas se terminer là",
     "It cannot start here": "Elle ne peut pas commencer ici",
     "It cannot start there": "Elle ne peut pas commencer là",
+    "It ends (in “{title}”) before it starts.": "Elle se termine (dans « {title} ») avant de commencer.",
+    "It ends in the event where it starts.": "Elle se termine dans l’événement où elle commence.",
     "It goes to the book's trash folder (.quilland/trash). The characters stay.": "Il va dans le dossier corbeille du livre (.quilland/trash). Les personnages restent.",
     "It has no language code (\"code\": \"ru\").": "Il n’a pas de code de langue (\"code\": \"ru\").",
     "It has no name of the language (\"name\": \"Русский\").": "Il n’a pas de nom de langue (\"name\": \"Русский\").",
@@ -608,6 +617,7 @@
     "It is added after what the note already says.": "Il est ajouté après ce que dit déjà la note.",
     "It is not loaded yet; LM Studio loads it when the first request comes.": "Il n’est pas encore chargé ; LM Studio le charge à la première requête.",
     "It is not valid JSON: {error}": "Ce n’est pas du JSON valide : {error}",
+    "It starts after it ends (in “{title}”).": "Elle commence après sa fin (dans « {title} »).",
     "It starts here": "Elle commence ici",
     "It starts in “{event}” now.": "Elle commence maintenant à « {event} ».",
     "It will appear in the AI menu under Actions. Nothing is attached when it runs.": "Elle apparaîtra dans le menu IA sous Actions. Rien n’est joint à son exécution.",
