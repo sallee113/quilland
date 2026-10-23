@@ -80,6 +80,20 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
     }
 }
 
+extension CollectedItem {
+    /// What the finder compares a finding by (see `DuplicateFinder`).
+    public var facet: DupeFacet {
+        let scenes = Set(evidence.map(\.scene))
+        switch kind {
+        case .characters, .places: return DupeFacet(kind: kind, id: id.uuidString, names: [name] + aliases, scenes: scenes)
+        case .events: return DupeFacet(kind: kind, id: id.uuidString, names: [name], scenes: scenes, people: members.map { [Names.normalize($0)] }, places: places.map { [Names.normalize($0)] })
+        case .relationships: return DupeFacet(kind: kind, id: id.uuidString, names: [], scenes: scenes, people: members.map { [Names.normalize($0)] }, text: type, field: when.isEmpty ? "stated" : when)
+        case .changes: return DupeFacet(kind: kind, id: id.uuidString, names: [name], scenes: scenes, text: field == "aliases" ? aliases.joined(separator: ", ") : detail, field: field)
+        case .observations: return DupeFacet(kind: kind, id: id.uuidString, names: [about], scenes: scenes, text: detail)
+        }
+    }
+}
+
 public enum Names {
     /// For comparing names and quotes: lower case, ё as е, no quotation marks or dashes, single spaces.
     public static func normalize(_ text: String) -> String {
@@ -101,7 +115,9 @@ public struct CollectedSet: Equatable, Sendable {
 
     public mutating func merge(_ new: [CollectedItem]) {
         for item in new {
-            if let i = items.firstIndex(where: { $0.key == item.key || $0.kind == item.kind && $0.kind != .relationships && $0.kind != .observations && $0.kind != .changes && $0.matches(aliasOf: item) }) {
+            // (The same thing under another wording counts too: see `DuplicateFinder`.)
+            let facet = item.facet
+            if let i = items.firstIndex(where: { $0.key == item.key || $0.kind == item.kind && $0.kind != .relationships && $0.kind != .observations && $0.kind != .changes && $0.matches(aliasOf: item) || DuplicateFinder.compare(facet, $0.facet)?.level == .same }) {
                 var e = items[i]
                 // The fuller name is the name; the shorter one is another name of the same person.
                 if item.kind == .characters || item.kind == .places, item.name.count > e.name.count, Names.normalize(item.name).contains(Names.normalize(e.name)) {

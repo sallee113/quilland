@@ -131,7 +131,12 @@ final class StoryAccept {
         guard Set(ids).count >= 2 else { return .skipped(L("it needs two characters that have cards")) }
         let members = Array(NSOrderedSet(array: ids)) as? [String] ?? ids
         let same = main.relationships.relationships.filter { Set($0.characters) == Set(ids) }
-        let exact = same.first { Names.normalize($0.kind ?? "") == Names.normalize(item.type) }
+        // The relationship the book already has between them: of the same kind, or of a kind the finder says is the same worded otherwise.
+        let wanted = item.facet
+        let exact = same.first { Names.normalize($0.kind ?? "") == Names.normalize(item.type) } ?? same.first(where: { r in
+            let people = r.characters.compactMap { id in main.characters.character(id).map { Set(([$0.name ?? ""] + $0.aliases).map(Names.normalize)) } }
+            return DuplicateFinder.compare(wanted, DupeFacet(kind: .relationships, id: r.id ?? "", names: [], people: people, text: r.kind ?? ""))?.level == .same
+        })
         let when = item.when.isEmpty ? "stated" : item.when
         func links(_ id: String) { try? main.relationships.update(id) { $0.links = $0.links.merging(linkText) { old, _ in old } } }
         switch when {

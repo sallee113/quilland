@@ -202,6 +202,12 @@
       "one": "{n} сноска",
       "other": "{n} сноски"
     },
+    "{n} found again and joined to their rows": {
+      "few": "{n} найдены снова и присоединены к своим строкам",
+      "many": "{n} найдено снова и присоединено к своим строкам",
+      "one": "{n} найдено снова и присоединено к своей строке",
+      "other": "{n} найдены снова и присоединены к своим строкам"
+    },
     "{n} items differ": {
       "few": "{n} элемента отличаются",
       "many": "{n} элементов отличаются",
@@ -219,6 +225,12 @@
       "many": "{n} связей",
       "one": "{n} связь",
       "other": "{n} связи"
+    },
+    "{n} look like something else": {
+      "few": "{n} похожи на что-то другое",
+      "many": "{n} похоже на что-то другое",
+      "one": "{n} похоже на что-то другое",
+      "other": "{n} похожи на что-то другое"
     },
     "{n} loose ends": {
       "few": "{n} хвоста",
@@ -756,6 +768,7 @@
     "It is added after what the note already says.": "Оно добавляется после того, что в заметке уже есть.",
     "It is not loaded yet; LM Studio loads it when the first request comes.": "Она ещё не загружена; LM Studio загрузит её при первом запросе.",
     "It is not valid JSON: {error}": "Это не корректный JSON: {error}",
+    "It may be the same thing: {reason}. Check before accepting.": "Возможно, это то же самое: {reason}. Проверьте перед принятием.",
     "It starts after it ends (in “{title}”).": "Она начинается после своего конца (в «{title}»).",
     "It starts here": "Она начинается здесь",
     "It starts in “{event}” now.": "Сейчас она начинается в событии «{event}».",
@@ -1423,6 +1436,8 @@
     "it has already ended": "она уже закончилась",
     "it needs two characters that have cards": "нужны два персонажа, у которых есть карточки",
     "kind": "род связи",
+    "looks like another row: “{name}”": "похоже на другую строку: «{name}»",
+    "looks like the card “{name}”": "похоже на карточку «{name}»",
     "main: off": "главный: нет",
     "main: on": "главный: да",
     "minutes": "минут",
@@ -1438,6 +1453,8 @@
     "not in a scene yet": "пока не в сцене",
     "not on a plot line": "не на сюжетной линии",
     "nothing found": "ничего не найдено",
+    "one name is a word of the other: “{a}” and “{b}”": "одно имя — слово другого: «{a}» и «{b}»",
+    "one title says all the words of the other": "одно название содержит все слова другого",
     "panels right panel tabs section characters follow delay cursor": "панели правая панель вкладки раздел персонажи следовать задержка курсор",
     "part": "часть",
     "part {piece} of {pieces}": "часть {piece} из {pieces}",
@@ -1462,7 +1479,17 @@
     "the card already says this": "в карточке это уже сказано",
     "the event could not be made": "не удалось создать событие",
     "the plan": "план",
+    "the same change of the same thing": "то же изменение того же",
+    "the same fact about the same thing": "тот же факт о том же",
+    "the same scene, and one title says all the words of the other": "та же сцена, и одно название содержит все слова другого",
+    "the same scene, the same people, and the titles share words": "та же сцена, те же люди, и в названиях есть общие слова",
+    "the same thing changes, in almost the same words": "меняется то же самое, почти теми же словами",
+    "the same thing, in almost the same words": "то же самое, почти теми же словами",
+    "the same title": "то же название",
+    "the same two characters and the same kind": "те же двое и тот же род связи",
+    "the same two characters, and one kind says all the words of the other": "те же двое, и один род связи содержит все слова другого",
     "there is no relationship between them to change": "между ними нет связи, которую можно изменить",
+    "they share a name": "у них есть общее имя",
     "this event already changes it": "это событие уже меняет это",
     "to “{event}”": "до «{event}»",
     "today {change}": "сегодня {change}",
@@ -1497,6 +1524,7 @@
     "{worlds}, {places}": "{worlds}, {places}",
     "« » (Russian)": "« » (русские)",
     "“ ” (English)": "“ ” (английские)",
+    "“{a}” and “{b}” differ by a letter": "«{a}» и «{b}» отличаются одной буквой",
     "“{keys}” cannot be used": "«{keys}» использовать нельзя",
     "“{keys}” is already used by {names}": "«{keys}» уже занято: {names}",
     "“{title}” ({group}) comes back in its old place. If that place is gone, it goes into a chapter called “Recovered” at the end.": "«{title}» ({group}) вернётся на прежнее место. Если места больше нет, оно попадёт в главу «Восстановлено» в конце.",

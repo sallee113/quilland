@@ -29,6 +29,11 @@ final class CollectSession {
     private(set) var skipReasons: [UUID: String] = [:]
     func skipReason(for id: UUID) -> String? { skipReasons[id] }
     private(set) var running = false
+    /// What the finder says of the findings as they come in: those that look like a card or another row (not the same for sure), and how many were joined to a row they repeat.
+    var lookAlikes: [UUID: LookAlike] = [:]
+    private(set) var mergedOnTheFly = 0
+    var cardFacetCache: [CollectKind: [(facet: DupeFacet, title: String)]]?
+    var cardFacetSignature = ""
     private(set) var progress: CollectProgress?
     private(set) var summary: CollectSummary?
     private(set) var message = ""
@@ -56,6 +61,9 @@ final class CollectSession {
         findings = []
         checked = []
         skipReasons = [:]
+        lookAlikes = [:]
+        mergedOnTheFly = 0
+        cardFacetCache = nil
         summary = nil
         progress = nil
         message = ""
@@ -81,6 +89,8 @@ final class CollectSession {
         request.knownCharacters = main.characters.characters.compactMap(\.name)
         request.knownPlaces = main.worlds.entries.compactMap(\.name)
         request.cards = main.collectCards()
+        // The events the book has, by scene: the model is told them, so that it uses a title again and does not name the same event twice.
+        for e in main.eventStore.events { if let title = e.title { for s in e.links.keys { request.knownEvents[s, default: []].append(title) } } }
         request.context = AIService.shared.context
         request.reanalyse = true
         running = true
@@ -92,13 +102,20 @@ final class CollectSession {
             let result = await CollectJob.run(request, client: client, progress: { p in
                 DispatchQueue.main.async { me.progress = p; me.onChange?() }
             }, found: { items in
-                DispatchQueue.main.async { me.collected.merge(me.withFieldsOfCards(items)); me.onChange?() }
+                DispatchQueue.main.async {
+                    // (A finding that repeats one already in the list joins it; one that only looks like another is marked, as the list grows.)
+                    let before = me.collected.items.count
+                    me.collected.merge(me.withFieldsOfCards(items))
+                    me.mergedOnTheFly += items.count - (me.collected.items.count - before)
+                    me.refreshLookAlikes()
+                    me.onChange?()
+                }
             })
             await MainActor.run {
                 me.running = false
                 me.summary = result
                 me.progress = nil
-                me.message = CollectSession.summaryText(result, found: me.collected.items.count)
+                me.message = CollectSession.summaryText(result, found: me.collected.items.count) + (me.duplicatesText.isEmpty ? "" : " · " + me.duplicatesText)
                 me.task = nil
                 me.onChange?()
             }
@@ -120,7 +137,13 @@ final class CollectSession {
     func injectProgress(_ p: CollectProgress?) { running = p != nil; progress = p; onChange?() }
 
     /// For the checks: puts findings in the list as a run would.
-    func inject(_ items: [CollectedItem]) { collected.merge(withFieldsOfCards(items)); onChange?() }
+    func inject(_ items: [CollectedItem]) {
+        let before = collected.items.count
+        collected.merge(withFieldsOfCards(items))
+        mergedOnTheFly += items.count - (collected.items.count - before)
+        refreshLookAlikes()
+        onChange?()
+    }
 
     /// A change to a card of the book that is already there says "profile" for a character and "description" for a place, whichever word the model used.
     func withFieldsOfCards(_ items: [CollectedItem]) -> [CollectedItem] {
@@ -142,7 +165,7 @@ final class CollectSession {
         onChange?()
     }
 
-    func clear() { collected = CollectedSet(); findings = []; checked = []; skipReasons = [:]; summary = nil; message = ""; onChange?() }
+    func clear() { collected = CollectedSet(); findings = []; checked = []; skipReasons = [:]; lookAlikes = [:]; mergedOnTheFly = 0; cardFacetCache = nil; summary = nil; message = ""; onChange?() }
 
     // MARK: Consistency Check
 
@@ -234,13 +257,16 @@ final class CollectSession {
         let wanted = Set(([item.name] + item.aliases).map(Names.normalize))
         switch item.kind {
         case .characters:
-            return main.characters.characters.first { c in !wanted.isDisjoint(with: Set(([c.name ?? ""] + c.aliases).map(Names.normalize))) }?.name
+            if let name = main.characters.characters.first(where: { c in !wanted.isDisjoint(with: Set(([c.name ?? ""] + c.aliases).map(Names.normalize))) })?.name { return name }
         case .places:
-            return main.worlds.entries.first { e in !wanted.isDisjoint(with: Set(([e.name ?? ""] + e.aliases).map(Names.normalize))) }?.name
+            if let name = main.worlds.entries.first(where: { e in !wanted.isDisjoint(with: Set(([e.name ?? ""] + e.aliases).map(Names.normalize))) })?.name { return name }
         case .events:
-            return main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) }?.title
+            if let title = main.eventStore.events.first(where: { Names.normalize($0.title ?? "") == Names.normalize(item.name) })?.title { return title }
+        case .relationships: break
         default: return nil
         }
+        // Or the finder says it is the same card under another wording (an event with the same scene and people and a title that says the same).
+        return sameCard(item)?.title
     }
 
     /// Makes the cards. A snapshot is taken first. An existing card is never overwritten: it only gets the scenes where the thing was found, the other names
@@ -276,7 +302,7 @@ final class CollectSession {
         let story = StoryAccept(main: main, characterIDs: characterIDs, entryIDs: entryIDs, story: chosen)
         for item in chosen where item.kind == .characters {
             let names = ([item.name] + item.aliases).map(Names.normalize)
-            if let id = names.compactMap({ characterIDs[$0] }).first {
+            if let id = names.compactMap({ characterIDs[$0] }).first ?? sameCard(item)?.id {
                 try? main.characters.update(id) { r in
                     r.links = merged(r.links, linkText(item))
                     for a in [item.name] + item.aliases where !([r.name ?? ""] + r.aliases).contains(where: { Names.normalize($0) == Names.normalize(a) }) { r.aliases.append(a) }
@@ -296,7 +322,7 @@ final class CollectSession {
         var worldAsked = false
         for item in places {
             let names = ([item.name] + item.aliases).map(Names.normalize)
-            if let id = names.compactMap({ entryIDs[$0] }).first {
+            if let id = names.compactMap({ entryIDs[$0] }).first ?? sameCard(item)?.id {
                 try? main.worlds.updateEntry(id) { r in r.links = merged(r.links, linkText(item)) }
                 report.updated += 1
                 continue
@@ -314,7 +340,8 @@ final class CollectSession {
 
         story.characterIDs = characterIDs; story.entryIDs = entryIDs
         for item in chosen where item.kind == .events {
-            let found = main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) }
+            // (An event is the same as one the book has when the title is, or when the finder says it is the same event worded otherwise.)
+            let found = main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) } ?? sameCard(item).flatMap { main.eventStore.event($0.id) }
             // Who takes part: the event keeps the link. A name with no card (here or made in this run) is left out.
             func linkParticipants(_ event: String) {
                 let who = Set(item.members.compactMap { characterIDs[Names.normalize($0)] })
@@ -371,6 +398,8 @@ final class CollectSession {
         let done = Set(chosen.filter { skipReasons[$0.id] == nil }.map(\.id))
         collected.remove(done)
         checked.subtract(chosen.map(\.id))
+        cardFacetCache = nil   // (the book has new cards to be compared with)
+        refreshLookAlikes()
         main.collectedCardsChanged()
         message = report.text
         onChange?()

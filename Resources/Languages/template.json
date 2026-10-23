@@ -133,6 +133,10 @@
       "one": "{n} footnote",
       "other": "{n} footnotes"
     },
+    "{n} found again and joined to their rows": {
+      "one": "{n} found again and joined to its row",
+      "other": "{n} found again and joined to their rows"
+    },
     "{n} items differ": {
       "one": "{n} item differs",
       "other": "{n} items differ"
@@ -144,6 +148,10 @@
     "{n} links": {
       "one": "{n} link",
       "other": "{n} links"
+    },
+    "{n} look like something else": {
+      "one": "{n} looks like something else",
+      "other": "{n} look like something else"
     },
     "{n} loose ends": {
       "one": "{n} loose end",
@@ -629,6 +637,7 @@
     "It is added after what the note already says.": "",
     "It is not loaded yet; LM Studio loads it when the first request comes.": "",
     "It is not valid JSON: {error}": "",
+    "It may be the same thing: {reason}. Check before accepting.": "",
     "It starts after it ends (in “{title}”).": "",
     "It starts here": "",
     "It starts in “{event}” now.": "",
@@ -1296,6 +1305,8 @@
     "it has already ended": "",
     "it needs two characters that have cards": "",
     "kind": "",
+    "looks like another row: “{name}”": "",
+    "looks like the card “{name}”": "",
     "main: off": "",
     "main: on": "",
     "minutes": "",
@@ -1311,6 +1322,8 @@
     "not in a scene yet": "",
     "not on a plot line": "",
     "nothing found": "",
+    "one name is a word of the other: “{a}” and “{b}”": "",
+    "one title says all the words of the other": "",
     "panels right panel tabs section characters follow delay cursor": "",
     "part": "",
     "part {piece} of {pieces}": "",
@@ -1335,7 +1348,17 @@
     "the card already says this": "",
     "the event could not be made": "",
     "the plan": "",
+    "the same change of the same thing": "",
+    "the same fact about the same thing": "",
+    "the same scene, and one title says all the words of the other": "",
+    "the same scene, the same people, and the titles share words": "",
+    "the same thing changes, in almost the same words": "",
+    "the same thing, in almost the same words": "",
+    "the same title": "",
+    "the same two characters and the same kind": "",
+    "the same two characters, and one kind says all the words of the other": "",
     "there is no relationship between them to change": "",
+    "they share a name": "",
     "this event already changes it": "",
     "to “{event}”": "",
     "today {change}": "",
@@ -1370,6 +1393,7 @@
     "{worlds}, {places}": "",
     "« » (Russian)": "",
     "“ ” (English)": "",
+    "“{a}” and “{b}” differ by a letter": "",
     "“{keys}” cannot be used": "",
     "“{keys}” is already used by {names}": "",
     "“{title}” ({group}) comes back in its old place. If that place is gone, it goes into a chapter called “Recovered” at the end.": "",

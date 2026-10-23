@@ -43,7 +43,7 @@ public enum CollectPrompt {
             s += "\n\"events\": important happenings that move the story or change a character's situation (an arrival, a quarrel, a discovery, a decision, a death); not descriptions, thoughts or small actions; each with a short title: [{\"title\": \"\", \"date\": \"only if the passage says when\", \"places\": [\"place names\"], \"characters\": [\"names of those who take part in it\"], \"note\": \"what happens\", \"quote\": \"\"}]"
         }
         if kinds.contains(.changes) {
-            s += "\n\"changes\": how a character or a place CHANGES in this passage, from now on (a character gets a new name, learns the truth, is crippled, changes their way of life; a place burns down or is rebuilt). Not a fact that was true all along, and never the name, the notes or whether someone is a main character. Give only what is NEW compared with the known card: [{\"about\": \"the name of the character or place\", \"field\": \"profile (a character) | description (a place) | aliases (new names of a character)\", \"value\": \"the NEW state in one or two short sentences (not for aliases)\", \"aliases\": [\"new names, for aliases only\"], \"event\": \"the title of the event above that it belongs to, or empty\", \"note\": \"\", \"quote\": \"\"}]"
+            s += "\n\"changes\": how a character or a place CHANGES in this passage, from now on (a character gets a new name, learns the truth, is crippled, changes their way of life; a place burns down or is rebuilt). Not a fact that was true all along, and never the name, the notes or whether someone is a main character. Give only what is NEW compared with the known card: [{\"about\": \"the name of the character or place\", \"field\": \"profile (a character) | description (a place) | aliases (new names of a character)\", \"value\": \"the NEW state in one or two short sentences (not for aliases)\", \"aliases\": [\"new names, for aliases only\"], \"event\": \"the title of the event above, or of a known event, that it belongs to, or empty\", \"note\": \"\", \"quote\": \"\"}]"
         }
         if kinds.contains(.relationships) {
             s += "\n\"relationships\": a LASTING bond between two named characters that the passage states or clearly shows (family, friendship, enmity, work, love); never a mere meeting of strangers. \"when\": \"stated\" if it is simply so (it was so before the passage), \"starts\" if it begins in this passage, \"changes\" if it becomes another kind (friends become enemies), \"ends\" if it ends (a break, a death): [{\"characters\": [\"A\", \"B\"], \"kind\": \"sisters\", \"when\": \"stated\", \"note\": \"how it shows here\", \"quote\": \"\"}]"
@@ -86,12 +86,14 @@ public struct CollectKnown {
 
 extension CollectPrompt {
 
-    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", kinds: Set<CollectKind>) -> String {
+    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", knownEvents: [String] = [], kinds: Set<CollectKind>) -> String {
         // The passage first: both passes begin with the same words, so that the model's server need not read it twice.
         var s = "Passage from the scene “\(sceneTitle)”:\n\"\"\"\n\(chunk)\n\"\"\"\n"
         if !knownCharacters.isEmpty { s += "Characters already on cards (use exactly these names when the same person is meant): " + knownCharacters.joined(separator: ", ") + "\n" }
         if !knownPlaces.isEmpty { s += "Places already on cards (same rule): " + knownPlaces.joined(separator: ", ") + "\n" }
         if !known.isEmpty { s += "Known cards (what is written on them now):\n" + known }
+        // So that the same event is not proposed twice under two titles (the book's own events of this scene, and those found earlier in the run).
+        if !knownEvents.isEmpty { s += "Events already known for this scene or found earlier (if the passage shows one of them, use exactly its title for it, never a new one):\n" + knownEvents.map { "- " + $0 }.joined(separator: "\n") + "\n" }
         s += task(kinds: kinds)
         return s
     }

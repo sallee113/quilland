@@ -28,6 +28,8 @@ public struct CollectRequest: Sendable {
     public var knownPlaces: [String] = []
     /// The cards of the characters and places (the second pass is told those the passage names).
     public var cards: [CollectCard] = []
+    /// The titles of the events the book already has, by the scene each is linked to (the model is told them, so that it uses a title again, not a new one).
+    public var knownEvents: [String: [String]] = [:]
     /// Tokens the model reads at once: the pieces sent are cut to fit.
     public var context = LMStudioClient.defaultContext
     /// Fingerprints of the scenes already analysed (scene id to fingerprint); those that have not changed are skipped unless `reanalyse`.
@@ -93,6 +95,8 @@ public enum CollectJob {
             totalSteps += CollectChunker.chunks(scene.text, maxCharacters: size).filter { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumCharacters / 2 }.count * max(1, passes.count)
         }
         var stepsDone = 0
+        // What the run has found so far, told to the model on the way: a person or place named once keeps its name, an event its title.
+        var runCharacters: [String] = [], runPlaces: [String] = [], runEvents: [(title: String, scene: String)] = []
         for (index, scene) in request.scenes.enumerated() {
             if Task.isCancelled { summary.stopped = true; break }
             let print = fingerprint(scene.text, kinds: request.kinds)
@@ -104,7 +108,6 @@ public enum CollectJob {
             for piece in CollectChunker.chunks(scene.text, maxCharacters: size) {
                 if Task.isCancelled { summary.stopped = true; break }
                 if piece.text.trimmingCharacters(in: .whitespacesAndNewlines).count < minimumCharacters / 2 { continue }
-                var foundNames: [String] = []
                 var cast = false
                 for pass in passes {
                     // (Each step, done or left out, moves the bar and tells how many findings there are by now.)
@@ -114,14 +117,27 @@ public enum CollectJob {
                     let known = pass == .story ? knownCards.text(in: piece.text, budget: knownBudget) : ""
                     // A passage with no one in it (no card named, nothing found by the first pass) has no story to tell.
                     if pass == .story, passes.contains(.facts), !cast, known.isEmpty { continue }
-                    let names = request.knownCharacters + foundNames.filter { n in !request.knownCharacters.contains(n) }
-                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: request.knownPlaces, known: known, kinds: kinds))]
+                    let names = request.knownCharacters + runCharacters.filter { n in !request.knownCharacters.contains(n) }
+                    let places = request.knownPlaces + runPlaces.filter { n in !request.knownPlaces.contains(n) }
+                    var events: [String] = []
+                    if pass == .story {
+                        let here = (request.knownEvents[scene.id] ?? []) + runEvents.filter { $0.scene == scene.id }.map(\.title)
+                        let elsewhere = runEvents.filter { $0.scene != scene.id }.suffix(15).map(\.title)
+                        for t in here + elsewhere where !events.contains(where: { Names.normalize($0) == Names.normalize(t) }) { events.append(t) }
+                        events = Array(events.prefix(30))
+                    }
+                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, kinds: kinds))]
                     do {
                         let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
                         let result = CollectParser.parse(reply, kinds: kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)
                         summary.droppedUnverified += result.dropped
                         if result.malformed { summary.failedPieces += 1; sceneFailed = true }
-                        if pass == .facts { foundNames += result.items.filter { $0.kind == .characters }.map(\.name); cast = !foundNames.isEmpty }
+                        if pass == .facts {
+                            runCharacters += result.items.filter { $0.kind == .characters }.map(\.name).filter { n in !runCharacters.contains(n) }
+                            runPlaces += result.items.filter { $0.kind == .places }.map(\.name).filter { n in !runPlaces.contains(n) }
+                            cast = cast || result.items.contains { $0.kind == .characters }
+                        }
+                        runEvents += result.items.filter { $0.kind == .events }.map { ($0.name, scene.id) }
                         if !result.items.isEmpty { total += result.items.count; found(result.items) }
                     } catch {
                         if Task.isCancelled || error is CancellationError { summary.stopped = true; break }
