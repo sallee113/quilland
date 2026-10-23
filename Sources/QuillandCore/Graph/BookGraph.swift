@@ -47,11 +47,19 @@ public struct GraphNode: Equatable, Sendable {
     public var doesNotApply = false
     /// The full text of a node whose title is a cut-down line (a state in an arc).
     public var detail = ""
+    /// For a node made for one scene's bush (the locations graph): the real place or character it stands for, and the scene it is in.
+    public var ref: String?
+    public var scene: String?
+    /// A place that is only there as the parent of one that is linked (drawn smaller and lighter).
+    public var isContext = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
 public struct GraphEdge: Equatable, Sendable {
-    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises, arc, contains }
+    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises, arc, contains
+        /// In the locations graph: who was at a place in a scene.
+        case wasAt
+    }
     public var a: String
     public var b: String
     public var kind: Kind
@@ -281,7 +289,7 @@ public enum GraphBuilder {
                 case .relationship: return e.turns
                 case .inScene: return false
                 case .realises: return false
-                case .arc, .contains: return false
+                case .arc, .contains, .wasAt: return false
                 }
             }
             for e in edges { kept.insert(e.a); kept.insert(e.b) }

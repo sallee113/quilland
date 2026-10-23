@@ -129,6 +129,7 @@ final class AppSelfTest {
         if let code = graphWarnings() { return code }
         if let code = graphArc() { return code }
         if let code = graphPlaceTree() { return code }
+        if let code = graphLocations() { return code }
         if let code = eventChanges() { return code }
         if let code = cardChanges() { return code }
         if let code = collectStory() { return code }

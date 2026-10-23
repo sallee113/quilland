@@ -208,6 +208,10 @@
       "one": "{n} scène lue",
       "other": "{n} scènes lues"
     },
+    "{n} scenes without a place": {
+      "one": "{n} scène sans lieu",
+      "other": "{n} scènes sans lieu"
+    },
     "{n} scenes without them": {
       "one": "{n} scène sans lui",
       "other": "{n} scènes sans lui"
@@ -670,6 +674,7 @@
     "Link to…": "Lier à…",
     "Linked to (double-click opens one)": "Lié à (un double-clic l’ouvre)",
     "Links": "Liens",
+    "Locations": "Lieux dans le livre",
     "Look at": "Regarder",
     "Looks for contradictions between a passage and one source at a time.": "Cherche des contradictions entre un passage et une seule source à la fois.",
     "Loose Ends": "Fils perdus",
@@ -758,6 +763,7 @@
     "No place for a {kind} here.": "Pas de place pour un(e) {kind} ici.",
     "No research yet. Type a title at the bottom left.": "Pas encore de documentation. Saisissez un titre en bas à gauche.",
     "No scene": "Aucune scène",
+    "No scene is linked to a place yet": "Aucune scène n’est encore liée à un lieu",
     "No snapshot has a readable copy of this file.": "Aucun instantané n’a de copie lisible de ce fichier.",
     "No snapshots yet. One is taken every 15 minutes while you write, before big changes, and with ⌘S.": "Aucun instantané pour l’instant. Un est pris toutes les 15 minutes pendant que vous écrivez, avant les gros changements, et avec ⌘S.",
     "No such character.": "Ce personnage n’existe pas.",
@@ -824,6 +830,7 @@
     "Open in the program the system uses for this kind of file": "Ouvrir dans le programme que le système utilise pour ce type de fichier",
     "Open the Card": "Ouvrir la fiche",
     "Open the Other Scene": "Ouvrir l’autre scène",
+    "Open the Place": "Ouvrir le lieu",
     "Other": "Autre",
     "Other names, separated by commas": "Autres noms, séparés par des virgules",
     "Outline": "Plan détaillé",

@@ -104,6 +104,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .realises: return .systemOrange
         case .arc: return .controlAccentColor
         case .contains: return .systemGreen
+        case .wasAt: return .systemTeal
         }
     }
 
@@ -121,6 +122,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             if e.kind == .inScene { path.setLineDash([3, 3], count: 2, phase: 0) }
             if e.kind == .relationship, e.ended { path.setLineDash([7, 5], count: 2, phase: 0) }
             if e.kind == .arc, e.gap > 0 { path.setLineDash([9, 6], count: 2, phase: 0) }
+            if e.kind == .wasAt { path.setLineDash([2, 4], count: 2, phase: 0) }
             ((colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
             path.stroke()
             if !e.changes.isEmpty { drawDelta(at: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), lit: lit) }
@@ -134,11 +136,11 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         for n in graph.nodes {
             guard let c = points[n.id], dirtyRect.insetBy(dx: -120, dy: -40).contains(c) else { continue }
             let lit = isLit(n.id) && !n.notYet
-            let path = shape(n.kind, at: c)
+            let path = shape(n.kind, at: c, grow: n.isContext ? -4 : 0)
             // (An opaque ground first, so that the lines under a node do not show through it.)
             NSColor.textBackgroundColor.setFill()
             path.fill()
-            fill(of: n).withAlphaComponent(lit ? 1 : 0.2).setFill()
+            fill(of: n).withAlphaComponent(lit ? (n.isContext ? 0.6 : 1) : 0.2).setFill()
             path.fill()
             // A main character has a thick border. The chosen node has a ring of the accent colour round it, so that it shows on any colour (and on a main
             // character's thick border).

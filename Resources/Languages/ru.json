@@ -310,6 +310,12 @@
       "one": "Прочитана {n} сцена",
       "other": "Прочитано {n} сцены"
     },
+    "{n} scenes without a place": {
+      "few": "{n} сцены без места",
+      "many": "{n} сцен без места",
+      "one": "{n} сцена без места",
+      "other": "{n} сцены без места"
+    },
     "{n} scenes without them": {
       "few": "{n} сцены без него",
       "many": "{n} сцен без него",
@@ -792,6 +798,7 @@
     "Link to…": "Связать с…",
     "Linked to (double-click opens one)": "Связано с (двойной щелчок открывает)",
     "Links": "Связи",
+    "Locations": "Места по ходу книги",
     "Look at": "Смотреть на",
     "Looks for contradictions between a passage and one source at a time.": "Ищет противоречия между отрывком и одним источником за раз.",
     "Loose Ends": "Хвосты",
@@ -880,6 +887,7 @@
     "No place for a {kind} here.": "Здесь нельзя разместить: {kind}.",
     "No research yet. Type a title at the bottom left.": "Материалов пока нет. Введите название внизу слева.",
     "No scene": "Нет сцены",
+    "No scene is linked to a place yet": "Ни одна сцена пока не связана с местом",
     "No snapshot has a readable copy of this file.": "Ни в одном снимке нет читаемой копии этого файла.",
     "No snapshots yet. One is taken every 15 minutes while you write, before big changes, and with ⌘S.": "Снимков пока нет. Они делаются каждые 15 минут, пока вы пишете, перед большими изменениями и по ⌘S.",
     "No such character.": "Нет такого персонажа.",
@@ -946,6 +954,7 @@
     "Open in the program the system uses for this kind of file": "Открыть в программе, которую система использует для файлов такого типа",
     "Open the Card": "Открыть карточку",
     "Open the Other Scene": "Открыть другую сцену",
+    "Open the Place": "Открыть место",
     "Other": "Прочее",
     "Other names, separated by commas": "Другие имена, через запятую",
     "Outline": "Структура",

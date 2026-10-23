@@ -205,6 +205,10 @@
       "one": "{n} scene read",
       "other": "{n} scenes read"
     },
+    "{n} scenes without a place": {
+      "one": "{n} scene without a place",
+      "other": "{n} scenes without a place"
+    },
     "{n} scenes without them": {
       "one": "{n} scene without them",
       "other": "{n} scenes without them"
@@ -667,6 +671,7 @@
     "Link to…": "",
     "Linked to (double-click opens one)": "",
     "Links": "",
+    "Locations": "",
     "Look at": "",
     "Looks for contradictions between a passage and one source at a time.": "",
     "Loose Ends": "",
@@ -755,6 +760,7 @@
     "No place for a {kind} here.": "",
     "No research yet. Type a title at the bottom left.": "",
     "No scene": "",
+    "No scene is linked to a place yet": "",
     "No snapshot has a readable copy of this file.": "",
     "No snapshots yet. One is taken every 15 minutes while you write, before big changes, and with ⌘S.": "",
     "No such character.": "",
@@ -821,6 +827,7 @@
     "Open in the program the system uses for this kind of file": "",
     "Open the Card": "",
     "Open the Other Scene": "",
+    "Open the Place": "",
     "Other": "",
     "Other names, separated by commas": "",
     "Outline": "",

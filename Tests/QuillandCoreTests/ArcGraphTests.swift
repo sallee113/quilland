@@ -82,3 +82,57 @@ struct PlaceTreeTests {
         #expect(tree().positions == t.positions, "the same every time")
     }
 }
+
+@Suite("Locations along the book")
+struct LocationsTests {
+    static func build(_ f: BookGraphTests.Fixture, only: String? = nil) -> ArcGraph {
+        LocationsBuilder.build(only: only, characters: f.characters, worlds: f.worlds, events: f.events, structure: f.structure)
+    }
+
+    @Test("each scene is a bush of its own: a scene with one place is that place on the spine, and each place has its characters")
+    func bushes() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let a = Self.build(f), g = a.graph
+        func at(_ id: String) -> GraphPoint { a.positions[id]! }
+        let first = "bush:s1|\(id["manor"]!)", second = "bush:s2|\(id["port"]!)"
+        #expect(Set(g.nodes.map(\.id)) == [first, second, first + "|" + id["anna"]!, first + "|" + id["lev"]!, second + "|" + id["anna"]!], "a scene with one place has no node of its own, and characters are per place and scene: \(g.nodes.map(\.id))")
+        #expect(g.node(first)?.kind == .place && g.node(first)?.ref == id["manor"]! && g.node(first)?.scene == "s1" && g.node(first)?.detail == "Сцена 1", "the place stands for the scene; the scene's title is its detail")
+        #expect(g.edges.contains { $0.kind == .arc && $0.a == first && $0.b == second }, "the spine joins the scenes in the order of the book")
+        #expect(at(first).x < at(second).x && at(first).y < at(second).y, "from the top left to the bottom right")
+        #expect(at(first + "|" + id["lev"]!).y > at(first).y && at(first + "|" + id["lev"]!).x < at(first).x, "the characters hang on the lower left of their place")
+        #expect(g.edges.contains { $0.kind == .wasAt && $0.a == first && $0.b == first + "|" + id["anna"]! })
+        // A scene with two places: the scene has its node, the places hang from it, and a place that comes back is a new node.
+        try f.events.update(id["arrival"]!) { $0.places = [id["manor"]!: "", id["port"]!: ""] }
+        let b = Self.build(f).graph
+        #expect(b.node("s1")?.kind == .scene && b.node("s1")?.title == "Сцена 1", "several places: the scene is a node")
+        #expect(b.nodes.filter { $0.ref == id["port"]! }.count == 2 && b.edges.contains { $0.kind == .heldAt && $0.a == "s1" && $0.b == "bush:s1|\(id["port"]!)" }, "the same place in two scenes is two nodes, joined to its own scene")
+        // One character: the scenes where they are at a place, and only they in the bushes.
+        let lev = Self.build(f, only: id["lev"]!).graph
+        #expect(Set(lev.nodes.filter { $0.kind == .character }.map(\.ref)) == [id["lev"]!] && !lev.nodes.contains { $0.scene == "s2" }, "only the scenes where Лев is at a place")
+        #expect(Self.build(f).positions == Self.build(f).positions, "the same every time")
+    }
+
+    @Test("a place inside another is a chain: the scene, the parent place (not the world), the place, and its characters; a parent shared by two places of a scene is one node")
+    func chains() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let world = try #require(f.worlds.worlds.first?.id)
+        let planet = try f.worlds.addEntry(name: "Флора 9", world: world)
+        try f.worlds.updateEntry(id["manor"]!) { $0.parent = planet }
+        let g = Self.build(f).graph
+        let chain = "bush:s1|\(planet)", manor = "bush:s1|\(id["manor"]!)"
+        #expect(g.node("s1")?.kind == .scene, "a place with a parent: the scene has its node again")
+        #expect(g.node(chain)?.title == "Флора 9" && g.node(chain)?.isContext == true && g.node(manor)?.isContext == false, "the parent is a node, lighter than the place that is linked")
+        #expect(g.edges.contains { $0.kind == .heldAt && $0.a == "s1" && $0.b == chain } && g.edges.contains { $0.kind == .contains && $0.a == chain && $0.b == manor } && g.edges.contains { $0.kind == .wasAt && $0.a == manor && $0.b == manor + "|" + id["anna"]! }, "scene → parent → place → characters")
+        #expect(!g.nodes.contains { $0.title == world || $0.ref == world }, "the world is not in the chain")
+        // Two places of the scene inside the same parent share it; a deeper chain goes all the way up.
+        let inner = try f.worlds.addEntry(name: "Комната", world: world, parent: id["manor"]!)
+        try f.events.update(id["arrival"]!) { $0.places = [id["manor"]!: "", inner: "", id["port"]!: ""] }
+        try f.worlds.updateEntry(id["port"]!) { $0.parent = planet }
+        let h = Self.build(f).graph
+        #expect(h.nodes.filter { $0.ref == planet && $0.scene == "s1" }.count == 1, "the parent is one node for both places")
+        #expect(h.edges.contains { $0.kind == .contains && $0.a == manor && $0.b == "bush:s1|\(inner)" }, "a place inside a place inside a place is a longer chain")
+        #expect(h.nodes.filter { $0.ref == planet }.count == 2, "and in the second scene it is a node of that scene's bush")
+    }
+}
