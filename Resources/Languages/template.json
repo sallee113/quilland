@@ -201,6 +201,10 @@
       "one": "{n} scene read",
       "other": "{n} scenes read"
     },
+    "{n} scenes without them": {
+      "one": "{n} scene without them",
+      "other": "{n} scenes without them"
+    },
     "{n} sections": {
       "one": "{n} section",
       "other": "{n} sections"
@@ -338,6 +342,7 @@
     "An event…": "",
     "Appearance": "",
     "Arabic (1, 2, 3)": "",
+    "Arc": "",
     "As of": "",
     "Ask about your book. Attach the scene, characters, places or the plan with @ so that the model can see them. It only answers: it changes nothing.": "",
     "Asking LM Studio…": "",
@@ -406,6 +411,7 @@
     "Choose Folder…": "",
     "Choose Image…": "",
     "Choose a character": "",
+    "Choose a character to follow": "",
     "Choose a combination with ⌘, ⌃ or ⌥. The standard commands keep their keys.": "",
     "Choose a document": "",
     "Choose a finding to see what the rule does. Accept changes the text (⌘Z takes it back); Dismiss hides the finding.": "",
@@ -970,6 +976,7 @@
     "Show from": "",
     "Show in Finder": "",
     "Show or hide the line": "",
+    "Show the Arc": "",
     "Show the File": "",
     "Show the File to look at it yourself. Restore from a Snapshot puts back the newest readable copy and keeps the damaged one beside it, named “….damaged”.": "",
     "Show the Plan": "",
@@ -1234,10 +1241,12 @@
     "ai prompts instructions temperature wording continue writing consistency grammar synopsis chat collect model": "",
     "already has a card: only the scenes are added": "",
     "also called": "",
+    "also called {names}": "",
     "also {names}": "",
     "an event that is gone, still on the plan": "",
     "appearance font size text line spacing reading width light dark theme sheet": "",
     "automatic": "",
+    "becomes a main character": "",
     "before an action": "",
     "begins in the story": "",
     "book {size}": "",
@@ -1274,6 +1283,7 @@
     "minutes": "",
     "no card named “{name}” to attach it to": "",
     "no contradictions found": "",
+    "no profile yet": "",
     "no scene": "",
     "no sources": "",
     "no suggestion": "",
@@ -1299,6 +1309,7 @@
     "some of it is cut to fit": "",
     "space": "",
     "starts here": "",
+    "stops being a main character": "",
     "synopses": "",
     "the book is the same as this snapshot": "",
     "the card already has these names": "",

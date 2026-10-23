@@ -14,6 +14,8 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     /// Colour the nodes by the plot line they are on (the plan's lines, with their colours and names), not by their kind.
     var colourByLine = false { didSet { needsDisplay = true; rebuildToolTips() } }
     var lineStyles: [String: (name: String, color: String?)] = [:] { didSet { needsDisplay = true } }
+    /// Nodes can be moved (not in the arc, whose places are worked out).
+    var allowsDragging = true
     var pinned: Set<String> = [] { didSet { needsDisplay = true } }
     private(set) var selected: String? { didSet { needsDisplay = true } }
     var onSelect: ((String?) -> Void)?
@@ -54,6 +56,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .event: return .systemOrange
         case .scene: return .systemGray
         case .card: return .systemIndigo
+        case .stage: return .systemTeal
         }
     }
 
@@ -73,13 +76,14 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     /// The lines a node is marked with by dots (on several lines).
     func dotLines(of n: GraphNode) -> [String] { colourByLine && (n.kind == .character || n.kind == .place) && n.lines.count > 1 ? n.lines : [] }
 
-    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : 14) }
+    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : (kind == .stage ? 12 : 14)) }
 
     private func shape(_ kind: GraphKind, at c: CGPoint, grow: CGFloat = 0) -> NSBezierPath {
         let r = Self.radius(kind) + grow
         switch kind {
         case .character, .scene: return NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
         case .card: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 1.4, y: c.y - r, width: 2 * r * 1.4, height: 2 * r), xRadius: 3, yRadius: 3)
+        case .stage: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 2.2, y: c.y - r, width: 2 * r * 2.2, height: 2 * r), xRadius: 8, yRadius: 8)
         case .place: return NSBezierPath(roundedRect: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), xRadius: 5, yRadius: 5)
         case .event:
             let d = NSBezierPath()
@@ -96,6 +100,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .heldAt: return .systemGreen
         case .inScene: return .tertiaryLabelColor
         case .realises: return .systemOrange
+        case .arc: return .controlAccentColor
         }
     }
 
@@ -112,12 +117,13 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             path.lineWidth = min(1 + CGFloat(e.weight - 1) * 0.8, 5)
             if e.kind == .inScene { path.setLineDash([3, 3], count: 2, phase: 0) }
             if e.kind == .relationship, e.ended { path.setLineDash([7, 5], count: 2, phase: 0) }
+            if e.kind == .arc, e.gap > 0 { path.setLineDash([9, 6], count: 2, phase: 0) }
             ((colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
             path.stroke()
             if !e.changes.isEmpty { drawDelta(at: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), lit: lit) }
             if !e.problems.isEmpty { drawWarning(at: warningPoint(e, a, b), lit: lit) }
-            if e.kind == .relationship, !e.label.isEmpty, lit {
-                let text = NSAttributedString(string: e.label, attributes: [.font: labelFont, .foregroundColor: NSColor.systemPurple, .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(0.85)])
+            if (e.kind == .relationship || e.kind == .arc), !e.label.isEmpty, lit {
+                let text = NSAttributedString(string: e.label, attributes: [.font: labelFont, .foregroundColor: e.kind == .arc ? NSColor.secondaryLabelColor : NSColor.systemPurple, .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(0.85)])
                 let size = text.size()
                 text.draw(at: CGPoint(x: (a.x + b.x) / 2 - size.width / 2, y: (a.y + b.y) / 2 - size.height / 2))
             }
@@ -150,7 +156,8 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
                 lineColour(line).withAlphaComponent(lit ? 1 : 0.25).setFill(); dot.fill()
                 NSColor.textBackgroundColor.setStroke(); dot.lineWidth = 1; dot.stroke()
             }
-            let title = n.title.count > 24 ? String(n.title.prefix(23)) + "…" : n.title
+            let limit = n.kind == .stage ? 44 : 24
+            let title = n.title.count > limit ? String(n.title.prefix(limit - 1)) + "…" : n.title
             let text = NSAttributedString(string: title, attributes: [.font: labelFont, .foregroundColor: NSColor.labelColor.withAlphaComponent(lit ? 1 : 0.3), .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(lit ? 0.6 : 0)])
             let size = text.size()
             text.draw(at: CGPoint(x: c.x - size.width / 2, y: c.y + Self.radius(n.kind) + 4))
@@ -213,6 +220,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         for n in graph.nodes {
             guard let c = points[n.id] else { continue }
             var parts: [String] = []
+            if !n.detail.isEmpty { parts.append(n.detail) }
             if !n.changes.isEmpty { parts.append(GraphTexts.summary(n.changes)) }
             if n.doesNotApply { parts.append("⚠ " + GraphTexts.eventWarning) }
             if colourByLine, !n.lines.isEmpty, n.kind != .scene { parts.append(L("Plot lines: {names}", ["names": n.lines.map { lineStyles[$0]?.name ?? "" }.joined(separator: ", ")])) }
@@ -250,6 +258,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         guard let n = node(at: p), let c = points[n.id] else { select(nil); return }
         select(n.id)
         if event.clickCount >= 2 { onOpen?(n); return }
+        guard allowsDragging else { return }
         dragging = (n.id, CGSize(width: c.x - p.x, height: c.y - p.y), false)
     }
 

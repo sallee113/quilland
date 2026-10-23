@@ -204,6 +204,10 @@
       "one": "{n} scène lue",
       "other": "{n} scènes lues"
     },
+    "{n} scenes without them": {
+      "one": "{n} scène sans lui",
+      "other": "{n} scènes sans lui"
+    },
     "{n} sections": {
       "one": "{n} section",
       "other": "{n} sections"
@@ -341,6 +345,7 @@
     "An event…": "Un événement…",
     "Appearance": "Apparence",
     "Arabic (1, 2, 3)": "Arabe (1, 2, 3)",
+    "Arc": "Arc",
     "As of": "À la date de",
     "Ask about your book. Attach the scene, characters, places or the plan with @ so that the model can see them. It only answers: it changes nothing.": "Posez des questions sur votre livre. Joignez la scène, les personnages, les lieux ou le plan avec @ pour que le modèle puisse les voir. Il ne fait que répondre : il ne change rien.",
     "Asking LM Studio…": "Interrogation de LM Studio…",
@@ -409,6 +414,7 @@
     "Choose Folder…": "Choisir un dossier…",
     "Choose Image…": "Choisir une image…",
     "Choose a character": "Choisir un personnage",
+    "Choose a character to follow": "Choisissez un personnage à suivre",
     "Choose a combination with ⌘, ⌃ or ⌥. The standard commands keep their keys.": "Choisissez une combinaison avec ⌘, ⌃ ou ⌥. Les commandes standard gardent leurs raccourcis.",
     "Choose a document": "Choisissez un document",
     "Choose a finding to see what the rule does. Accept changes the text (⌘Z takes it back); Dismiss hides the finding.": "Choisissez un résultat pour voir ce que fait la règle. Accepter modifie le texte (⌘Z l’annule) ; Ignorer masque le résultat.",
@@ -973,6 +979,7 @@
     "Show from": "Afficher à partir de",
     "Show in Finder": "Afficher dans le Finder",
     "Show or hide the line": "Afficher ou masquer la ligne",
+    "Show the Arc": "Montrer l’arc",
     "Show the File": "Afficher le fichier",
     "Show the File to look at it yourself. Restore from a Snapshot puts back the newest readable copy and keeps the damaged one beside it, named “….damaged”.": "Affichez le fichier pour l’examiner vous-même. Restaurer depuis un instantané remet la copie lisible la plus récente et garde l’endommagée à côté, nommée « ….damaged ».",
     "Show the Plan": "Afficher le Plan",
@@ -1237,10 +1244,12 @@
     "ai prompts instructions temperature wording continue writing consistency grammar synopsis chat collect model": "ia prompts instructions température formulation continuer écriture cohérence grammaire synopsis discussion recueillir modèle",
     "already has a card: only the scenes are added": "a déjà une fiche : seules les scènes sont ajoutées",
     "also called": "aussi appelé",
+    "also called {names}": "aussi appelé {names}",
     "also {names}": "aussi {names}",
     "an event that is gone, still on the plan": "un événement qui n’existe plus, encore dans le plan",
     "appearance font size text line spacing reading width light dark theme sheet": "apparence police taille texte interligne largeur de lecture clair sombre thème feuille",
     "automatic": "automatique",
+    "becomes a main character": "devient un personnage principal",
     "before an action": "avant une action",
     "begins in the story": "commence dans l’histoire",
     "book {size}": "livre {size}",
@@ -1277,6 +1286,7 @@
     "minutes": "minutes",
     "no card named “{name}” to attach it to": "aucune fiche « {name} » à laquelle le rattacher",
     "no contradictions found": "aucune contradiction trouvée",
+    "no profile yet": "pas encore de profil",
     "no scene": "aucune scène",
     "no sources": "aucune source",
     "no suggestion": "aucune suggestion",
@@ -1302,6 +1312,7 @@
     "some of it is cut to fit": "une partie est coupée pour tenir",
     "space": "espace",
     "starts here": "commence ici",
+    "stops being a main character": "cesse d’être un personnage principal",
     "synopses": "synopsis",
     "the book is the same as this snapshot": "le livre est identique à cet instantané",
     "the card already has these names": "la fiche a déjà ces noms",

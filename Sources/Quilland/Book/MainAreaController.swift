@@ -501,6 +501,9 @@ final class MainAreaController: NSViewController {
             case .event: self?.setMode(.events); self?.eventsView?.select(id)
             case .scene: self?.reveal(scene: id, range: nil)
             case .card: self?.setMode(.plan); self?.planController?.reveal(id)
+            case .stage:
+                // A state of the arc: the event that makes it, or the card itself for the state at the start.
+                if let event = ArcBuilder.event(ofState: id) { self?.setMode(.events); self?.eventsView?.select(event) } else if let who = self?.graphView?.state.focus { self?.setMode(.characters); self?.charactersView?.select(who) }
             }
         }
         view.onStateChange = { [weak self] in self?.graphState = $0 }

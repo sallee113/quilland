@@ -5,6 +5,8 @@ public enum GraphKind: String, CaseIterable, Sendable {
     case character, place, event, scene
     /// A card of the plan (it is joined to the events that realise it).
     case card
+    /// A state of a character in its arc (the card's own text at the start, then what each event makes of it). Only in the arc graph.
+    case stage
 }
 
 /// What an event does to one thing, for the marks and tooltips of the graph: the fields it fills in (a character's or a place's, or a relationship's kind), a
@@ -41,11 +43,13 @@ public struct GraphNode: Equatable, Sendable {
     public var lines: [String] = []
     /// An event that changes something but has no scene: it has no place in the book, so its changes do not apply (a warning).
     public var doesNotApply = false
+    /// The full text of a node whose title is a cut-down line (a state in an arc).
+    public var detail = ""
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
 public struct GraphEdge: Equatable, Sendable {
-    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises }
+    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises, arc }
     public var a: String
     public var b: String
     public var kind: Kind
@@ -67,6 +71,8 @@ public struct GraphEdge: Equatable, Sendable {
     public var line: String?
     /// For a relationship line: what is out of order in the relationships it stands for (an end before its start, a change after the end, a mark in an event with no scene).
     public var problems: [RelationshipTimeline.Problem] = []
+    /// For the spine of an arc: how many scenes lie between two events of the character with none of theirs.
+    public var gap = 0
     /// The relationship changes its kind, ends, or starts at an event after the start of the book.
     public var turns: Bool { periods.contains { $0.kinds.count > 1 || $0.to != nil || $0.from != nil } }
 }
@@ -256,7 +262,7 @@ public enum GraphBuilder {
                 case .event: n.lines = laneOf[id].map { [$0] } ?? []
                 case .card: n.lines = plan?.cards[id]?.line.flatMap { laneIDs.contains($0) ? [$0] : nil } ?? []
                 case .character, .place: n.lines = laneIDs.filter { linesOf[id]?.contains($0) == true }
-                case .scene: break
+                case .scene, .stage: break
                 }
                 all[id] = n
             }
@@ -273,6 +279,7 @@ public enum GraphBuilder {
                 case .relationship: return e.turns
                 case .inScene: return false
                 case .realises: return false
+                case .arc: return false
                 }
             }
             for e in edges { kept.insert(e.a); kept.insert(e.b) }
@@ -313,7 +320,7 @@ public enum GraphBuilder {
                 switch n.kind {
                 case .event: n.notYet = events.event(id).map { !applies($0) } ?? false
                 case .character, .place, .scene: n.notYet = first[id].map { $0 > point } ?? false
-                case .card: break
+                case .card, .stage: break
                 }
                 if n.kind == .character, let flag = mainNow[id] { n.isMain = flag }
                 all[id] = n
