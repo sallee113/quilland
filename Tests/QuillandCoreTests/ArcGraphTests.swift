@@ -53,3 +53,32 @@ struct ArcGraphTests {
         #expect(g.node(loose)?.doesNotApply == true && g.node(loose)?.notYet == true && a.positions[loose]!.x > a.positions[id["departure"]!]!.x, "an event with no scene is last, faded and warned")
     }
 }
+
+@Suite("The place tree")
+struct PlaceTreeTests {
+    @Test("a world is the root, a place hangs from the place it is in; the tree runs left to right with parents in the middle of their children")
+    func tree() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let world = try #require(f.worlds.worlds.first?.id)
+        let germany = try f.worlds.addEntry(name: "Германия", world: world)
+        let frankfurt = try f.worlds.addEntry(name: "Франкфурт", world: world, parent: germany), berlin = try f.worlds.addEntry(name: "Берлин", world: world, parent: germany)
+        let station = try f.worlds.addEntry(name: "Вокзал", world: world, parent: frankfurt)
+        let other = try f.worlds.addWorld(name: "Флора"), flora = try f.worlds.addEntry(name: "Столица", world: other)
+        try f.events.update(id["arrival"]!) { $0.places[station] = ""; $0.setEffect(.description, of: station, text: "Сгорел.") }
+        func tree(_ only: String? = nil) -> ArcGraph { PlaceTreeBuilder.build(only: only, characters: f.characters, worlds: f.worlds, events: f.events, relationships: f.relationships) }
+        let t = tree(), g = t.graph
+        func at(_ id: String) -> GraphPoint { t.positions[id]! }
+        func has(_ a: String, _ b: String) -> Bool { g.edges.contains { $0.kind == .contains && $0.a == a && $0.b == b } }
+        #expect(g.node(world)?.kind == .world && g.node(other)?.kind == .world && g.node(germany)?.kind == .place)
+        #expect(has(world, germany) && has(germany, frankfurt) && has(germany, berlin) && has(frankfurt, station) && has(other, flora), "each is joined to what it is inside")
+        #expect(at(world).x == 0 && at(germany).x < at(frankfurt).x && at(frankfurt).x < at(station).x && at(berlin).x == at(frankfurt).x, "the tree runs from the left to the right, one column for each depth")
+        #expect(at(berlin).y < at(frankfurt).y, "the children are in order of their names (Берлин before Франкфурт)")
+        let mid = (at(berlin).y + at(frankfurt).y) / 2
+        #expect(at(germany).y == mid, "a parent is in the middle of its children")
+        #expect(g.node(station)?.changes.isEmpty == false && g.node(station)?.detail.contains("1 event here") == true, "what events change in a place (Δ), and how many events are held there")
+        #expect(Set(g.nodes.map(\.id)).isSuperset(of: [id["manor"]!, id["port"]!, id["nowhere"]!]), "the fixture's flat places are children of their world")
+        #expect(Set(tree(other).graph.nodes.map(\.id)) == [other, flora], "one world alone")
+        #expect(tree().positions == t.positions, "the same every time")
+    }
+}

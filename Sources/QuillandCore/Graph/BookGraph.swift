@@ -7,6 +7,8 @@ public enum GraphKind: String, CaseIterable, Sendable {
     case card
     /// A state of a character in its arc (the card's own text at the start, then what each event makes of it). Only in the arc graph.
     case stage
+    /// A world (the root of a tree of places). Only in the place tree.
+    case world
 }
 
 /// What an event does to one thing, for the marks and tooltips of the graph: the fields it fills in (a character's or a place's, or a relationship's kind), a
@@ -49,7 +51,7 @@ public struct GraphNode: Equatable, Sendable {
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
 public struct GraphEdge: Equatable, Sendable {
-    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises, arc }
+    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises, arc, contains }
     public var a: String
     public var b: String
     public var kind: Kind
@@ -262,7 +264,7 @@ public enum GraphBuilder {
                 case .event: n.lines = laneOf[id].map { [$0] } ?? []
                 case .card: n.lines = plan?.cards[id]?.line.flatMap { laneIDs.contains($0) ? [$0] : nil } ?? []
                 case .character, .place: n.lines = laneIDs.filter { linesOf[id]?.contains($0) == true }
-                case .scene, .stage: break
+                case .scene, .stage, .world: break
                 }
                 all[id] = n
             }
@@ -279,7 +281,7 @@ public enum GraphBuilder {
                 case .relationship: return e.turns
                 case .inScene: return false
                 case .realises: return false
-                case .arc: return false
+                case .arc, .contains: return false
                 }
             }
             for e in edges { kept.insert(e.a); kept.insert(e.b) }
@@ -320,7 +322,7 @@ public enum GraphBuilder {
                 switch n.kind {
                 case .event: n.notYet = events.event(id).map { !applies($0) } ?? false
                 case .character, .place, .scene: n.notYet = first[id].map { $0 > point } ?? false
-                case .card, .stage: break
+                case .card, .stage, .world: break
                 }
                 if n.kind == .character, let flag = mainNow[id] { n.isMain = flag }
                 all[id] = n

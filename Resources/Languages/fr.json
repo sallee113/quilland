@@ -112,6 +112,10 @@
       "one": "{n} événement créé",
       "other": "{n} événements créés"
     },
+    "{n} events here": {
+      "one": "{n} événement ici",
+      "other": "{n} événements ici"
+    },
     "{n} existing cards updated": {
       "one": "{n} fiche existante mise à jour",
       "other": "{n} fiches existantes mises à jour"
@@ -833,6 +837,7 @@
     "Pin": "Épingler",
     "Pink": "Rose",
     "Place": "Lieu",
+    "Place tree": "Arbre des lieux",
     "Places": "Lieux",
     "Places in this scene": "Lieux dans cette scène",
     "Places of the events this character takes part in": "Lieux des événements auxquels ce personnage prend part",

@@ -109,6 +109,10 @@
       "one": "{n} event created",
       "other": "{n} events created"
     },
+    "{n} events here": {
+      "one": "{n} event here",
+      "other": "{n} events here"
+    },
     "{n} existing cards updated": {
       "one": "{n} existing card updated",
       "other": "{n} existing cards updated"
@@ -830,6 +834,7 @@
     "Pin": "",
     "Pink": "",
     "Place": "",
+    "Place tree": "",
     "Places": "",
     "Places in this scene": "",
     "Places of the events this character takes part in": "",

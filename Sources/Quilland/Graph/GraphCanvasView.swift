@@ -57,6 +57,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .scene: return .systemGray
         case .card: return .systemIndigo
         case .stage: return .systemTeal
+        case .world: return .systemBrown
         }
     }
 
@@ -76,7 +77,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     /// The lines a node is marked with by dots (on several lines).
     func dotLines(of n: GraphNode) -> [String] { colourByLine && (n.kind == .character || n.kind == .place) && n.lines.count > 1 ? n.lines : [] }
 
-    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : (kind == .stage ? 12 : 14)) }
+    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : (kind == .stage ? 12 : (kind == .world ? 16 : 14))) }
 
     private func shape(_ kind: GraphKind, at c: CGPoint, grow: CGFloat = 0) -> NSBezierPath {
         let r = Self.radius(kind) + grow
@@ -84,6 +85,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .character, .scene: return NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
         case .card: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 1.4, y: c.y - r, width: 2 * r * 1.4, height: 2 * r), xRadius: 3, yRadius: 3)
         case .stage: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 2.2, y: c.y - r, width: 2 * r * 2.2, height: 2 * r), xRadius: 8, yRadius: 8)
+        case .world: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 1.6, y: c.y - r, width: 2 * r * 1.6, height: 2 * r), xRadius: 7, yRadius: 7)
         case .place: return NSBezierPath(roundedRect: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), xRadius: 5, yRadius: 5)
         case .event:
             let d = NSBezierPath()
@@ -101,6 +103,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .inScene: return .tertiaryLabelColor
         case .realises: return .systemOrange
         case .arc: return .controlAccentColor
+        case .contains: return .systemGreen
         }
     }
 
