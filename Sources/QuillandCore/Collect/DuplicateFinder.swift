@@ -16,9 +16,11 @@ public struct DupeFacet: Sendable {
     public var text: String
     /// A change's field, or when a relationship begins (stated, starts, changes, ends).
     public var field: String
+    /// What a thing belongs to, when that tells things apart: a place's world and the place it is inside (two places of one name in two cities are two places).
+    public var group: String
 
-    public init(kind: CollectKind, id: String, names: [String], scenes: Set<String> = [], people: [Set<String>] = [], places: [Set<String>] = [], text: String = "", field: String = "") {
-        self.kind = kind; self.id = id; self.names = names; self.scenes = scenes; self.people = people; self.places = places; self.text = text; self.field = field
+    public init(kind: CollectKind, id: String, names: [String], scenes: Set<String> = [], people: [Set<String>] = [], places: [Set<String>] = [], text: String = "", field: String = "", group: String = "") {
+        self.kind = kind; self.id = id; self.names = names; self.scenes = scenes; self.people = people; self.places = places; self.text = text; self.field = field; self.group = group
     }
 }
 
@@ -91,6 +93,7 @@ public enum DuplicateFinder {
     }
 
     private static func compareNamed(_ a: DupeFacet, _ b: DupeFacet) -> DupeVerdict? {
+        if !a.group.isEmpty, !b.group.isEmpty, a.group != b.group { return nil }   // (the same name inside two different places is two places)
         let x = Set(a.names.map(Names.normalize).filter { !$0.isEmpty }), y = Set(b.names.map(Names.normalize).filter { !$0.isEmpty })
         if !x.isDisjoint(with: y) { return DupeVerdict(level: .same, reason: L("they share a name")) }
         for p in x { for q in y where nearlyEqual(p, q) { return DupeVerdict(level: .probably, reason: L("“{a}” and “{b}” differ by a letter", ["a": p, "b": q])) } }

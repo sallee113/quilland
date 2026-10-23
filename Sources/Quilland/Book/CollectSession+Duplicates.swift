@@ -13,21 +13,7 @@ struct LookAlike: Equatable {
 extension MainAreaController {
     /// The cards of the book as the finder compares them, by kind, each with the name to show for it.
     func dupeFacets() -> [CollectKind: [(facet: DupeFacet, title: String)]] {
-        func person(_ id: String) -> Set<String>? {
-            guard let c = characters.character(id) else { return nil }
-            return Set(([c.name ?? ""] + c.aliases).map(Names.normalize).filter { !$0.isEmpty })
-        }
-        func place(_ id: String) -> Set<String>? {
-            guard let p = worlds.entry(id) else { return nil }
-            return Set(([p.name ?? ""] + p.aliases).map(Names.normalize).filter { !$0.isEmpty })
-        }
-        var out: [CollectKind: [(DupeFacet, String)]] = [:]
-        out[.characters] = characters.characters.compactMap { c in c.id.map { (DupeFacet(kind: .characters, id: $0, names: [c.name ?? ""] + c.aliases, scenes: Set(c.links.keys).union(c.povScenes)), c.name ?? "") } }
-        out[.places] = worlds.entries.compactMap { p in p.id.map { (DupeFacet(kind: .places, id: $0, names: [p.name ?? ""] + p.aliases, scenes: Set(p.links.keys)), p.name ?? "") } }
-        out[.events] = eventStore.events.compactMap { e in e.id.map { (DupeFacet(kind: .events, id: $0, names: [e.title ?? ""], scenes: Set(e.links.keys), people: e.characters.keys.compactMap(person), places: e.places.keys.compactMap(place)), e.title ?? "") } }
-        out[.relationships] = relationships.relationships.compactMap { r in r.id.map { id in
-            (DupeFacet(kind: .relationships, id: id, names: [], people: r.characters.compactMap(person), text: r.kind ?? ""), r.characters.compactMap { characters.character($0)?.name }.joined(separator: " — ") + " (" + (r.kind ?? "") + ")") } }
-        return out
+        BookDuplicates.facets(characters: characters, worlds: worlds, events: eventStore, relationships: relationships).mapValues { $0.map { ($0.facet, $0.title) } }
     }
 }
 

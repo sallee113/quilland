@@ -451,6 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         add(edit, L("Replace…"), #selector(replaceAction), "f", [.command, .option], target: self)
         add(edit, L("Proofread…"), #selector(proofreadAction), "p", [.command, .option], target: self)
         add(edit, L("Loose Ends…"), #selector(looseEndsAction), "l", [.command, .option], target: self)
+        add(edit, L("Find Duplicate Cards…"), #selector(duplicatesAction), "d", [.command, .option], target: self)
         add(edit, L("Find Next"), #selector(findNextAction), "g", target: self)
         add(edit, L("Find Previous"), #selector(findPreviousAction), "g", [.command, .shift], target: self)
         edit.addItem(.separator())
@@ -592,6 +593,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func replaceAction() { keyBook?.main.showSearch(.replace) }
     @objc func proofreadAction() { keyBook?.main.showSearch(.proofread) }
     @objc func looseEndsAction() { keyBook?.main.showSearch(.looseEnds) }
+    @objc func duplicatesAction() { keyBook?.main.showSearch(.duplicates) }
     @objc func findNextAction() { keyBook?.main.searchStep(1) }
     @objc func findPreviousAction() { keyBook?.main.searchStep(-1) }
     @objc func modeEvents() { keyBook?.main.setMode(.events); keyBook?.refreshStatus() }

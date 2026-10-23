@@ -3,7 +3,7 @@ import QuillandCore
 
 /// The bottom panel: Search (read-only, neutral) and Replace (its own tinted look; it changes the book).
 final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSearchFieldDelegate {
-    enum Mode: Int { case search, replace, proofread, looseEnds, suggestions }
+    enum Mode: Int { case search, replace, proofread, looseEnds, suggestions, duplicates }
 
     weak var main: MainAreaController?
     var onClose: (() -> Void)?
@@ -16,7 +16,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
 
     let findField = NSSearchField()
     let replaceField = NSTextField()
-    private let modeControl = Hover.segments(NSSegmentedControl(labels: [L("Search"), L("Replace"), L("Proofreading"), L("Loose Ends"), L("Suggestions")], trackingMode: .selectOne, target: nil, action: nil))
+    private let modeControl = Hover.segments(NSSegmentedControl(labels: [L("Search"), L("Replace"), L("Proofreading"), L("Loose Ends"), L("Suggestions"), L("Duplicates")], trackingMode: .selectOne, target: nil, action: nil))
     private let scopePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private var optionBoxes: [NSButton] = []
     private var sourceBoxes: [SearchSource: NSButton] = [:]
@@ -34,6 +34,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
     let proofView = ProofreadingView()
     let looseView = LooseEndsView()
     let suggestView = SuggestionsView()
+    let duplicatesView = DuplicatesView()
     private var optionsRow = NSStackView()
     private var resultsScroll = NSScrollView()
 
@@ -122,7 +123,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
         replaceRow.spacing = 10
         replaceRow.alignment = .centerY
 
-        let stack = NSStackView(views: [top, options, header, summary, scroll, replaceRow, proofView, looseView, suggestView])
+        let stack = NSStackView(views: [top, options, header, summary, scroll, replaceRow, proofView, looseView, suggestView, duplicatesView])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
@@ -139,6 +140,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
             proofView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), proofView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
             looseView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), looseView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
             suggestView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), suggestView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
+            duplicatesView.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 10), duplicatesView.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -10),
         ])
         // The strip at the top edge that resizes the panel.
         let handle = PanelResizeHandle()
@@ -182,7 +184,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
         modeControl.selectedSegment = new.rawValue
         if entering { resetReplaceChoices() }
         applyMode()
-        if new == .suggestions { suggestView.main = main } else if new == .looseEnds { looseView.main = main; looseView.refresh() } else if new == .proofread { proofView.main = main; if !proofView.isWatching { proofView.watchTyping() }; proofView.refresh() } else { queryChanged() }
+        if new == .suggestions { suggestView.main = main } else if new == .duplicates { duplicatesView.main = main; duplicatesView.refresh() } else if new == .looseEnds { looseView.main = main; looseView.refresh() } else if new == .proofread { proofView.main = main; if !proofView.isWatching { proofView.watchTyping() }; proofView.refresh() } else { queryChanged() }
     }
 
     private func resetReplaceChoices() {
@@ -198,7 +200,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
     @objc private func modeChanged() { setMode(Mode(rawValue: modeControl.selectedSegment) ?? .search) }
 
     private func applyMode() {
-        let replacing = mode == .replace, proofreading = mode == .proofread || mode == .looseEnds || mode == .suggestions
+        let replacing = mode == .replace, proofreading = mode == .proofread || mode == .looseEnds || mode == .suggestions || mode == .duplicates
         replaceField.isHidden = !replacing
         header.isHidden = !replacing
         replaceRow.isHidden = !replacing
@@ -209,6 +211,7 @@ final class SearchPanelController: NSViewController, NSOutlineViewDataSource, NS
         proofView.isHidden = mode != .proofread
         looseView.isHidden = mode != .looseEnds
         suggestView.isHidden = mode != .suggestions
+        duplicatesView.isHidden = mode != .duplicates
         header.layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.16).cgColor
         view.layer?.backgroundColor = replacing ? NSColor.systemOrange.withAlphaComponent(0.05).cgColor : nil
         view.wantsLayer = true

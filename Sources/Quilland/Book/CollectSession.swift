@@ -402,6 +402,9 @@ final class CollectSession {
         refreshLookAlikes()
         main.collectedCardsChanged()
         message = report.text
+        // Cards that look like one are in the book (from this run or earlier ones): the writer is told where to look.
+        let doubles = BookDuplicates.find(characters: main.characters, worlds: main.worlds, events: main.eventStore, relationships: main.relationships, dismissed: BookDuplicates.dismissed(book: main.folder)).count
+        if doubles > 0 { message += " · " + Lp("{n} group of cards that look like one: Edit ▸ Find Duplicate Cards…", "{n} groups of cards that look like one: Edit ▸ Find Duplicate Cards…", doubles) }
         onChange?()
         return report
     }

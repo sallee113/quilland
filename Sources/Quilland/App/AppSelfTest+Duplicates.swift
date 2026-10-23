@@ -1,0 +1,51 @@
+import AppKit
+import QuillandCore
+
+/// The Duplicates tab: cards that look like one are listed, merged into one of them (one Undo takes it back), or said to be not the same.
+extension AppSelfTest {
+    func duplicatesTab() -> Int32? {
+        let main = self.main!
+        let scenes = main.session.structure.scenes
+        guard !scenes.isEmpty else { check(false, "a scene for the checks"); return 1 }
+        let s0 = scenes[0].id
+        let anna = try! main.characters.add(name: "Двойн-Анна"), lev = try! main.characters.add(name: "Двойн-Лев")
+        let a = try! main.eventStore.add(title: "Встреча у озера"), b = try! main.eventStore.add(title: "Встреча у озера вечером"), other = try! main.eventStore.add(title: "Пожар в амбаре")
+        try! main.eventStore.update(a) { $0.links = [s0: ""]; $0.characters = [anna: ""] }
+        try! main.eventStore.update(b) { $0.links = [s0: ""]; $0.characters = [anna: "", lev: ""] }
+        try! main.eventStore.update(other) { $0.links = [s0: ""] }
+        main.reloadStores()
+
+        main.showSearch(.duplicates); spin(0.4)
+        let dv = main.searchPanel.duplicatesView
+        guard let group = dv.groups.first(where: { $0.kind == .events && Set($0.members.map(\.id)) == [a, b] }) else { check(false, "the two events are listed as a group", "\(dv.groups.map { $0.members.map(\.title) })"); return 1 }
+        check(main.searchPanel.mode == .duplicates && group.level == .same && !dv.groups.contains { $0.members.contains { $0.id == other } }, "the tab lists the cards that look like one, and not the one that is different")
+        dv.select { $0.key == group.key }
+        check(dv.selectedGroup?.key == group.key, "a group can be chosen")
+
+        // Merge into one of them: one step, with the other's rows added.
+        let eventsBefore = main.eventStore.events.count
+        let keeper = group.suggestedKeeper.id
+        check(dv.merge(group, keep: keeper, confirm: false), "Merge Into… merges the group")
+        main.eventStore.reload()
+        let gone = keeper == a ? b : a
+        check(main.eventStore.event(gone) == nil && main.eventStore.events.count == eventsBefore - 1 && main.eventStore.event(keeper)?.characters.keys.contains(anna) == true && main.eventStore.event(keeper)?.characters.keys.contains(lev) == true, "the other is gone, and the kept one has the people of both")
+        check(!dv.groups.contains { $0.key == group.key }, "and the group is no longer listed")
+        main.undoStructure(); spin(0.5)
+        main.eventStore.reload()
+        check(main.eventStore.event(a) != nil && main.eventStore.event(b) != nil, "one Undo brings both events back")
+
+        // Not the Same: remembered.
+        main.showSearch(.duplicates); spin(0.3)
+        dv.refresh()
+        dv.select { $0.kind == .events && Set($0.members.map(\.id)) == [a, b] }
+        dv.notSame()
+        check(!dv.groups.contains { $0.kind == .events && Set($0.members.map(\.id)) == [a, b] } && BookDuplicates.dismissed(book: main.folder).contains(group.key), "Not the Same takes the group off the list for good")
+        BookDuplicates.forgetDismissed(book: main.folder)
+
+        main.searchPanel.onClose?(); spin(0.2)
+        for id in [a, b, other] { try? BookIntegrity.deleteEvent(id, book: main.folder, started: .deleteThem, snapshot: false) }
+        for id in [anna, lev] { try? BookIntegrity.deleteCharacter(id, book: main.folder, snapshot: false) }
+        main.reloadStores(); main.setMode(main.writingMode); spin(0.4)
+        return nil
+    }
+}
