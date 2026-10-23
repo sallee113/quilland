@@ -18,3 +18,21 @@ final class CenteredCell: NSTableCellView {
 
     required init?(coder: NSCoder) { fatalError() }
 }
+
+/// A cell whose content stays at the top of a row that is taller than one line (a row with a long text beside it).
+final class TopCell: NSTableCellView {
+    init(_ content: NSView, height: CGFloat = 22, stretch: Bool = false) {
+        super.init(frame: .zero)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        if let field = content as? NSTextField { textField = field }
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: stretch ? 0 : 2),
+            content.topAnchor.constraint(equalTo: topAnchor),
+            content.heightAnchor.constraint(equalToConstant: height),
+            stretch ? content.trailingAnchor.constraint(equalTo: trailingAnchor) : content.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+}

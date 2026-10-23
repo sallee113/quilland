@@ -29,7 +29,14 @@ extension AppSelfTest {
 
         // The changes window: a character's profile.
         ev.select(e1); spin(0.3)
+
         let annaRow = ev.connections.firstIndex { $0.kind == .character && $0.refID == anna }!
+        check(ev.changesColumnFits(paneWidth: 600) && ev.changesColumnFits(paneWidth: 480), "the changes button column stays in view when the pane is narrow")
+        let oneLine = ev.connectionRowHeight(annaRow)
+        ev.setConnectionText(row: annaRow, "Стоит у окна и долго-долго смотрит на море, не говоря ни слова, пока не стемнеет совсем и не зажгутся огни в гавани.\nПотом уходит.")
+        check(ev.connectionRowHeight(annaRow) > oneLine * 2 && ev.connections[annaRow].text.contains("\n"), "a long text and a line break make the row taller", "\(oneLine) \(ev.connectionRowHeight(annaRow))")
+        ev.setConnectionText(row: annaRow, "")
+        check(ev.connectionRowHeight(annaRow) == oneLine, "and an empty text makes it one line again")
         check(ev.connections[annaRow].changes == 0 && ev.deltaShown(forEvent: e1) == false, "no change yet: the button is hollow and the event has no Δ")
         ev.changeTapped(row: annaRow); spin(0.3)
         guard let w = ev.changesWindow(forRow: annaRow) else { check(false, "the changes window opens"); return 1 }

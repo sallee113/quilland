@@ -32,6 +32,12 @@ extension AppSelfTest {
         check(wv.changeRowTooltips[0].hasPrefix("Карт: первое · ") && wv.changeRowTooltips[2].hasPrefix("Карт: без сцены"), "each row has the event and the scene in its tooltip", "\(wv.changeRowTooltips)")
         check(wv.changeRowsDimmed == [false, false, true], "the row of an event with no scene is greyed")
         check(main.worlds.text(place) == "Цветущий дом.", "the base description is not changed")
+        let placeRows = wv.rowTitles
+        check(zip(wv.eventRowFlags, wv.changesButtonTitles).allSatisfy { $0 == ($1 != nil) } && wv.changesButtonTitles.compactMap { $0 }.count == 2, "the place's list has a Changes button on its event rows only", "\(wv.changesButtonTitles) \(placeRows)")
+        check(wv.changesButtonTitles.compactMap { $0 }.contains("Changes: 1"), "and it shows how many fields the event changes", "\(wv.changesButtonTitles)")
+        if let row = wv.eventRowFlags.firstIndex(of: true) { wv.openChangesOfRow(row); spin(0.3) }
+        check(main.changeWindows.values.contains { $0.window?.isVisible == true }, "the button opens the window of that change")
+        for w in main.changeWindows.values { w.window?.close() }; spin(0.3)
         wv.clickChangeRow(1); spin(0.3)
         check(main.changeWindows[e2 + "|" + place]?.window?.isVisible == true, "a click on a row opens the window of that change")
         main.changeWindows[e2 + "|" + place]?.window?.close(); spin(0.3)
@@ -40,6 +46,10 @@ extension AppSelfTest {
         main.setMode(.characters); spin(0.4)
         guard let cv = main.charactersView else { check(false, "the Characters view shows"); return 1 }
         cv.reload(); cv.select(anna); spin(0.3)
+        check(zip(cv.eventRowFlags, cv.changesButtonTitles).allSatisfy { $0 == ($1 != nil) } && cv.changesButtonTitles.compactMap { $0 }.count == 3, "the character's list has a Changes button on its event rows only", "\(cv.changesButtonTitles)")
+        if let row = cv.eventRowFlags.firstIndex(of: true) { cv.openChangesOfRow(row); spin(0.3) }
+        check(main.changeWindows.values.contains { $0.window?.isVisible == true }, "the button opens the window of that change")
+        for w in main.changeWindows.values { w.window?.close() }; spin(0.3)
         check(cv.profileRowTexts == ["Девочка на корабле.", "Капитан.", "Где-то."], "the profile shows the changes in the order of the book", "\(cv.profileRowTexts)")
         check(cv.aliasBrickTitles == ["Билл", "Вильгельм"], "the names events add are bricks after the field, each once", "\(cv.aliasBrickTitles)")
         if worlds.count > 1 { check(cv.worldBrickTitles.contains(worlds[1].name ?? ""), "a world an event adds is a brick", "\(cv.worldBrickTitles)") }

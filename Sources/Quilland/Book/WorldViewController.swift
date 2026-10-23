@@ -182,11 +182,12 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         scenesCaption.stringValue = L("Scenes and events (◆): where the name is, and what happens here (double-click opens it)")
         scenesCaption.font = .systemFont(ofSize: 11, weight: .semibold)
         scenesCaption.textColor = .secondaryLabelColor
-        for (id, title, width) in [("scene", L("Scene"), 240), ("mentions", L("Named"), 54), ("text", L("What happens here"), 280)] as [(String, String, CGFloat)] {
+        for (id, title, width) in [("scene", L("Scene"), 240), ("mentions", L("Named"), 54), ("text", L("What happens here"), 280), ("changes", L("Changes"), 100)] as [(String, String, CGFloat)] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : 40
+            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : (id == "changes" ? 100 : 40)
             sceneTable.addTableColumn(c)
         }
+        ChangesButton.adjust(sceneTable, textColumn: "text")
         sceneTable.dataSource = self; sceneTable.delegate = self
         sceneTable.rowHeight = 22
         sceneTable.target = self; sceneTable.doubleAction = #selector(openSceneRow)
@@ -505,6 +506,21 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     func refreshChanges() {
         guard isViewLoaded, let id = selected, store.entry(id) != nil else { return }
         changeRows.set(changes(id), text: { $0.text(.description) }, tooltip: changeTooltip)
+        let column = sceneTable.column(withIdentifier: NSUserInterfaceItemIdentifier("changes"))
+        if column >= 0, !rows.isEmpty { sceneTable.reloadData(forRowIndexes: IndexSet(integersIn: 0..<rows.count), columnIndexes: IndexSet(integer: column)) }
+    }
+
+    @objc private func changesPressed(_ sender: NSButton) { openChangesOfRow(sender.tag) }
+
+    var eventRowFlags: [Bool] { rows.map(\.isEvent) }
+    var rowTitles: [String] { rows.map(\.title) }
+    /// For the checks: the title of the Changes button of each row of the list (nil: the row has none).
+    var changesButtonTitles: [String?] { rows.indices.map { ChangesButton.title(in: sceneTable, row: $0) } }
+
+    /// Opens the window of what the event of a row changes in this place.
+    func openChangesOfRow(_ row: Int) {
+        guard rows.indices.contains(row), rows[row].isEvent, let id = selected else { return }
+        onOpenChange?(rows[row].sceneID, id)
     }
 
     /// For the checks: the texts of the rows under the description, and their tooltips.
@@ -628,6 +644,9 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             let l = NSTextField(labelWithString: r.mentions > 0 ? String(r.mentions) : "")
             l.alignment = .right; l.textColor = .secondaryLabelColor
             return l
+        case "changes":
+            guard r.isEvent, let id = selected, store.entry(id) != nil, eventStore.event(r.sceneID) != nil else { return nil }
+            return ChangesButton.make(count: changes(id).first { $0.event == r.sceneID }?.effect.count ?? 0, row: row, target: self, action: #selector(changesPressed(_:)))
         default:
             let f = NSTextField(string: r.text)
             f.isBezeled = true; f.bezelStyle = .squareBezel; f.isEditable = true

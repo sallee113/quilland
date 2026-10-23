@@ -160,3 +160,32 @@ final class FlowView: NSView {
 
     var bricks: [BrickView] { subviews.compactMap { $0 as? BrickView } }
 }
+
+/// The "Changes" button at the end of a row that links something to an event (in the Events view, and on the cards of characters and places): plain when the
+/// event changes nothing there, in the accent colour with the number of fields when it does. It opens the window of that change.
+enum ChangesButton {
+    static func make(count: Int, row: Int, target: AnyObject, action: Selector) -> NSView {
+        let b = NSButton(title: count > 0 ? L("Changes: {count}", ["count": String(count)]) : L("Changes"), target: target, action: action)
+        b.tag = row
+        b.bezelStyle = .rounded; b.controlSize = .small
+        b.font = .systemFont(ofSize: 11, weight: count > 0 ? .semibold : .regular)
+        b.contentTintColor = count > 0 ? .controlAccentColor : nil
+        b.toolTip = count > 0 ? L("What this event changes here: click to see or edit") : L("This event changes nothing here yet: click to add a change")
+        b.setAccessibilityLabel(L("Changes"))
+        Hover.button(b)
+        return TopCell(b, stretch: true)
+    }
+
+    /// For the checks: the title of the button in a cell (nil: no button).
+    static func title(in table: NSTableView, row: Int) -> String? {
+        let column = table.column(withIdentifier: NSUserInterfaceItemIdentifier("changes"))
+        guard column >= 0, let cell = table.view(atColumn: column, row: row, makeIfNecessary: true) else { return nil }
+        return cell.subviews.compactMap { $0 as? NSButton }.first?.title
+    }
+
+    /// The columns of a card's list: only the text column stretches with the pane, so that the button at the right end is always in view.
+    static func adjust(_ table: NSTableView, textColumn: String) {
+        for c in table.tableColumns { c.resizingMask = c.identifier.rawValue == textColumn ? [.autoresizingMask, .userResizingMask] : (c.identifier.rawValue == "changes" ? [] : .userResizingMask) }
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+    }
+}

@@ -61,6 +61,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     let descriptionView = NSTextView()
     let notesView = NSTextView()
     private let table = Hover.rows(NSTableView())
+    /// The text being typed in a connection's "What happens" cell, so that its row grows as the lines come.
+    private var editingText: (row: Int, text: String)?
     private let addButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let removeButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
     private let planLabel = NSTextField(labelWithString: "")
@@ -169,11 +171,14 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         dateField.setAccessibilityLabel(L("Date"))
         descriptionView.setAccessibilityLabel(L("Description")); notesView.setAccessibilityLabel(L("Notes"))
 
-        for (id, title, width) in [("kind", "", 80), ("name", L("Who or where"), 220), ("text", L("What happens"), 260), ("changes", "", 64)] as [(String, String, CGFloat)] {
+        // Only "What happens" stretches and shrinks with the pane, so that the changes button at the right end is always in view.
+        for (id, title, width) in [("kind", "", 76), ("name", L("Who or where"), 170), ("text", L("What happens"), 260), ("changes", L("Changes"), 100)] as [(String, String, CGFloat)] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            c.title = title; c.width = width; c.minWidth = id == "text" ? 140 : (id == "changes" ? 56 : 60)
+            c.title = title; c.width = width; c.minWidth = id == "text" ? 120 : (id == "changes" ? 100 : 50)
+            c.resizingMask = id == "text" ? [.autoresizingMask, .userResizingMask] : (id == "changes" ? [] : .userResizingMask)
             table.addTableColumn(c)
         }
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         let rowMenu = NSMenu(); rowMenu.delegate = self; table.menu = rowMenu
         table.dataSource = self; table.delegate = self
         table.rowHeight = 22
@@ -321,35 +326,31 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case "kind":
             let l = NSTextField(labelWithString: L(c.kind.rawValue))
             l.textColor = .secondaryLabelColor
-            return l
+            return TopCell(l)
         case "name":
             let l = NSTextField(labelWithString: c.missing ? "(missing)" : c.name)
             if c.missing || c.warning != nil { l.textColor = .systemOrange }
             if let w = c.warning { l.toolTip = w }
-            return l
+            l.lineBreakMode = .byTruncatingTail
+            return TopCell(l)
         case "changes":
             guard c.kind != .scene, !c.missing else { return nil }
-            let b = NSButton(title: c.changes > 0 ? "▲ \(c.changes)" : "△", target: self, action: #selector(changesPressed(_:)))
-            b.tag = row
-            b.isBordered = false
-            b.font = .systemFont(ofSize: 12, weight: c.changes > 0 ? .semibold : .regular)
-            b.contentTintColor = c.changes > 0 ? .controlAccentColor : .secondaryLabelColor
-            b.toolTip = c.changes > 0 ? L("What this event changes here: click to see or edit") : L("This event changes nothing here yet: click to add a change")
-            b.setAccessibilityLabel(L("Changes"))
-            Hover.button(b)
-            return b
+            return ChangesButton.make(count: c.changes, row: row, target: self, action: #selector(changesPressed(_:)))
         default:
             if c.kind == .relationship {
                 // What the event does to the relationship: its marker; nothing to type.
                 let l = NSTextField(labelWithString: c.marker == "starts" ? L("starts here") : (c.marker == "ends" ? L("ends here") : ""))
                 l.textColor = .secondaryLabelColor
-                return l
+                return TopCell(l)
             }
             // A field with a visible edge, so that it is plain that it can be typed in.
             let f = NSTextField(string: c.text)
             f.isBezeled = true; f.bezelStyle = .squareBezel; f.isEditable = true
             f.drawsBackground = true; f.backgroundColor = .textBackgroundColor; f.textColor = .textColor
             f.delegate = self; f.placeholderString = L("Type what happens here")
+            // Long text goes on to the next line, and the row grows; ⌥Return makes a line break of its own.
+            f.cell?.wraps = true; f.cell?.isScrollable = false
+            f.lineBreakMode = .byWordWrapping; f.maximumNumberOfLines = 0
             return f
         }
     }
@@ -378,9 +379,25 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        if tableView === table { return connectionRowHeight(row) }
         guard tableView === list, listRows.indices.contains(row) else { return tableView.rowHeight }
         if case .heading = listRows[row] { return 24 }
         return 26
+    }
+
+    /// A row is as tall as its "What happens" text needs at the width of the column (at least one line).
+    func connectionRowHeight(_ row: Int) -> CGFloat {
+        guard connections.indices.contains(row), let column = table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("text")) else { return table.rowHeight }
+        let text = editingText?.row == row ? editingText!.text : connections[row].text
+        guard !text.isEmpty else { return table.rowHeight }
+        let width = max(column.width - 12, 40)
+        let box = (text + "\u{200B}" as NSString).boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 13)])
+        return max(table.rowHeight, ceil(box.height) + 8)
+    }
+
+    func tableViewColumnDidResize(_ notification: Notification) {
+        guard (notification.object as? NSTableView) === table, connections.count > 0 else { return }
+        table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<connections.count))
     }
 
     func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
@@ -651,6 +668,17 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case .relationship: return   // (a relationship row has no text to type: its marker says what the event does)
         }
         connections[row].text = clean
+        table.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+    }
+
+    /// For the checks: does the last column (the changes button) stay inside the visible part of the table when the pane is `width` wide?
+    func changesColumnFits(paneWidth width: CGFloat) -> Bool {
+        guard let scroll = table.enclosingScrollView else { return false }
+        let old = scroll.frame
+        scroll.setFrameSize(NSSize(width: width, height: old.height)); scroll.layoutSubtreeIfNeeded()
+        defer { scroll.setFrameSize(old.size); scroll.layoutSubtreeIfNeeded() }
+        guard let last = table.tableColumns.last, let index = table.tableColumns.firstIndex(of: last) else { return false }
+        return table.rect(ofColumn: index).maxX <= scroll.contentView.bounds.width + 0.5
     }
 
     @objc private func removeLink() { removeConnection(row: table.selectedRow) }
@@ -722,6 +750,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
             let date = dateField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             update(rebuild: false) { $0.date = date }
         } else if field !== addField, field !== filterField {
+            editingText = nil
             let row = table.row(for: field)
             if row >= 0 { setConnectionText(row: row, field.stringValue) }
         }
@@ -729,10 +758,18 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     func controlTextDidChange(_ obj: Notification) {
         if (obj.object as? NSSearchField) === filterField { reload(keepingRelations: true) }
+        else if let field = obj.object as? NSTextField, field !== titleField, field !== dateField, field !== addField, field !== filterField, field.isDescendant(of: table) {
+            let row = table.row(for: field)
+            guard row >= 0 else { return }
+            editingText = (row, (field.currentEditor() as? NSTextView)?.string ?? field.stringValue)
+            table.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+        }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         if control === addField, selector == #selector(NSResponder.insertNewline(_:)) { addEvent(titled: addField.stringValue); return true }
+        // ⌥Return in a "What happens" cell: a line break (Return alone ends the typing).
+        if selector == #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)), control.isDescendant(of: table) { textView.insertText("\n", replacementRange: textView.selectedRange()); return true }
         if selector == #selector(NSResponder.cancelOperation(_:)), control === filterField || control === addField { onEscape?(); return true }
         return false
     }

@@ -183,14 +183,15 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         mainBox.target = self; mainBox.action = #selector(mainChanged)
         profile.setAccessibilityLabel(L("Profile")); notes.setAccessibilityLabel(L("Notes"))
 
-        let columns: [(String, String, CGFloat)] = [("scene", L("Scene"), 220), ("mentions", L("Named"), 54), ("pov", L("POV"), 40), ("text", L("What the character does here"), 260)]
+        let columns: [(String, String, CGFloat)] = [("scene", L("Scene"), 220), ("mentions", L("Named"), 54), ("pov", L("POV"), 40), ("text", L("What the character does here"), 260), ("changes", L("Changes"), 100)]
         for (id, title, width) in columns {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             c.title = title
             c.width = width
-            c.minWidth = id == "text" ? 140 : 36
+            c.minWidth = id == "text" ? 140 : (id == "changes" ? 100 : 36)
             sceneTable.addTableColumn(c)
         }
+        ChangesButton.adjust(sceneTable, textColumn: "text")
         sceneTable.dataSource = self
         sceneTable.delegate = self
         sceneTable.rowHeight = 22
@@ -305,6 +306,10 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
             let b = NSButton(checkboxWithTitle: "", target: self, action: #selector(povToggled(_:)))
             b.state = r.pov ? .on : .off
             return b
+        case "changes":
+            // Only an event can change something (a scene is a line of the story, not a state).
+            guard r.isEvent, events().contains(where: { $0.id == r.sceneID }), let id = selected else { return nil }
+            return ChangesButton.make(count: changes(id).first { $0.event == r.sceneID }?.effect.count ?? 0, row: row, target: self, action: #selector(changesPressed(_:)))
         default:
             let f = NSTextField(string: r.text)
             f.isBezeled = true; f.bezelStyle = .squareBezel; f.isEditable = true
@@ -358,6 +363,18 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
 
     // MARK: What events change
 
+    @objc private func changesPressed(_ sender: NSButton) { openChangesOfRow(sender.tag) }
+
+    /// Opens the window of what the event of a row changes in this character.
+    func openChangesOfRow(_ row: Int) {
+        guard rows.indices.contains(row), rows[row].isEvent, let id = selected else { return }
+        onOpenChange?(rows[row].sceneID, id)
+    }
+
+    var eventRowFlags: [Bool] { rows.map(\.isEvent) }
+    /// For the checks: the title of the Changes button of each row of the list (nil: the row has none).
+    var changesButtonTitles: [String?] { rows.indices.map { ChangesButton.title(in: sceneTable, row: $0) } }
+
     /// The rows and bricks of the card that come from the events: new names, worlds, the profile and the relationships.
     func refreshChanges() {
         guard isViewLoaded, let id = selected, let record = store.character(id) else { return }
@@ -391,6 +408,9 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         relationshipsFlow.set(rels)
         relationshipsFlow.isHidden = rels.isEmpty
         profileChanges.set(all, text: { $0.text(.profile) }, tooltip: changeTooltip)
+        // (The counts on the buttons of the list.)
+        let column = sceneTable.column(withIdentifier: NSUserInterfaceItemIdentifier("changes"))
+        if column >= 0, !rows.isEmpty { sceneTable.reloadData(forRowIndexes: IndexSet(integersIn: 0..<rows.count), columnIndexes: IndexSet(integer: column)) }
     }
 
     // test access
