@@ -63,9 +63,7 @@ extension AppSelfTest {
         wv.textDidChange(Notification(name: NSText.didChangeNotification, object: wv.descriptionView))
         wv.commitEdits()
         check(main.worlds.text(frankfurt) == "Большой город на реке.", "the description is written to the place's text file")
-        wv.typeBox.stringValue = "people"
-        wv.controlTextDidEndEditing(Notification(name: NSControl.textDidEndEditingNotification, object: wv.typeBox))
-        check(main.worlds.entry(frankfurt)?.type == "people", "the kind of entry is a free label")
+        check(main.worlds.entry(frankfurt)?.type == "place", "a place is a place: the card has no kind of entry to choose")
         wv.select(north)
         wv.deleteSelected(confirm: false)
         check(main.worlds.world(north) != nil, "a world with places in it is not deleted")

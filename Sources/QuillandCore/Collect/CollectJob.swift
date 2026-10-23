@@ -7,6 +7,18 @@ public struct CollectScene: Sendable {
     public init(id: String, title: String, text: String) { self.id = id; self.title = title; self.text = text }
 }
 
+/// A card of the book as the model is told it (what is known now), for the second pass: a character or a place with the text on its card and its relationships.
+public struct CollectCard: Equatable, Sendable {
+    public var name: String
+    public var aliases: [String]
+    public var text: String
+    /// "Лев: friends", for a character.
+    public var relations: [String]
+    /// A place or a thing (its name is found in lowercase text too).
+    public var isPlace: Bool
+    public init(name: String, aliases: [String] = [], text: String = "", relations: [String] = [], isPlace: Bool = false) { self.name = name; self.aliases = aliases; self.text = text; self.relations = relations; self.isPlace = isPlace }
+}
+
 public struct CollectRequest: Sendable {
     public var kinds: Set<CollectKind>
     public var scenes: [CollectScene]
@@ -14,6 +26,8 @@ public struct CollectRequest: Sendable {
     public var language = ""
     public var knownCharacters: [String] = []
     public var knownPlaces: [String] = []
+    /// The cards of the characters and places (the second pass is told those the passage names).
+    public var cards: [CollectCard] = []
     /// Tokens the model reads at once: the pieces sent are cut to fit.
     public var context = LMStudioClient.defaultContext
     /// Fingerprints of the scenes already analysed (scene id to fingerprint); those that have not changed are skipped unless `reanalyse`.
@@ -65,7 +79,12 @@ public enum CollectJob {
         var summary = CollectSummary()
         var total = 0
         let size = pieceSize(context: request.context)
-        let system = CollectPrompt.system(kinds: request.kinds, language: request.language)
+        // Two passes over each piece: what is known (who and what there is, the facts that were always so), then what happens (events, changes, relationships). The
+        // instructions and the passage come first in both, so that the server need not read them again; the second pass is told the cards the passage names.
+        let system = CollectPrompt.shared(language: request.language)
+        let passes = CollectKind.Pass.allCases.filter { pass in request.kinds.contains { $0.pass == pass } }
+        let knownBudget = max(600, min(3000, (request.context - 3500) / 4))
+        let knownCards = CollectKnown(cards: request.cards)
         for (index, scene) in request.scenes.enumerated() {
             if Task.isCancelled { summary.stopped = true; break }
             let print = fingerprint(scene.text, kinds: request.kinds)
@@ -77,18 +96,30 @@ public enum CollectJob {
             for piece in CollectChunker.chunks(scene.text, maxCharacters: size) {
                 if Task.isCancelled { summary.stopped = true; break }
                 if piece.text.trimmingCharacters(in: .whitespacesAndNewlines).count < minimumCharacters / 2 { continue }
-                let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: request.knownCharacters, knownPlaces: request.knownPlaces))]
-                do {
-                    let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
-                    let result = CollectParser.parse(reply, kinds: request.kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)
-                    summary.droppedUnverified += result.dropped
-                    if result.malformed { summary.failedPieces += 1; sceneFailed = true }
-                    if !result.items.isEmpty { total += result.items.count; found(result.items) }
-                } catch {
-                    if Task.isCancelled || error is CancellationError { summary.stopped = true; break }
-                    if let e = error as? LLMError, e == .unreachable || e.description.contains("not found") { summary.error = e.description; return summary }
-                    summary.failedPieces += 1; sceneFailed = true
+                var foundNames: [String] = []
+                var cast = false
+                for pass in passes {
+                    if Task.isCancelled { summary.stopped = true; break }
+                    let kinds = request.kinds.filter { $0.pass == pass }
+                    let known = pass == .story ? knownCards.text(in: piece.text, budget: knownBudget) : ""
+                    // A passage with no one in it (no card named, nothing found by the first pass) has no story to tell.
+                    if pass == .story, passes.contains(.facts), !cast, known.isEmpty { continue }
+                    let names = request.knownCharacters + foundNames.filter { n in !request.knownCharacters.contains(n) }
+                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: request.knownPlaces, known: known, kinds: kinds))]
+                    do {
+                        let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
+                        let result = CollectParser.parse(reply, kinds: kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)
+                        summary.droppedUnverified += result.dropped
+                        if result.malformed { summary.failedPieces += 1; sceneFailed = true }
+                        if pass == .facts { foundNames += result.items.filter { $0.kind == .characters }.map(\.name); cast = !foundNames.isEmpty }
+                        if !result.items.isEmpty { total += result.items.count; found(result.items) }
+                    } catch {
+                        if Task.isCancelled || error is CancellationError { summary.stopped = true; break }
+                        if let e = error as? LLMError, e == .unreachable || e.description.contains("not found") { summary.error = e.description; return summary }
+                        summary.failedPieces += 1; sceneFailed = true
+                    }
                 }
+                if summary.stopped { break }
             }
             if summary.stopped { break }
             summary.scenesDone += 1

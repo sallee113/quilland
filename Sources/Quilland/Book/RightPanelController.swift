@@ -193,7 +193,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         writeButton.target = self; writeButton.action = #selector(writePressed)
         let synopsisRow = NSStackView(views: [label(L("Synopsis")), writeButton])
         synopsisRow.spacing = 10
-        stack([titleLabel, pathLabel, infoLabel, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places and things in this scene")), placesLabel], in: sectionView)
+        stack([titleLabel, pathLabel, infoLabel, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places in this scene")), placesLabel], in: sectionView)
     }
 
     @objc private func writePressed() { onWriteSynopsis?() }

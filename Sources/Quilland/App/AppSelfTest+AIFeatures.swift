@@ -171,7 +171,7 @@ extension AppSelfTest {
             let report = sv.acceptChecked()!
             check(report.created[.characters] == 1 && report.created[.places] == 2 && report.created[.events] == 1 && report.created[.relationships] == 1 && report.updated == 2, "accepting makes the cards", "\(report)")
             let made = main.characters.characters.first { $0.name == "Сборкин" }
-            check(made?.aliases == ["Сбор"] && main.characters.profile(made?.id ?? "") == "Придуманный сборщик." && made?.links[sceneID] == "входит" && made?.notes == ["Носит шляпу."], "a character has its other name, its description, the scene with the model's note, and the observation")
+            check(made?.aliases == ["Сбор"] && made?.links[sceneID] == "входит" && made?.notes.isEmpty == true && main.characters.profile(made?.id ?? "") == "Придуманный сборщик.\n\nНосит шляпу.", "a character has its other name, its description, the scene with the model's note, and the observation as a new paragraph of the profile (the notes are left alone)")
             check(main.characters.character(known)?.name == "Тестовая Аня" && main.characters.profile(known) == "" && main.characters.character(known)?.aliases == ["Анюта"] && main.characters.character(known)?.links[sceneID] == "здесь", "a card that existed is not overwritten: it only gets the scene and the other name")
             let townEntry = main.worlds.entries.first { $0.name == "Сборград" }, squareEntry = main.worlds.entries.first { $0.name == "Площадь Сборграда" }
             check(townEntry != nil && squareEntry?.parent == townEntry?.id && squareEntry?.world == townEntry?.world && main.worlds.text(townEntry?.id ?? "") == "Город сборщиков.", "places are made in the book's world, the inner one inside the larger")

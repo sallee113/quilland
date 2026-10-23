@@ -37,9 +37,6 @@ public enum DemoBook {
         Spot(name: "Город", inside: "в городе", of: "города", parent: nil, world: 1, type: "place", aliases: []),
         Spot(name: "Редакция", inside: "в редакции", of: "редакции", parent: 8, world: 1, type: "place", aliases: []),
         Spot(name: "Квартира Ольги", inside: "в квартире Ольги", of: "квартиры Ольги", parent: 8, world: 1, type: "place", aliases: []),
-        Spot(name: "Ключ с биркой", inside: "", of: "ключа", parent: nil, world: 0, type: "thing", aliases: ["ключ"]),
-        Spot(name: "Дневник погоды", inside: "", of: "дневника", parent: nil, world: 0, type: "thing", aliases: ["дневник"]),
-        Spot(name: "Сосновцы", inside: "", of: "сосновцев", parent: nil, world: 0, type: "people", aliases: []),
     ]
 
     static let openers = [

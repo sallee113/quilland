@@ -2,7 +2,7 @@ import AppKit
 import QuillandCore
 
 /// The World view: worlds at the top, their places (and peoples, things, terms) as a tree below; the card of the chosen one on the right.
-final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate, NSComboBoxDelegate, NSMenuDelegate {
+final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSTextViewDelegate, NSMenuDelegate {
     final class Node {
         let id: String
         let isWorld: Bool
@@ -55,7 +55,6 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private let card = NSStackView()
     private let nothing = NSTextField(labelWithString: "")
     let nameField = NSTextField()
-    let typeBox = NSComboBox()
     private let pathLabel = NSTextField(labelWithString: "")
     let aliasField = NSTextField()
     let descriptionView = NSTextView()
@@ -170,10 +169,6 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         nameField.isBordered = false; nameField.drawsBackground = false; nameField.focusRingType = .none
         nameField.placeholderString = L("Name"); nameField.delegate = self
         nameField.setAccessibilityLabel(L("Name"))
-        typeBox.addItems(withObjectValues: ["place", "people", "thing", "term"])
-        typeBox.completes = false
-        typeBox.delegate = self
-        typeBox.setAccessibilityLabel(L("Kind of entry"))
         pathLabel.textColor = .secondaryLabelColor
         pathLabel.lineBreakMode = .byTruncatingMiddle
         aliasField.placeholderString = L("Other names, separated by commas"); aliasField.delegate = self
@@ -214,7 +209,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         sceneButtons.spacing = 8
 
         let descBox = box(descriptionView, height: 150), notesBox = box(notesView, height: 80)
-        for v in [nameField, typeBox, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, changeRows, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
+        for v in [nameField, pathLabel, aliasField, countLabel, caption(L("Description and rules")), descBox, changeRows, caption(L("Notes (one per line)")), notesBox, scenesCaption, sceneScroll, sceneButtons, cardButtons] {
             card.addArrangedSubview(v)
         }
         card.orientation = .vertical; card.alignment = .leading; card.spacing = 8
@@ -237,7 +232,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             card.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), card.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -20),
             nameField.widthAnchor.constraint(equalTo: card.widthAnchor), aliasField.widthAnchor.constraint(equalTo: card.widthAnchor),
             descBox.widthAnchor.constraint(equalTo: card.widthAnchor), notesBox.widthAnchor.constraint(equalTo: card.widthAnchor), changeRows.widthAnchor.constraint(equalTo: card.widthAnchor),
-            sceneScroll.widthAnchor.constraint(equalTo: card.widthAnchor), typeBox.widthAnchor.constraint(equalToConstant: 160),
+            sceneScroll.widthAnchor.constraint(equalTo: card.widthAnchor),
             nothing.centerXAnchor.constraint(equalTo: root.centerXAnchor), nothing.centerYAnchor.constraint(equalTo: root.centerYAnchor),
         ])
         return root
@@ -463,7 +458,6 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         if let w = store.world(id) {
             nameField.stringValue = w.name ?? ""
             aliasField.stringValue = w.aliases.joined(separator: ", ")
-            typeBox.isHidden = true
             pathLabel.stringValue = L("World")
             let n = store.entries.filter { $0.world == id }.count
             countLabel.stringValue = Lp("{n} place in this world", "{n} places in this world", n)
@@ -480,8 +474,6 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         } else if let e = store.entry(id) {
             nameField.stringValue = e.name ?? ""
             aliasField.stringValue = e.aliases.joined(separator: ", ")
-            typeBox.isHidden = false
-            typeBox.stringValue = e.type
             pathLabel.stringValue = store.path(of: id).dropLast().joined(separator: " › ")
             countLabel.isHidden = true
             setText(descriptionView, store.text(id))
@@ -690,19 +682,12 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         } else if field === aliasField {
             let aliases = aliasField.stringValue.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             updateSelected(world: { $0.aliases = aliases }, entry: { $0.aliases = aliases })
-        } else if field === typeBox {
-            let type = typeBox.stringValue.trimmingCharacters(in: .whitespaces)
-            updateSelected(rebuild: false, entry: { $0.type = type.isEmpty ? "place" : type })
         } else if field !== addField, field !== filterField {
             let row = sceneTable.row(for: field)
             if row >= 0 { setSceneLine(row: row, field.stringValue) }
         }
     }
 
-    func comboBoxSelectionDidChange(_ notification: Notification) {
-        let type = typeBox.objectValueOfSelectedItem as? String ?? typeBox.stringValue
-        updateSelected(rebuild: false, entry: { $0.type = type })
-    }
 
     /// What happens in the scene of this row (empty removes the line; an event stays held here with no text).
     func setSceneLine(row: Int, _ raw: String) {

@@ -9,7 +9,7 @@ struct AcceptReport {
 
     var text: String {
         var parts: [String] = []
-        for kind in [CollectKind.characters, .places, .events, .relationships] {
+        for kind in [CollectKind.characters, .places, .events, .relationships, .changes] {
             if let n = created[kind], n > 0 { parts.append(CollectSession.createdText(kind, n)) }
         }
         if updated > 0 { parts.append(Lp("{n} existing card updated", "{n} existing cards updated", updated)) }
@@ -38,10 +38,11 @@ final class CollectSession {
     static func createdText(_ kind: CollectKind, _ n: Int) -> String {
         switch kind {
         case .characters: return Lp("{n} character created", "{n} characters created", n)
-        case .places: return Lp("{n} place or thing created", "{n} places and things created", n)
+        case .places: return Lp("{n} place created", "{n} places created", n)
         case .events: return Lp("{n} event created", "{n} events created", n)
         case .relationships: return Lp("{n} relationship created", "{n} relationships created", n)
         case .observations: return ""
+        case .changes: return Lp("{n} change recorded in an event", "{n} changes recorded in events", n)
         }
     }
 
@@ -79,6 +80,7 @@ final class CollectSession {
         request.language = main.bookLanguage
         request.knownCharacters = main.characters.characters.compactMap(\.name)
         request.knownPlaces = main.worlds.entries.compactMap(\.name)
+        request.cards = main.collectCards()
         request.context = AIService.shared.context
         request.reanalyse = true
         running = true
@@ -90,7 +92,7 @@ final class CollectSession {
             let result = await CollectJob.run(request, client: client, progress: { p in
                 DispatchQueue.main.async { me.progress = p; me.onChange?() }
             }, found: { items in
-                DispatchQueue.main.async { me.collected.merge(items); me.onChange?() }
+                DispatchQueue.main.async { me.collected.merge(me.withFieldsOfCards(items)); me.onChange?() }
             })
             await MainActor.run {
                 me.running = false
@@ -115,7 +117,20 @@ final class CollectSession {
     func stop() { task?.cancel() }
 
     /// For the checks: puts findings in the list as a run would.
-    func inject(_ items: [CollectedItem]) { collected.merge(items); onChange?() }
+    func inject(_ items: [CollectedItem]) { collected.merge(withFieldsOfCards(items)); onChange?() }
+
+    /// A change to a card of the book that is already there says "profile" for a character and "description" for a place, whichever word the model used.
+    func withFieldsOfCards(_ items: [CollectedItem]) -> [CollectedItem] {
+        guard let main else { return items }
+        return items.map { item in
+            guard item.kind == .changes else { return item }
+            let key = Names.normalize(item.name)
+            var i = item
+            if main.characters.characters.contains(where: { c in ([c.name ?? ""] + c.aliases).contains { Names.normalize($0) == key } }) { if i.field == "description" { i.field = "profile" } }
+            else if main.worlds.entries.contains(where: { e in ([e.name ?? ""] + e.aliases).contains { Names.normalize($0) == key } }) { if i.field == "profile" { i.field = "description" } }
+            return i
+        }
+    }
 
     func dismiss(_ ids: Set<UUID>) {
         dismissFindings(ids.intersection(Set(findings.map(\.id))))
@@ -255,6 +270,7 @@ final class CollectSession {
         var entryIDs: [String: String] = [:]
         for e in main.worlds.entries { for n in [e.name ?? ""] + e.aliases { if let id = e.id { entryIDs[Names.normalize(n)] = id } } }
 
+        let story = StoryAccept(main: main, characterIDs: characterIDs, entryIDs: entryIDs, story: chosen)
         for item in chosen where item.kind == .characters {
             let names = ([item.name] + item.aliases).map(Names.normalize)
             if let id = names.compactMap({ characterIDs[$0] }).first {
@@ -285,7 +301,7 @@ final class CollectSession {
             if worldID == nil, !worldAsked { worldAsked = true; worldID = chooseWorld(main) }
             guard let world = worldID else { skip(item, L("no world was chosen for it")); continue }
             let parent = entryIDs[Names.normalize(item.parent)]
-            if let id = try? main.worlds.addEntry(name: item.name, world: world, parent: parent, type: item.type.isEmpty ? "place" : item.type) {
+            if let id = try? main.worlds.addEntry(name: item.name, world: world, parent: parent, type: "place") {
                 try? main.worlds.updateEntry(id) { r in r.aliases = item.aliases; r.links = linkText(item) }
                 if !item.detail.isEmpty { try? main.worlds.setText(id, item.detail) }
                 for n in names { entryIDs[n] = id }
@@ -293,6 +309,7 @@ final class CollectSession {
             }
         }
 
+        story.characterIDs = characterIDs; story.entryIDs = entryIDs
         for item in chosen where item.kind == .events {
             let found = main.eventStore.events.first { Names.normalize($0.title ?? "") == Names.normalize(item.name) }
             // Who takes part: the event keeps the link. A name with no card (here or made in this run) is left out.
@@ -308,8 +325,10 @@ final class CollectSession {
             if let id = found?.id {
                 try? main.eventStore.update(id) { r in r.links = merged(r.links, linkText(item)) }
                 linkParticipants(id)
+                story.noteEvent(id, title: item.name, scenes: item.evidence.map(\.scene))
                 report.updated += 1
             } else if let id = try? main.eventStore.add(title: item.name) {
+                story.noteEvent(id, title: item.name, scenes: item.evidence.map(\.scene))
                 let placeIDs = item.places.compactMap { entryIDs[Names.normalize($0)] }
                 try? main.eventStore.update(id) { r in
                     r.date = item.date
@@ -322,26 +341,26 @@ final class CollectSession {
             }
         }
 
-        for item in chosen where item.kind == .relationships {
-            let ids = item.members.compactMap { characterIDs[Names.normalize($0)] }
-            guard Set(ids).count >= 2 else { skip(item, L("it needs two characters that have cards")); continue }
-            if let existing = main.relationships.relationships.first(where: { Set($0.characters) == Set(ids) && Names.normalize($0.kind ?? "") == Names.normalize(item.type) })?.id {
-                try? main.relationships.update(existing) { r in r.links = merged(r.links, linkText(item)) }
-                report.updated += 1
-            } else if let id = try? main.relationships.add(characters: Array(NSOrderedSet(array: ids)) as? [String] ?? ids, kind: item.type) {
-                try? main.relationships.update(id) { r in r.links = linkText(item) }
-                report.created[.relationships, default: 0] += 1
+        // Relationships and changes: in the events (a change with no event of the story gets one made for its scene).
+        func record(_ item: CollectedItem, _ outcome: StoryAccept.Outcome) {
+            switch outcome {
+            case .created(let kind): report.created[kind, default: 0] += 1
+            case .updated: report.updated += 1
+            case .skipped(let reason): skip(item, reason)
             }
         }
+        for item in chosen where item.kind == .relationships { record(item, story.apply(relationship: item, linkText: linkText(item))) }
+        for item in chosen where item.kind == .changes { record(item, story.apply(change: item)) }
+        if story.eventsMade > 0 { report.created[.events, default: 0] += story.eventsMade }
 
+        // A fact that was always so goes into the card's own text as a new paragraph (the notes are the author's: nothing is written there).
         for item in chosen where item.kind == .observations {
             let key = Names.normalize(item.about)
+            func appended(_ base: String) -> String? { Names.normalize(base).contains(Names.normalize(item.detail)) ? nil : (base.isEmpty ? item.detail : base + "\n\n" + item.detail) }
             if let id = characterIDs[key] {
-                try? main.characters.update(id) { r in if !r.notes.contains(item.detail) { r.notes.append(item.detail) } }
-                report.updated += 1
+                if let text = appended(main.characters.profile(id)) { try? main.characters.setProfile(id, text); report.updated += 1 } else { skip(item, L("the card already says this")) }
             } else if let id = entryIDs[key] {
-                try? main.worlds.updateEntry(id) { r in if !r.notes.contains(item.detail) { r.notes.append(item.detail) } }
-                report.updated += 1
+                if let text = appended(main.worlds.text(id)) { try? main.worlds.setText(id, text); report.updated += 1 } else { skip(item, L("the card already says this")) }
             } else { skip(item, L("no card named “{name}” to attach it to", ["name": item.about])) }
         }
 

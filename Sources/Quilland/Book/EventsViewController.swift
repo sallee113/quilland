@@ -891,16 +891,7 @@ final class EventListTable: NSTableView {
 
 extension EventsViewController {
     /// What is wrong with an order that would break, in a sentence.
-    func describe(_ problem: RelationshipTimeline.Problem) -> String {
-        switch problem {
-        case .noScene: return L("This event has no scene, so it has no place in the book.")
-        case .endsBeforeStart(let t): return L("It would end before it starts (it starts in “{title}”).", ["title": t])
-        case .startsAfterEnd(let t): return L("It would start after it ends (it ends in “{title}”).", ["title": t])
-        case .startsAfterChange(let t): return L("It would start after a change in “{title}”.", ["title": t])
-        case .endsBeforeChange(let t): return L("It would end before a change in “{title}”.", ["title": t])
-        case .endsWhereItStarts: return L("It cannot end in the event where it starts.")
-        }
-    }
+    func describe(_ problem: RelationshipTimeline.Problem) -> String { problem.sentence }
 
     func warn(_ title: String, _ text: String) {
         let alert = NSAlert()
@@ -1105,5 +1096,19 @@ extension EventsViewController {
         guard let r = row(of: id), let cell = list.view(atColumn: 0, row: r, makeIfNecessary: true) else { return nil }
         func labels(_ v: NSView) -> [NSTextField] { ((v as? NSTextField).map { [$0] } ?? []) + v.subviews.flatMap(labels) }
         return labels(cell).contains { $0.stringValue == "Δ" }
+    }
+}
+
+extension RelationshipTimeline.Problem {
+    /// What is wrong with an order that would break, in a sentence.
+    var sentence: String {
+        switch self {
+        case .noScene: return L("This event has no scene, so it has no place in the book.")
+        case .endsBeforeStart(let t): return L("It would end before it starts (it starts in “{title}”).", ["title": t])
+        case .startsAfterEnd(let t): return L("It would start after it ends (it ends in “{title}”).", ["title": t])
+        case .startsAfterChange(let t): return L("It would start after a change in “{title}”.", ["title": t])
+        case .endsBeforeChange(let t): return L("It would end before a change in “{title}”.", ["title": t])
+        case .endsWhereItStarts: return L("It cannot end in the event where it starts.")
+        }
     }
 }

@@ -56,6 +56,50 @@ struct CollectTests {
         #expect(CollectParser.parse("{\"characters\": []}", kinds: kinds, scene: "s", chunk: "x", chunkOffset: 0).items.isEmpty)
     }
 
+    // MARK: The second pass: what happens
+
+    @Test("changes and when a relationship begins are read; what an event cannot change is never taken, whatever the model says")
+    func changes() {
+        let reply = """
+        {"changes": [
+          {"about": "Анна", "field": "profile", "value": "Теперь она капитан.", "event": "Приезд Анны", "quote": "Анна стояла на платформе"},
+          {"about": "Старик", "field": "aliases", "aliases": ["Дед"], "quote": "Старик в фуражке"},
+          {"about": "Анна", "field": "main", "value": "true", "quote": "Анна стояла"},
+          {"about": "Анна", "field": "notes", "value": "x", "quote": "Анна стояла"},
+          {"about": "Озеро", "field": "description", "value": "Пересохло.", "quote": "к дому у озера"},
+          {"about": "Анна", "field": "profile", "value": "Выдумка.", "quote": "Анна вошла в замок"},
+          {"about": "Анна", "field": "profile", "value": "", "quote": "Анна стояла"}],
+         "relationships": [{"characters": ["Анна", "Вера"], "kind": "тётя и племянница", "when": "starts", "quote": "к тёте Вере"},
+                           {"characters": ["Анна", "Вера"], "kind": "родные", "when": "whenever", "quote": "к тёте Вере"}]}
+        """
+        let r = CollectParser.parse(reply, kinds: [.changes, .relationships], scene: "s1", chunk: Self.passage, chunkOffset: 0)
+        let changes = r.items.filter { $0.kind == .changes }
+        #expect(changes.map(\.field) == ["profile", "aliases", "description"], "the main flag, the notes and an empty value are not changes: \(changes.map(\.field))")
+        #expect(changes[0].eventTitle == "Приезд Анны" && changes[0].detail == "Теперь она капитан." && changes[1].aliases == ["Дед"] && changes[0].title == "Анна — profile")
+        #expect(r.dropped == 1, "a change whose quote is not in the text is dropped")
+        let rels = r.items.filter { $0.kind == .relationships }
+        #expect(rels.map(\.when) == ["starts", "stated"], "an unknown moment is just stated")
+        #expect(rels[0].key != rels[1].key, "the same pair at another moment is another finding")
+        var set = CollectedSet()
+        set.merge(changes + changes)
+        #expect(set.items.count == 3, "two changes of one thing are not merged as names are")
+    }
+
+    @Test("the two passes ask for different things, and the second is told the cards the passage names")
+    func passes() {
+        #expect(CollectKind.characters.pass == .facts && CollectKind.observations.pass == .facts && CollectKind.events.pass == .story && CollectKind.changes.pass == .story && CollectKind.relationships.pass == .story)
+        let facts = CollectPrompt.task(kinds: [.characters, .places, .observations]), story = CollectPrompt.task(kinds: [.events, .changes, .relationships])
+        #expect(facts.contains("\"observations\"") && !facts.contains("\"changes\"") && !facts.contains("\"events\""))
+        #expect(story.contains("\"changes\"") && story.contains("\"when\"") && !story.contains("\"characters\": people") && story.contains("never the name, the notes or whether someone is a main character"))
+        #expect(!story.contains("\"main\":") && !story.contains("field\": \"main"), "the model is never offered the main flag")
+        let cards = [CollectCard(name: "Анна", aliases: ["Аня"], text: "Тихая девочка", relations: ["Вера: тётя"]), CollectCard(name: "Лев", text: "Капитан."), CollectCard(name: "Платформа", text: "Большая.", isPlace: true)]
+        let known = CollectPrompt.known(cards: cards, in: Self.passage, budget: 1000)
+        #expect(known.contains("Анна (also Аня): Тихая девочка | Relationships: Вера: тётя") && known.contains("Платформа") && !known.contains("Лев"), "only the cards the passage names: [\(known)]")
+        #expect(CollectPrompt.known(cards: cards, in: Self.passage, budget: 40).split(separator: "\n").count == 0, "within the budget")
+        let a = CollectPrompt.user(chunk: "ТЕКСТ", sceneTitle: "С", knownCharacters: [], knownPlaces: [], kinds: [.characters]), b = CollectPrompt.user(chunk: "ТЕКСТ", sceneTitle: "С", knownCharacters: [], knownPlaces: [], known: known, kinds: [.events])
+        #expect(a.hasPrefix("Passage from the scene “С”:") && b.hasPrefix(String(a.prefix(40))), "both passes begin with the same passage")
+    }
+
     // MARK: Merging
 
     @Test("the same thing found in several scenes is one item, with all the evidence; another name of it joins")
@@ -148,6 +192,36 @@ struct CollectTests {
         // The request carries the instructions, the known names and the passage.
         let body = String(decoding: server.requests.last!.body, as: UTF8.self)
         #expect(body.contains("EXACTLY") && body.contains("Анна стояла") && body.contains("no_think"))
+    }
+
+    @Test("two passes over each piece: what is known, then what happens; the second is told the known cards and is left out where no one is")
+    func twoPasses() async throws {
+        let long = Self.passage + " " + String(repeating: "Они шли медленно и молчали. ", count: 12)
+        let nobody = "Шёл дождь. " + String(repeating: "Капли стучали по крыше. ", count: 20)
+        let server = try Self.answeringServer { user in
+            if user.contains("\"changes\"") { return "{\"changes\": [{\"about\": \"Анна\", \"field\": \"profile\", \"value\": \"Устала.\", \"quote\": \"Анна стояла на платформе\"}]}" }
+            if user.contains("Шёл дождь") { return "{\"characters\": []}" }
+            return "{\"characters\": [{\"name\": \"Анна\", \"description\": \"d\", \"note\": \"n\", \"quote\": \"Анна стояла на платформе\"}]}"
+        }
+        let client = LLMTests.client(server)
+        var request = CollectRequest(kinds: [.characters, .changes], scenes: [Self.scene("one", long), Self.scene("rain", nobody)])
+        request.context = 8192
+        request.cards = [CollectCard(name: "Анна", text: "Тихая девочка.")]
+        let gathered = Gathered()
+        let summary = await CollectJob.run(request, client: client, progress: { _ in }, found: { gathered.add($0) })
+        #expect(summary.scenesDone == 2 && summary.failedPieces == 0)
+        #expect(gathered.items.map(\.kind).sorted { $0.rawValue < $1.rawValue } == [.changes, .characters], "one scene gave a character and a change")
+        let bodies = server.requests.map { String(decoding: $0.body, as: UTF8.self) }
+        #expect(bodies.count == 3, "two requests for the scene with someone in it, one for the rain: \(bodies.count)")
+        let second = bodies.first { $0.contains("\\\"changes\\\"") }
+        #expect(second?.contains("Тихая девочка.") == true && second?.contains("Known cards") == true, "the second pass is told what the card says")
+        #expect(!bodies.contains { $0.contains("Шёл дождь") && $0.contains("\\\"changes\\\"") }, "no one is in the rain: nothing happens to anyone")
+        // Only the story: the passage is read once, with no first pass.
+        var story = request
+        story.kinds = [.events]
+        let before = server.requests.count
+        _ = await CollectJob.run(story, client: client, progress: { _ in }, found: { _ in })
+        #expect(server.requests.count - before == 2, "one request for each scene when only the story is asked for")
     }
 
     @Test("Stop keeps what was found; a server that does not answer ends the run with the reason")

@@ -10,7 +10,7 @@ final class CollectSheet: NSObject {
     private let scope = NSPopUpButton(frame: .zero, pullsDown: false)
     private let size = NSTextField(wrappingLabelWithString: "")
     static let scopes: [SearchScope] = [.book, .part, .chapter, .scene]
-    static let titles: [(CollectKind, String)] = [(.characters, L("Characters")), (.places, L("Places and things")), (.events, L("Events")), (.relationships, L("Relationships")), (.observations, L("Observations about characters and places"))]
+    static let titles: [(CollectKind, String)] = [(.characters, L("Characters")), (.places, L("Places")), (.events, L("Events")), (.relationships, L("Relationships")), (.observations, L("Observations about characters and places")), (.changes, L("Changes of characters and places"))]
 
     init(main: MainAreaController) { self.main = main; super.init() }
 
@@ -23,7 +23,9 @@ final class CollectSheet: NSObject {
         guard let main else { return }
         let targets = main.proofreadingTargets(chosenScope)
         let characters = targets.reduce(0) { $0 + $1.text.count }
-        let pieces = targets.reduce(0) { $0 + max(1, $1.text.count / CollectJob.pieceSize(context: AIService.shared.context) + 1) }
+        // (Two passes over each piece when both what is known and what happens are asked for.)
+        let passes = max(1, Set(chosenKinds.map(\.pass)).count)
+        let pieces = passes * targets.reduce(0) { $0 + max(1, $1.text.count / CollectJob.pieceSize(context: AIService.shared.context) + 1) }
         size.stringValue = L("{scenes} to read, about {size} of text, in about {pieces} requests to the model.", ["scenes": Lp("{n} scene", "{n} scenes", targets.count),
                              "size": Lp("{n} character||text", "{n} characters||text", characters), "pieces": pieces])
     }

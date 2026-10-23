@@ -40,7 +40,7 @@ public enum AIPrompts {
     /// The prompts the author may change, in the order of the Settings window.
     public static var entries: [Entry] {
         [
-            Entry(key: "collect", title: L("Collect from the Book"), note: L("The instructions. What to look for (characters, places…) is added after them by the app, for the kinds that were chosen."), temperature: 0.2),
+            Entry(key: "collect", title: L("Collect from the Book"), note: L("The instructions, the same for both readings of a passage (what is there, then what happens). What to look for is added after the passage by the app, for the kinds that were chosen."), temperature: 0.2),
             Entry(key: "consistency", title: L("Check Consistency"), note: L("Looks for contradictions between a passage and one source at a time."), temperature: 0.1),
             Entry(key: "consistency_judge", title: L("Check Consistency: the second look"), note: L("Decides whether a suspected contradiction is real. Must answer with the JSON shown."), temperature: nil),
             Entry(key: "continue", title: L("Continue Writing"), note: L("Writes the next paragraph after the cursor."), temperature: 0.8),

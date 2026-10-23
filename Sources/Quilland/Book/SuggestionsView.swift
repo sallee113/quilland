@@ -75,10 +75,11 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     static func groupTitle(_ kind: CollectKind) -> String {
         switch kind {
         case .characters: return L("Characters")
-        case .places: return L("Places and things")
+        case .places: return L("Places")
         case .events: return L("Events")
         case .relationships: return L("Relationships")
         case .observations: return L("Observations")
+        case .changes: return L("Changes")
         }
     }
 
@@ -271,10 +272,11 @@ final class SuggestionCell: NSTableCellView {
         box.state = checked ? .on : .off
         let s = NSMutableAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold)])
         var tags: [String] = []
-        if item.kind == .places, !item.type.isEmpty, item.type != "place" { tags.append(L(item.type)) }
         if item.kind == .places, !item.parent.isEmpty { tags.append(L("in {place}", ["place": item.parent])) }
         if item.kind == .events, !item.date.isEmpty { tags.append(item.date) }
         if item.kind == .events, !item.members.isEmpty { tags.append(L("with {names}", ["names": item.members.joined(separator: ", ")])) }
+        if item.kind == .changes { tags.append(item.eventTitle.isEmpty ? L("a new event is made for it") : L("in the event “{title}”", ["title": item.eventTitle])) }
+        if item.kind == .relationships { tags.append(item.when == "starts" ? L("begins in the story") : (item.when == "changes" ? L("changes in the story") : (item.when == "ends" ? L("ends in the story") : L("from the start of the book")))) }
         if !item.aliases.isEmpty { tags.append(L("also {names}", ["names": item.aliases.joined(separator: ", ")])) }
         let scenes = Set(item.evidence.map(\.scene)).count
         tags.append(Lp("{n} scene", "{n} scenes", scenes))

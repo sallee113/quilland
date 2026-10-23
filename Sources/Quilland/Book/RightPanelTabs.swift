@@ -205,7 +205,7 @@ final class WorldTab: PanelListTab {
         let world = e.world.flatMap { store.world($0)?.name } ?? ""
         let text = store.text(id).trimmingCharacters(in: .whitespacesAndNewlines)
         let excerpt = text.isEmpty ? "" : String(text.prefix(300))
-        let head = [world, path].filter { !$0.isEmpty }.joined(separator: " · ") + (e.type == "place" ? "" : "  (\(L(e.type)))")
+        let head = [world, path].filter { !$0.isEmpty }.joined(separator: " · ")
         return (e.name ?? "", [head, excerpt].filter { !$0.isEmpty }.joined(separator: "\n\n"), e.notes.joined(separator: "\n"))
     }
 

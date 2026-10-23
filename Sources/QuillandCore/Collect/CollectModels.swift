@@ -2,7 +2,18 @@ import Foundation
 
 /// What the author may ask the model to look for in the book (AI ▸ Collect from the Book…).
 public enum CollectKind: String, CaseIterable, Sendable {
-    case characters, places, events, relationships, observations
+    case characters, places, events, relationships, observations, changes
+
+    /// The kinds are read in two passes over the same passage (quilland-change-events.md): what is **known** of the cards (who and what there is, and the facts that were
+    /// always true), then what **happens** (events, how things change, relationships and when they begin).
+    public enum Pass: Int, CaseIterable, Sendable { case facts, story }
+
+    public var pass: Pass {
+        switch self {
+        case .characters, .places, .observations: return .facts
+        case .events, .relationships, .changes: return .story
+        }
+    }
 }
 
 /// Where a finding comes from: the scene, the words of the text that show it, and what the model says about it there.
@@ -27,7 +38,7 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
     public var aliases: [String] = []
     /// The model's overall description (it goes into the card's free text).
     public var detail: String = ""
-    /// A place's type (`place`, `people`, `thing`, `term`); a relationship's kind ("sisters").
+    /// A place's type (always `place`); a relationship's kind ("sisters").
     public var type: String = ""
     /// A relationship's characters, by name; an event's participants, by name.
     public var members: [String] = []
@@ -38,6 +49,12 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
     /// An event's date, as the text says it, and its places by name.
     public var date: String = ""
     public var places: [String] = []
+    /// A change (`changes`): the field that changes (`profile`, `description` or `aliases`); the new text is `detail`, new names are `aliases`.
+    public var field: String = ""
+    /// A change: the event of the story it belongs to (by title), when the model says it is one of the events found; empty: the app makes an event for it.
+    public var eventTitle: String = ""
+    /// A relationship: `stated` (it is simply so: it starts with the book), `starts`, `changes` or `ends` in the event of the scene.
+    public var when: String = ""
     public var evidence: [CollectedEvidence] = []
 
     public init(kind: CollectKind, name: String) { self.kind = kind; self.name = name }
@@ -45,7 +62,8 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
     /// What two findings are the same by: the kind and the name (a relationship by its members and kind, an observation by its subject and words).
     public var key: String {
         switch kind {
-        case .relationships: return "r|" + members.map(Names.normalize).sorted().joined(separator: "+") + "|" + Names.normalize(type)
+        case .relationships: return "r|" + members.map(Names.normalize).sorted().joined(separator: "+") + "|" + Names.normalize(type) + "|" + when
+        case .changes: return "c|" + Names.normalize(name) + "|" + field + "|" + Names.normalize(detail + " " + aliases.joined(separator: " "))
         case .observations: return "o|" + Names.normalize(about) + "|" + Names.normalize(detail)
         default: return kind.rawValue + "|" + Names.normalize(name)
         }
@@ -56,6 +74,7 @@ public struct CollectedItem: Identifiable, Equatable, Sendable {
         switch kind {
         case .relationships: return members.joined(separator: " — ") + (type.isEmpty ? "" : " (\(type))")
         case .observations: return about
+        case .changes: return name + " — " + field
         default: return name
         }
     }
@@ -82,7 +101,7 @@ public struct CollectedSet: Equatable, Sendable {
 
     public mutating func merge(_ new: [CollectedItem]) {
         for item in new {
-            if let i = items.firstIndex(where: { $0.key == item.key || $0.kind == item.kind && $0.kind != .relationships && $0.kind != .observations && $0.matches(aliasOf: item) }) {
+            if let i = items.firstIndex(where: { $0.key == item.key || $0.kind == item.kind && $0.kind != .relationships && $0.kind != .observations && $0.kind != .changes && $0.matches(aliasOf: item) }) {
                 var e = items[i]
                 // The fuller name is the name; the shorter one is another name of the same person.
                 if item.kind == .characters || item.kind == .places, item.name.count > e.name.count, Names.normalize(item.name).contains(Names.normalize(e.name)) {
