@@ -576,8 +576,31 @@ final class GraphViewController: NSViewController {
 
     // MARK: Zoom, layout
 
-    func zoomIn() { scroll.setMagnification(min(scroll.maxMagnification, scroll.magnification * 1.25), centeredAt: visibleCenter) }
-    func zoomOut() { scroll.setMagnification(max(scroll.minMagnification, scroll.magnification / 1.25), centeredAt: visibleCenter) }
+    func zoomIn() { zoom(to: min(scroll.maxMagnification, scroll.magnification * 1.25)) }
+    func zoomOut() { zoom(to: max(scroll.minMagnification, scroll.magnification / 1.25)) }
+
+    /// Zooms to a magnification. With a node chosen, the zoom is round that node: it stays where it is in the window (a node that is out of view is brought to the middle
+    /// first), so that it is what you look closer at or farther from. With none chosen, the zoom is round the middle of what is in view.
+    private func zoom(to target: CGFloat) {
+        guard let id = canvas.selected, let p = canvas.center(of: id) else { scroll.setMagnification(target, centeredAt: visibleCenter); return }
+        let clip = scroll.contentView
+        let seen = clip.bounds
+        var fx = (p.x - seen.minX) / max(seen.width, 1), fy = (p.y - seen.minY) / max(seen.height, 1)
+        if !(0...1).contains(fx) || !(0...1).contains(fy) { fx = 0.5; fy = 0.5 }
+        scroll.magnification = target
+        let size = clip.bounds.size
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: CGPoint(x: p.x - fx * size.width, y: p.y - fy * size.height), size: size)).origin)
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    /// For the checks: where a node is in what is in view, as fractions (0 to 1, from the top left), or nil when it is not in view.
+    func viewFraction(of id: String) -> CGPoint? {
+        guard let p = canvas.center(of: id) else { return nil }
+        let seen = scroll.contentView.bounds
+        let f = CGPoint(x: (p.x - seen.minX) / seen.width, y: (p.y - seen.minY) / seen.height)
+        return (0...1).contains(f.x) && (0...1).contains(f.y) ? f : nil
+    }
+    func selectForTest(_ id: String?) { canvas.select(id) }
     func zoomToFit() {
         guard !graph.nodes.isEmpty else { return }
         let pts = canvas.points.values

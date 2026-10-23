@@ -33,6 +33,21 @@ extension AppSelfTest {
         check(canvas.toolTips.contains { $0.text.contains("Plot lines: ГрЛ-Усадьба, ГрЛ-Дорога") }, "the tooltip of a node on several lines lists them")
         check(GraphViewState(memory: gv.state.memory).colourByLine, "the choice is remembered")
 
+        // Zoom is round the chosen node: it stays where it is in the window.
+        gv.setColourByLine(false); gv.setPlotLine(nil); spin(0.3)
+        gv.zoomToFit(); spin(0.3); gv.zoomOut(); gv.zoomOut(); spin(0.3)
+        gv.selectForTest(anna); spin(0.2)
+        if let before = gv.viewFraction(of: anna) {
+            gv.zoomIn(); spin(0.3)
+            let after = gv.viewFraction(of: anna)
+            check(after != nil && abs(after!.x - before.x) < 0.02 && abs(after!.y - before.y) < 0.02, "zooming in with a node chosen keeps it where it is in the window", "\(before) \(String(describing: after))")
+            gv.zoomOut(); spin(0.3)
+            let back = gv.viewFraction(of: anna)
+            check(back != nil && abs(back!.x - before.x) < 0.02 && abs(back!.y - before.y) < 0.02, "and so does zooming out", "\(before) \(String(describing: back))")
+        } else { check(false, "the chosen node is in view") }
+        gv.selectForTest(nil); spin(0.2)
+        gv.setColourByLine(true); spin(0.3)
+
         gv.setPlotLine(one); spin(0.3)
         check(Set(gv.shownIDs).isSuperset(of: [e1, anna, lev]) && !gv.shownIDs.contains(e2) && !gv.shownIDs.contains(loose), "one plot line: its events and who is in them, nothing of the other line", "\(gv.shownIDs.count)")
         check(GraphViewState(memory: gv.state.memory).plotLine == one, "and it is remembered")
