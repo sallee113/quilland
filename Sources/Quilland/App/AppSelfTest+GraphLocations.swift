@@ -19,13 +19,26 @@ extension AppSelfTest {
         main.setMode(.graph); spin(0.5)
         guard let gv = main.graphView else { check(false, "the Graph shows"); return 1 }
         gv.setAsOf(nil); gv.setChangesOnly(false); gv.setPlotLine(nil); gv.setColourByLine(false); gv.setLook(.whole); spin(0.3)
+        // The bar: the settings of the look chosen are on the second line, the rest are not shown.
+        gv.setLook(.whole); spin(0.3)
+        check(gv.settingsTitlesAreWholeForTest, "the titles of the kind checkboxes and the captions have room (none is squeezed out)", "\(gv.settingsWidthsForTest)")
+        check(gv.showOptions.map(\.title) == ["Show unlinked", "Show ended relationships", "Changes only"] && gv.controlsEnabled.kinds, "Whole book: the three options are in the Show menu, and the kinds are shown", "\(gv.showOptions)")
+        gv.setLook(.social); spin(0.3)
+        check(gv.showOptions.map(\.title) == ["Show unlinked", "Show ended relationships"] && !gv.controlsEnabled.kinds, "Social graph: two of them, and no kinds")
+        gv.setLook(.neighbourhood); spin(0.3)
+        check(gv.showOptions.map(\.title) == ["Show ended relationships", "Changes only"] && gv.controlsEnabled.kinds && gv.controlsEnabled.focus && gv.controlsEnabled.depth, "Neighbourhood: what to look at and the steps are there too")
+        gv.setLook(.arc); spin(0.3)
+        check(gv.controlsEnabled.focus && !gv.controlsEnabled.kinds && !gv.controlsEnabled.depth, "Arc: only the character")
+        gv.setLook(.plan); spin(0.3)
+        check(!gv.controlsEnabled.focus && !gv.controlsEnabled.kinds, "Plan map: no setting of the book's graph")
+        gv.setLook(.whole); spin(0.3)
         gv.setFocusForTest(nil); gv.setLook(.locations); spin(0.4)
         let bush0 = "bush:\(s0)|\(manor)", bush1 = "bush:\(s0)|\(port)", stay = "bush:\(s1)|\(port)"
         check(gv.shownIDs.contains(s0) && gv.shownIDs.contains(bush0) && gv.shownIDs.contains(bush1) && gv.shownIDs.contains(stay), "a scene with two places is a node with both places hanging from it; one with a single place is that place", "\(gv.shownIDs.count)")
         check(gv.graph.nodes.filter { $0.ref == port }.count == 2 && gv.graph.nodes.filter { $0.ref == anna }.count == 3, "nothing is shared between scenes: the same place or person is a new node in each bush")
         func at(_ id: String) -> CGPoint { gv.canvas.center(of: id)! }
         check(at(s0).x < at(stay).x && at(s0).y < at(stay).y && at(bush0).y > at(s0).y, "the scenes run from the top left to the bottom right, the places hang below")
-        check(gv.canvas.allowsDragging == false && gv.controlsEnabled.kinds == false, "nothing is moved, and the book graph's filters are off")
+        check(!gv.canvas.isMovable(s0) && !gv.canvas.isMovable(stay) && gv.canvas.isMovable(bush0) && gv.canvas.isMovable("\(bush0)|\(anna)") && gv.controlsEnabled.kinds == false, "the spine cannot be moved (the scene, and a place that stands for its scene); the places and characters of a bush can")
         // A place inside another: the parent place (not the world) is a node in the chain above it.
         let planet = try! main.worlds.addEntry(name: "Лок-Планета", world: world)
         try! main.worlds.updateEntry(manor) { $0.parent = planet }
@@ -40,7 +53,7 @@ extension AppSelfTest {
         check(GraphViewState(memory: gv.state.memory).look == .locations, "the look is remembered")
         main.setMode(.graph); spin(0.3)
         main.graphView?.setFocusForTest(nil); main.graphView?.setLook(.whole); spin(0.3)
-        check(main.graphView?.canvas.allowsDragging == true, "back to the whole book")
+        check(main.graphView?.controlsEnabled.kinds == true, "back to the whole book")
 
         for id in [e1, e2] { try? BookIntegrity.deleteEvent(id, book: main.folder, started: .deleteThem, snapshot: false) }
         for id in [anna, lev] { try? BookIntegrity.deleteCharacter(id, book: main.folder, snapshot: false) }

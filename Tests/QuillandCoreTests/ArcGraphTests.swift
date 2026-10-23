@@ -32,6 +32,8 @@ struct ArcGraphTests {
         #expect(has(arrival, id["manor"]!, .heldAt) && has(departure, id["port"]!, .heldAt))
         #expect(g.node(arrival)?.changes.isEmpty == false, "the Δ of an event that changes something")
         #expect(Self.arc(c) .positions == a.positions, "the same every time")
+        #expect(g.node(anna)?.anchored == true && g.node(arrival)?.anchored == true && g.node(departure)?.anchored == true, "the spine cannot be moved")
+        #expect(g.nodes.filter { !$0.anchored }.count == 6 && g.node(id["lev"]!)?.anchored == false && g.node(made.id)?.anchored == false && g.node(id["manor"]!)?.anchored == false, "what hangs on it can: the states, the others, the places")
     }
 
     @Test("a long absence shows on the spine, and an event with no scene comes last and does not apply")
@@ -80,6 +82,7 @@ struct PlaceTreeTests {
         #expect(Set(g.nodes.map(\.id)).isSuperset(of: [id["manor"]!, id["port"]!, id["nowhere"]!]), "the fixture's flat places are children of their world")
         #expect(Set(tree(other).graph.nodes.map(\.id)) == [other, flora], "one world alone")
         #expect(tree().positions == t.positions, "the same every time")
+        #expect(g.node(world)?.anchored == true && g.node(other)?.anchored == true && g.node(germany)?.anchored == false && g.node(station)?.anchored == false, "the worlds stay where they are, the places can be moved")
     }
 }
 
@@ -102,10 +105,12 @@ struct LocationsTests {
         #expect(at(first).x < at(second).x && at(first).y < at(second).y, "from the top left to the bottom right")
         #expect(at(first + "|" + id["lev"]!).y > at(first).y && at(first + "|" + id["lev"]!).x < at(first).x, "the characters hang on the lower left of their place")
         #expect(g.edges.contains { $0.kind == .wasAt && $0.a == first && $0.b == first + "|" + id["anna"]! })
+        #expect(g.node(first)?.anchored == true && g.node(second)?.anchored == true && g.node(first + "|" + id["lev"]!)?.anchored == false, "a place that stands for its scene is on the spine; the characters of a bush can be moved")
         // A scene with two places: the scene has its node, the places hang from it, and a place that comes back is a new node.
         try f.events.update(id["arrival"]!) { $0.places = [id["manor"]!: "", id["port"]!: ""] }
         let b = Self.build(f).graph
         #expect(b.node("s1")?.kind == .scene && b.node("s1")?.title == "Сцена 1", "several places: the scene is a node")
+        #expect(b.node("s1")?.anchored == true && b.node("bush:s1|\(id["manor"]!)")?.anchored == false, "the scene is on the spine, its places are not")
         #expect(b.nodes.filter { $0.ref == id["port"]! }.count == 2 && b.edges.contains { $0.kind == .heldAt && $0.a == "s1" && $0.b == "bush:s1|\(id["port"]!)" }, "the same place in two scenes is two nodes, joined to its own scene")
         // One character: the scenes where they are at a place, and only they in the bushes.
         let lev = Self.build(f, only: id["lev"]!).graph
@@ -163,6 +168,7 @@ struct PlanMapTests {
         #expect(at(headOne).x != at(headTwo).x && at(headOne).y != at(headTwo).y, "the strands are side by side")
         #expect(at(idea) != at(id["arrival"]!), "a card and an event at one moment are not on top of each other")
         #expect(PlanMapBuilder.build(plan: plan, events: f.events).positions == a.positions, "the same every time")
+        #expect(g.nodes.allSatisfy { $0.anchored }, "the strands are the plan itself: nothing there moves")
         #expect(PlanMapBuilder.build(plan: try PlanStore(folder: try PlanTests.folder()), events: f.events).graph.nodes.isEmpty, "an empty plan is an empty map")
     }
 }

@@ -52,7 +52,9 @@ public enum PlaceTreeBuilder {
             let rows = roots.compactMap { lay($0, parent: wid, depth: 1, world: wid) }
             let y = rows.isEmpty ? { let v = nextY; nextY += rowGap; return v }() : (rows.first! + rows.last!) / 2
             _ = startY
-            out.graph.nodes.append(GraphNode(id: wid, kind: .world, title: title(w.name)))
+            var root = GraphNode(id: wid, kind: .world, title: title(w.name))
+            root.anchored = true
+            out.graph.nodes.append(root)
             out.positions[wid] = GraphPoint(x: 0, y: y)
             nextY += rowGap * 0.8   // (a little air between worlds)
         }

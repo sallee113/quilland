@@ -44,6 +44,7 @@ public enum PlanMapBuilder {
             // The head of the strand: its name, in its colour.
             var head = GraphNode(id: "plan:line:\(strand.id)", kind: .stage, title: strand.name)
             head.color = strand.color ?? "gray"
+            head.anchored = true
             out.graph.nodes.append(head); out.positions[head.id] = point(row: -1, strand: k, shift: 0)
             var previous = head.id
             // Items in order of their moment; at one moment a card is on the lower-left of the strand and an event on the upper-right.
@@ -71,6 +72,7 @@ public enum PlanMapBuilder {
                 } else {
                     n = GraphNode(id: item.id, kind: .event, title: item.title)
                 }
+                n.anchored = true   // (the cards and events are the strand itself)
                 out.graph.nodes.append(n); out.positions[item.id] = point(row: row, strand: k, shift: shift)
                 var line = GraphEdge(a: previous, b: item.id, kind: .arc, label: "", weight: 3)
                 line.color = strand.color ?? "gray"

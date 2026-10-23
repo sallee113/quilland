@@ -21,7 +21,7 @@ extension AppSelfTest {
         func at(_ id: String) -> CGPoint { gv.canvas.center(of: id)! }
         check(at(world).x < at(country).x && at(country).x < at(city).x && at(city).x < at(house).x && at(city).x == at(village).x, "it runs from the left to the right, a column for each depth")
         check(gv.graph.edges.contains { $0.kind == .contains && $0.a == country && $0.b == city } && gv.graph.edges.contains { $0.kind == .contains && $0.a == world && $0.b == country }, "each place is joined to what it is inside, the first to its world")
-        check(gv.canvas.allowsDragging == false && gv.controlsEnabled.kinds == false, "nothing is moved, and the book graph's filters are off")
+        check(!gv.canvas.isMovable(world) && !gv.canvas.isMovable(other) && gv.canvas.isMovable(country) && gv.canvas.isMovable(house) && gv.controlsEnabled.kinds == false, "the worlds (the roots) stay, every place can be moved, and the book graph's filters are off")
         check(gv.focusTitles.contains("Дер-Земля") && gv.focusTitles.contains("Дер-Флора") && !gv.focusTitles.contains("Дер-Страна") && !gv.focusTitles.contains("Анечка"), "the popup lists the worlds", "\(gv.focusTitles)")
         gv.setFocusForTest(other); spin(0.4)
         check(Set(gv.shownIDs) == [other, capital], "choosing a world shows its tree alone", "\(gv.shownIDs.count)")
@@ -30,7 +30,7 @@ extension AppSelfTest {
         check(main.mode == .world && main.worldView?.selected == world, "a world opens in the World view", "\(main.mode)")
         main.setMode(.graph); spin(0.4)
         main.graphView?.setFocusForTest(nil); main.graphView?.setLook(.whole); spin(0.3)
-        check(main.graphView?.canvas.allowsDragging == true && main.graphView?.shownIDs.contains(world) == false, "back to the whole book")
+        check(main.graphView?.shownIDs.contains(world) == false, "back to the whole book")
 
         for id in [house, village, city, country, capital] { try? BookIntegrity.deletePlace(id, book: main.folder, snapshot: false) }
         for id in [world, other] { try? BookIntegrity.deleteWorld(id, book: main.folder, snapshot: false) }

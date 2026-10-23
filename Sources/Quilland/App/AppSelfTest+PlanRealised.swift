@@ -37,7 +37,7 @@ extension AppSelfTest {
             check(gv.shownIDs.contains(card) && gv.shownIDs.contains(idle) && gv.shownIDs.contains(e1), "the plan map shows the cards and the events on the plan")
             check(gv.graph.edges.contains { $0.kind == .realises && Set([$0.a, $0.b]) == Set([card, e1]) }, "a card is joined to the events that realised it")
             check(gv.graph.node(idle)?.hollow == true && gv.graph.node(card)?.hollow == false, "a card nobody has realised is hollow, a realised one is not")
-            check(gv.canvas.allowsDragging == false && gv.controlsEnabled.kinds == false && !gv.shownIDs.contains(where: { main.characters.character($0) != nil }), "nothing is moved, the book graph's filters are off, and no characters are in it")
+            check(!gv.canvas.isMovable(card) && !gv.canvas.isMovable(e1) && !gv.canvas.isMovable(idle) && gv.controlsEnabled.kinds == false && !gv.shownIDs.contains(where: { main.characters.character($0) != nil }), "the strands are the plan itself, so nothing there moves; the book graph's filters are off, and no characters are in it")
             check(GraphViewState(memory: gv.state.memory).look == .plan, "the look is remembered")
             gv.onOpen?(.card, card); spin(0.5)
             check(main.mode == .plan && main.planController?.selectedID == card, "opening a card goes to the Plan and chooses it", "\(main.mode) \(String(describing: main.planController?.selectedID))")

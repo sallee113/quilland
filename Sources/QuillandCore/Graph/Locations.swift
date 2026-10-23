@@ -108,6 +108,7 @@ public enum LocationsBuilder {
                 spineID = s
                 var n = GraphNode(id: s, kind: .scene, title: titles[s] ?? "")
                 n.ref = s; n.scene = s
+                n.anchored = true
                 node(n, at: origin)
             }
             if let prev = before {
@@ -133,7 +134,7 @@ public enum LocationsBuilder {
                 var n = GraphNode(id: id, kind: .place, title: name(p))
                 n.ref = p; n.scene = s
                 n.isContext = !b.linked.contains(p)
-                if merged { n.detail = titles[s] ?? "" }
+                if merged { n.detail = titles[s] ?? ""; n.anchored = true }
                 node(n, at: merged ? origin : place)
                 if let parent { out.graph.edges.append(GraphEdge(a: "bush:\(s)|\(parent)", b: id, kind: .contains, label: "", weight: 1)) }
                 else if !merged { out.graph.edges.append(GraphEdge(a: s, b: id, kind: .heldAt, label: "", weight: 1)) }

@@ -78,12 +78,16 @@ final class GraphViewController: NSViewController {
     private let focusPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let depthControl = NSSegmentedControl(labels: ["1", "2", "3"], trackingMode: .selectOne, target: nil, action: nil)
     private var kindBoxes: [GraphKind: NSButton] = [:]
-    private let unlinkedBox = NSButton(checkboxWithTitle: L("Show unlinked"), target: nil, action: nil)
-    private let endedBox = NSButton(checkboxWithTitle: L("Show ended relationships"), target: nil, action: nil)
-    private let changesOnlyBox = NSButton(checkboxWithTitle: L("Changes only"), target: nil, action: nil)
+    /// "Show ▾": the yes/no options that apply to the look chosen.
+    private let showButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let settingsFlow = FlowView()
+    private var kindsGroup = RowView([]), sectionGroup = RowView([]), colourGroup = RowView([]), showGroup = RowView([]), asOfGroup = RowView([])
+    private var focusGroup = RowView([]), stepsGroup = RowView([])
+    private let focusLabel = NSTextField(labelWithString: "")
+    private let hintLabel = NSTextField(labelWithString: "")
     private let colourPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let linePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let legendRow = NSStackView()
+    private let legendRow = RowView([], spacing: 12)
     private let asOfSlider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let asOfBack = NSButton(title: "◀", target: nil, action: nil)
     private let asOfForward = NSButton(title: "▶", target: nil, action: nil)
@@ -123,12 +127,8 @@ final class GraphViewController: NSViewController {
             b.tag = Self.tag(kind)
             kindBoxes[kind] = b
         }
-        unlinkedBox.target = self; unlinkedBox.action = #selector(unlinkedChanged)
-        unlinkedBox.toolTip = L("Things with no line to anything shown: a place no event uses, a character in no event")
-        endedBox.target = self; endedBox.action = #selector(endedChanged)
-        endedBox.toolTip = L("A relationship that has ended is drawn dashed; its tooltip says from which event to which")
-        changesOnlyBox.target = self; changesOnlyBox.action = #selector(changesOnlyChanged)
-        changesOnlyBox.toolTip = L("Only the events that change something, with what they change: the turning points of the story")
+        showButton.controlSize = .small
+        showButton.setAccessibilityLabel(L("Show"))
         for (b, action) in [(zoomOutButton, #selector(zoomOutAction)), (zoomInButton, #selector(zoomInAction)), (fitButton, #selector(fitAction)), (resetButton, #selector(resetPressed))] {
             b.target = self; b.action = action; b.bezelStyle = .rounded; b.controlSize = .small
         }
@@ -136,8 +136,6 @@ final class GraphViewController: NSViewController {
         note.textColor = .secondaryLabelColor
         note.font = .systemFont(ofSize: 11)
 
-        let row1 = NSStackView(views: [lookControl, NSTextField(labelWithString: L("Look at")), focusPopup, NSTextField(labelWithString: L("Steps")), depthControl, NSTextField(labelWithString: L("Section")), sectionPopup])
-        let row2 = NSStackView(views: [kindBoxes[.character]!, kindBoxes[.place]!, kindBoxes[.event]!, kindBoxes[.scene]!, unlinkedBox, zoomOutButton, zoomInButton, fitButton, resetButton, note])
         asOfSlider.target = self; asOfSlider.action = #selector(asOfChanged(_:)); asOfSlider.isContinuous = true
         asOfSlider.numberOfTickMarks = 0; asOfSlider.allowsTickMarkValuesOnly = true
         asOfSlider.controlSize = .small
@@ -147,19 +145,35 @@ final class GraphViewController: NSViewController {
         asOfBack.tag = -1; asOfForward.tag = 1
         asOfLabel.font = .systemFont(ofSize: 11); asOfLabel.textColor = .secondaryLabelColor
         asOfLabel.lineBreakMode = .byTruncatingTail
-        asOfSlider.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        asOfLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
         colourPopup.addItems(withTitles: [L("Kind"), L("Plot line")])
         colourPopup.target = self; colourPopup.action = #selector(colourChanged); colourPopup.controlSize = .small
         colourPopup.setAccessibilityLabel(L("Colour by"))
         linePopup.target = self; linePopup.action = #selector(lineFilterChanged); linePopup.controlSize = .small
         linePopup.setAccessibilityLabel(L("Plot line"))
-        legendRow.orientation = .horizontal; legendRow.spacing = 12; legendRow.alignment = .centerY
-        let row3 = NSStackView(views: [endedBox, changesOnlyBox, NSTextField(labelWithString: L("As of")), asOfBack, asOfSlider, asOfForward, asOfLabel])
-        let row4 = NSStackView(views: [NSTextField(labelWithString: L("Colour by")), colourPopup, NSTextField(labelWithString: L("Plot line")), linePopup, legendRow])
-        for r in [row1, row2, row3, row4] { r.spacing = 10; r.alignment = .centerY }
-        let bar = NSStackView(views: [row1, row2, row3, row4])
-        bar.orientation = .vertical; bar.alignment = .leading; bar.spacing = 6
+        // The bar has two lines. The first: the views, and what is the picture's own (zoom, layout, the count). The second: only the settings of the view chosen; they
+        // wrap on to a line more when the window is too narrow for them all.
+        func group(_ views: [NSView], caps: [NSView: CGFloat] = [:]) -> RowView { RowView(views, spacing: 6, caps: caps) }
+        func caption(_ text: String) -> NSTextField { let l = NSTextField(labelWithString: text); l.font = .systemFont(ofSize: 11); l.textColor = .secondaryLabelColor; return l }
+        kindsGroup = group(GraphKind.allCases.compactMap { kindBoxes[$0] })
+        sectionGroup = group([caption(L("Section")), sectionPopup])
+        colourGroup = group([caption(L("Colour by")), colourPopup, caption(L("Plot line")), linePopup])
+        showGroup = group([showButton])
+        asOfGroup = group([caption(L("As of")), asOfBack, asOfSlider, asOfForward, asOfLabel], caps: [asOfSlider: 130, asOfLabel: 200])
+        focusLabel.font = .systemFont(ofSize: 11); focusLabel.textColor = .secondaryLabelColor
+        focusGroup = group([focusLabel, focusPopup])
+        stepsGroup = group([caption(L("Steps")), depthControl])
+        hintLabel.font = .systemFont(ofSize: 11); hintLabel.textColor = .secondaryLabelColor
+        hintLabel.stringValue = L("Each plot line is a strand; a hollow card has not been realised by an event yet")
+        settingsFlow.set([focusGroup, stepsGroup, kindsGroup, sectionGroup, colourGroup, showGroup, asOfGroup, legendRow, hintLabel])
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+        note.lineBreakMode = .byTruncatingTail
+        note.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+        let row1 = NSStackView(views: [lookControl, spacer, zoomOutButton, zoomInButton, fitButton, resetButton, note])
+        row1.spacing = 8; row1.alignment = .centerY
+        let bar = NSStackView(views: [row1, settingsFlow])
+        bar.orientation = .vertical; bar.alignment = .leading; bar.spacing = 8
         bar.translatesAutoresizingMaskIntoConstraints = false
 
         canvas.onSelect = { [weak self] _ in self?.updateControls() }
@@ -185,7 +199,8 @@ final class GraphViewController: NSViewController {
         root.addSubview(bar); root.addSubview(scroll); root.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: root.topAnchor, constant: 8), bar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
-            bar.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -12),
+            bar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
+            row1.widthAnchor.constraint(equalTo: bar.widthAnchor), settingsFlow.widthAnchor.constraint(equalTo: bar.widthAnchor),
             scroll.topAnchor.constraint(equalTo: bar.bottomAnchor, constant: 8), scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             emptyLabel.centerXAnchor.constraint(equalTo: scroll.centerXAnchor), emptyLabel.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
@@ -241,22 +256,25 @@ final class GraphViewController: NSViewController {
         let planMap: ArcGraph? = state.look == .plan ? planStore.map { PlanMapBuilder.build(plan: $0, events: events) } : nil
         let isArc = state.look == .arc || state.look == .places || state.look == .locations || state.look == .plan
         graph = isArc ? (arc?.graph ?? tree?.graph ?? locations?.graph ?? planMap?.graph ?? BookGraph()) : GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: planStore)
-        canvas.allowsDragging = !isArc
+        canvas.allowsDragging = true
         canvas.lineStyles = Dictionary((planStore?.lines ?? []).compactMap { l in l.id.map { ($0, (name: l.name ?? "", color: l.color)) } }, uniquingKeysWith: { a, _ in a })
         canvas.colourByLine = state.colourByLine
         fillLinePopup(planStore?.lines ?? [])
         updateLegend()
         let ids = Set(graph.nodes.map(\.id))
         let pinned = isArc ? [:] : store.positions.filter { ids.contains($0.key) }
+        // In a computed view only what hangs on the main axis can be moved, and where it was put is kept for this view and subject (never for the book's graph).
+        var movedHere: [String: GraphPoint] = [:]
+        if isArc, let sc = scope { for (k, v) in store.positions where k.hasPrefix(sc + "#") { let id = String(k.dropFirst(sc.count + 1)); if graph.node(id)?.anchored == false { movedHere[id] = v } } }
         // (As of a point only flags change, not the nodes and lines: the layout is not made again, so that the picture stays still while the point moves.)
         let key = graph.nodes.map(\.id).joined(separator: ",") + "|" + graph.edges.map { "\($0.a)-\($0.b)-\($0.kind.rawValue)-\($0.weight)" }.joined(separator: ",") + "|" + pinned.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.x),\($0.value.y)" }.joined(separator: ";")
         let placed: [String: GraphPoint]
-        if isArc { placed = arc?.positions ?? tree?.positions ?? locations?.positions ?? planMap?.positions ?? [:] } else if key == lastLayoutKey, let kept = lastPlaced { placed = kept } else { placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned); lastLayoutKey = key; lastPlaced = placed }
+        if isArc { placed = (arc?.positions ?? tree?.positions ?? locations?.positions ?? planMap?.positions ?? [:]).merging(movedHere) { _, moved in moved } } else if key == lastLayoutKey, let kept = lastPlaced { placed = kept } else { placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned); lastLayoutKey = key; lastPlaced = placed }
         let xs = placed.values.map(\.x), ys = placed.values.map(\.y)
         let minX = xs.min() ?? 0, minY = ys.min() ?? 0, maxX = xs.max() ?? 0, maxY = ys.max() ?? 0
         offset = CGPoint(x: Self.margin - minX, y: Self.margin - minY)
         canvas.frame = NSRect(x: 0, y: 0, width: max(maxX - minX + 2 * Self.margin, 1200), height: max(maxY - minY + 2 * Self.margin, 800))
-        canvas.pinned = Set(pinned.keys)
+        canvas.pinned = Set(pinned.keys).union(movedHere.keys)
         canvas.set(graph: graph, points: placed.mapValues { CGPoint(x: $0.x + offset.x, y: $0.y + offset.y) })
         fillFocusPopup()
         fillSectionPopup()
@@ -325,8 +343,25 @@ final class GraphViewController: NSViewController {
         onViewChange?()
     }
 
+    /// The views that are worked out (not the book's graph) keep where nodes were moved under their own keys: the view and its subject, then the node.
+    private var scope: String? {
+        switch state.look {
+        case .arc: return "arc|" + (state.focus ?? "")
+        case .places: return "places|" + (state.focus ?? "")
+        case .locations: return "locations|" + (state.focus ?? "")
+        case .plan: return "plan|"
+        default: return nil
+        }
+    }
+    private func key(_ id: String) -> String { (scope.map { $0 + "#" } ?? "") + id }
+    /// Where the author has put nodes in the view shown (the book's graph, or the view and subject).
+    private var pinKeys: [String] {
+        if let sc = scope { return store.positions.keys.filter { $0.hasPrefix(sc + "#") } }
+        return store.positions.keys.filter { !$0.contains("#") }
+    }
+
     private func moved(_ id: String, to point: CGPoint) {
-        try? store.pin(id, at: GraphPoint(x: point.x - offset.x, y: point.y - offset.y))
+        try? store.pin(key(id), at: GraphPoint(x: point.x - offset.x, y: point.y - offset.y))
         canvas.pinned.insert(id)
         updateControls()
         onChange?()
@@ -338,9 +373,7 @@ final class GraphViewController: NSViewController {
         lookControl.selectedSegment = state.look.rawValue
         depthControl.selectedSegment = max(0, min(2, state.depth - 1))
         for (kind, box) in kindBoxes { box.state = state.kinds.contains(kind) ? .on : .off }
-        unlinkedBox.state = state.showUnlinked ? .on : .off
-        endedBox.state = state.showEnded ? .on : .off
-        changesOnlyBox.state = state.changesOnly ? .on : .off
+        fillShowMenu()
     }
 
     private func fillFocusPopup() {
@@ -377,29 +410,32 @@ final class GraphViewController: NSViewController {
         if let id = state.section, let item = sectionPopup.itemArray.first(where: { ($0.representedObject as? String) == id }) { sectionPopup.select(item) } else { sectionPopup.selectItem(at: 0) }
     }
 
-    /// What can be used now is on; the rest is off.
+    /// What can be used now is on; what does not belong to the look chosen is not shown.
     func updateControls() {
         guard isViewLoaded else { return }
-        let hood = state.look == .neighbourhood, arcLook = state.look == .arc || state.look == .places || state.look == .locations || state.look == .plan
-        focusPopup.isEnabled = hood || (arcLook && state.look != .plan)
+        let hood = state.look == .neighbourhood, own = [GraphViewState.Look.arc, .places, .locations, .plan].contains(state.look)
+        let book = !own   // (the looks of the book's graph: whole, social, neighbourhood)
+        // The second line: the settings of this look.
+        focusGroup.isHidden = !(hood || [.arc, .places, .locations].contains(state.look))
+        focusLabel.stringValue = hood ? L("Look at") : (state.look == .places ? L("World") : L("Character"))
+        stepsGroup.isHidden = !hood
+        kindsGroup.isHidden = !(state.look == .whole || hood)
+        sectionGroup.isHidden = !book
+        colourGroup.isHidden = !book
+        asOfGroup.isHidden = !book
+        fillShowMenu()
+        showGroup.isHidden = !book || showButton.menu?.items.count ?? 0 < 2
+        legendRow.isHidden = !(book && state.colourByLine)
+        hintLabel.isHidden = state.look != .plan
+        settingsFlow.needsLayout = true
+        focusPopup.isEnabled = hood || [.arc, .places, .locations].contains(state.look)
         depthControl.isEnabled = hood
-        for box in kindBoxes.values { box.isEnabled = state.look != .social }
+        for box in kindBoxes.values { box.isEnabled = true }
         zoomOutButton.isEnabled = scroll.magnification > scroll.minMagnification + 0.001
         zoomInButton.isEnabled = scroll.magnification < scroll.maxMagnification - 0.001
         fitButton.isEnabled = !graph.nodes.isEmpty
-        resetButton.isEnabled = !store.positions.isEmpty
+        resetButton.isEnabled = !pinKeys.isEmpty
         updateAsOfControls()
-        // (The arc is made of one character's events: the filters of the book's graph do not apply to it.)
-        if arcLook {
-            for box in kindBoxes.values { box.isEnabled = false }
-            for c in [unlinkedBox, endedBox, changesOnlyBox, asOfBack, asOfForward] as [NSButton] { c.isEnabled = false }
-            for p in [sectionPopup, colourPopup, linePopup] { p.isEnabled = false }
-            asOfSlider.isEnabled = false
-            resetButton.isEnabled = false
-        } else {
-            for c in [unlinkedBox, endedBox, changesOnlyBox] as [NSButton] { c.isEnabled = true }
-            for p in [sectionPopup, colourPopup] { p.isEnabled = true }
-        }
         note.stringValue = graph.nodes.isEmpty ? "" : Lp("{n} node", "{n} nodes", graph.nodes.count) + " · " + Lp("{n} link", "{n} links", graph.edges.filter { !$0.hidden }.count) + (graph.warningCount > 0 ? " · ⚠ " + Lp("{n} warning", "{n} warnings", graph.warningCount) : "")
         if graph.nodes.isEmpty {
             emptyLabel.stringValue = state.look == .arc && (state.focus.flatMap { characters.character($0) } == nil) ? L("Choose a character to follow") : (state.look == .plan ? L("The plan is empty") : state.look == .locations ? L("No scene is linked to a place yet") : (hood && (state.focus ?? "").isEmpty ? L("Choose a thing to look at") : L("Nothing to show with these settings")))
@@ -480,20 +516,17 @@ final class GraphViewController: NSViewController {
 
     /// The colours of the plot lines that are on the graph, as chips (only when the nodes are coloured by plot line).
     private func updateLegend() {
-        legendRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        var chipViews: [NSView] = []
         legendRow.isHidden = !state.colourByLine
         guard state.colourByLine else { return }
         let used = Set(graph.nodes.flatMap(\.lines))
         var chips: [(String, NSColor)] = canvas.lineStyles.filter { used.contains($0.key) }.sorted { $0.value.name < $1.value.name }.map { ($0.value.name, PlanColors.color($0.value.color)) }
         if graph.nodes.contains(where: { $0.lines.isEmpty && $0.kind != .scene }) { chips.append((L("not on a plot line"), .systemGray)) }
         for (name, color) in chips {
-            let box = NSView(); box.wantsLayer = true; box.layer?.cornerRadius = 3; box.layer?.backgroundColor = color.cgColor
-            box.translatesAutoresizingMaskIntoConstraints = false
-            box.widthAnchor.constraint(equalToConstant: 10).isActive = true; box.heightAnchor.constraint(equalToConstant: 10).isActive = true
             let label = NSTextField(labelWithString: name); label.font = .systemFont(ofSize: 11); label.textColor = .secondaryLabelColor
-            let chip = NSStackView(views: [box, label]); chip.spacing = 4
-            legendRow.addArrangedSubview(chip)
+            chipViews.append(RowView([Swatch(color), label], spacing: 4))
         }
+        legendRow.set(chipViews)
         legendTitles = chips.map(\.0)
     }
 
@@ -508,9 +541,31 @@ final class GraphViewController: NSViewController {
         reload()
     }
 
-    @objc private func endedChanged() { state.showEnded = endedBox.state == .on; resetViewport(); reload() }
-    @objc private func changesOnlyChanged() { state.changesOnly = changesOnlyBox.state == .on; resetViewport(); reload() }
-    @objc private func unlinkedChanged() { state.showUnlinked = unlinkedBox.state == .on; resetViewport(); reload() }
+    /// "Show ▾": the yes/no options the look chosen has, each ticked when on.
+    private func fillShowMenu() {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: L("Show"), action: nil, keyEquivalent: ""))   // (the button's own title)
+        func option(_ title: String, _ tip: String, _ on: Bool, _ change: @escaping () -> Void) {
+            let item = ClosureMenuItem(title: title) { [weak self] in change(); self?.resetViewport(); self?.reload() }
+            item.state = on ? .on : .off
+            item.toolTip = tip
+            menu.addItem(item)
+        }
+        let look = state.look
+        if look == .whole || look == .social {
+            option(L("Show unlinked"), L("Things with no line to anything shown: a place no event uses, a character in no event"), state.showUnlinked) { [weak self] in self?.state.showUnlinked.toggle() }
+        }
+        if look == .whole || look == .social || look == .neighbourhood {
+            option(L("Show ended relationships"), L("A relationship that has ended is drawn dashed; its tooltip says from which event to which"), state.showEnded) { [weak self] in self?.state.showEnded.toggle() }
+        }
+        if look == .whole || look == .neighbourhood {
+            option(L("Changes only"), L("Only the events that change something, with what they change: the turning points of the story"), state.changesOnly) { [weak self] in self?.state.changesOnly.toggle() }
+        }
+        showButton.menu = menu
+    }
+
+    /// For the checks: the options of the Show menu, and whether each is ticked.
+    var showOptions: [(title: String, on: Bool)] { (showButton.menu?.items.dropFirst() ?? []).map { ($0.title, $0.state == .on) } }
 
     @objc private func sectionChanged() {
         let id = sectionPopup.selectedItem?.representedObject as? String ?? ""
@@ -542,7 +597,7 @@ final class GraphViewController: NSViewController {
 
     /// Forgets every place the author gave a node.
     func resetLayout(confirm: Bool) {
-        guard !store.positions.isEmpty else { return }
+        guard !pinKeys.isEmpty else { return }
         if confirm {
             let alert = NSAlert()
             alert.messageText = L("Reset the layout?")
@@ -552,14 +607,14 @@ final class GraphViewController: NSViewController {
             go.hasDestructiveAction = true
             guard alert.runModal() == .alertSecondButtonReturn else { return }
         }
-        try? store.releaseAll()
+        for k in pinKeys { try? store.release(k) }   // (only the nodes of the view shown)
         resetViewport()
         reload()
         onChange?()
     }
 
     func release(_ id: String) {
-        try? store.release(id)
+        try? store.release(key(id))
         reload()
         onChange?()
     }
@@ -591,7 +646,7 @@ final class GraphViewController: NSViewController {
             if node.kind == .place, node.scene != nil, let place = node.ref { menu.addItem(ClosureMenuItem(title: L("Open the Place")) { [weak self] in self?.onOpen?(.place, place) }) }
             if node.kind != .scene, node.kind != .stage, node.kind != .card { menu.addItem(ClosureMenuItem(title: L("Focus on This")) { [weak self] in self?.focus(on: node.ref ?? node.id) }) }
             if node.kind == .character { menu.addItem(ClosureMenuItem(title: L("Show the Arc")) { [weak self] in self?.showArc(of: node.ref ?? node.id) }) }
-            if store.positions[node.id] != nil { menu.addItem(ClosureMenuItem(title: L("Release Position")) { [weak self] in self?.release(node.id) }) }
+            if store.positions[key(node.id)] != nil { menu.addItem(ClosureMenuItem(title: L("Release Position")) { [weak self] in self?.release(node.id) }) }
             menu.addItem(.separator())
         }
         let reset = ClosureMenuItem(title: L("Reset Layout")) { [weak self] in self?.resetLayout(confirm: true) }
@@ -620,9 +675,12 @@ final class GraphViewController: NSViewController {
     var shownIDs: [String] { graph.nodes.map(\.id) }
     var noteText: String { note.stringValue }
     var controlsEnabled: (focus: Bool, depth: Bool, kinds: Bool, reset: Bool, zoomOut: Bool, zoomIn: Bool, fit: Bool) {
-        (focusPopup.isEnabled, depthControl.isEnabled, kindBoxes.values.allSatisfy(\.isEnabled), resetButton.isEnabled, zoomOutButton.isEnabled, zoomInButton.isEnabled, fitButton.isEnabled)
+        (!focusGroup.isHidden && focusPopup.isEnabled, !stepsGroup.isHidden && depthControl.isEnabled, !kindsGroup.isHidden && kindBoxes.values.allSatisfy(\.isEnabled), resetButton.isEnabled, zoomOutButton.isEnabled, zoomInButton.isEnabled, fitButton.isEnabled)
     }
     func setFocusForTest(_ id: String?) { state.focus = id; resetViewport(); reload() }
+    /// For the checks: is each kind checkbox as wide as its title needs (the titles are not squeezed out)?
+    var settingsWidthsForTest: [CGFloat] { view.layoutSubtreeIfNeeded(); settingsFlow.layoutSubtreeIfNeeded(); return GraphKind.allCases.compactMap { kindBoxes[$0]?.frame.width } }
+    var settingsTitlesAreWholeForTest: Bool { view.layoutSubtreeIfNeeded(); settingsFlow.layoutSubtreeIfNeeded(); return kindBoxes.values.allSatisfy { $0.frame.width >= $0.attributedTitle.size().width + 12 } && asOfSlider.frame.width >= 100 }
     var focusTitles: [String] { focusPopup.itemTitles.filter { !$0.isEmpty } }
     var emptyText: String? { emptyLabel.isHidden ? nil : emptyLabel.stringValue }
     func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); resetViewport(); reload() }

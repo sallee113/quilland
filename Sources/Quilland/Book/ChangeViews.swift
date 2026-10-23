@@ -38,6 +38,64 @@ final class ChangeRowsView: NSStackView {
 }
 
 
+/// A row of controls laid out by frames, left to right, each as wide as it needs to be. It lives inside a `FlowView`, which works by frames too: a stack view given a
+/// frame there would squeeze the titles out of its checkboxes. `caps` limit a view's width (a view with no width of its own, such as a slider, takes the cap).
+final class RowView: NSView {
+    let spacing: CGFloat
+    private let caps: [NSView: CGFloat]
+    override var isFlipped: Bool { true }
+
+    init(_ views: [NSView], spacing: CGFloat = 6, caps: [NSView: CGFloat] = [:]) {
+        self.spacing = spacing; self.caps = caps
+        super.init(frame: .zero)
+        for v in views { v.translatesAutoresizingMaskIntoConstraints = true; addSubview(v) }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func size(of v: NSView) -> NSSize {
+        var s = FlowView.naturalSize(of: v)
+        if let cap = caps[v] { s.width = v is NSSlider ? cap : (s.width > 0 ? min(s.width, cap) : cap) }   // (a slider has no width of its own worth the name: it is as wide as it was set)
+        if s.height <= 0 { s.height = 20 }
+        return s
+    }
+
+    var natural: NSSize {
+        let sizes = subviews.filter { !$0.isHidden }.map(size(of:))
+        return NSSize(width: sizes.reduce(0) { $0 + $1.width } + spacing * CGFloat(max(0, sizes.count - 1)), height: sizes.map(\.height).max() ?? 0)
+    }
+
+    override func layout() {
+        super.layout()
+        var x: CGFloat = 0
+        let height = natural.height
+        for v in subviews where !v.isHidden {
+            let s = size(of: v)
+            v.frame = NSRect(x: x, y: (height - s.height) / 2, width: s.width, height: s.height)
+            x += s.width + spacing
+        }
+    }
+
+    /// Replaces what is in the row.
+    func set(_ views: [NSView]) {
+        subviews.forEach { $0.removeFromSuperview() }
+        for v in views { v.translatesAutoresizingMaskIntoConstraints = true; addSubview(v) }
+        needsLayout = true
+    }
+}
+
+/// A small square of a colour, for a legend.
+final class Swatch: NSView {
+    init(_ color: NSColor) {
+        super.init(frame: NSRect(x: 0, y: 0, width: 10, height: 10))
+        wantsLayer = true
+        layer?.cornerRadius = 3
+        layer?.backgroundColor = color.cgColor
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override var intrinsicContentSize: NSSize { NSSize(width: 10, height: 10) }
+}
+
 /// A relationship of a character as a brick on the card: "Лев — friends → enemies", greyed when it has ended; a click opens `event`, which holds it.
 struct RelationshipBrick: Equatable {
     var title: String
@@ -148,14 +206,26 @@ final class FlowView: NSView {
         super.layout()
         let width = max(bounds.width, 100)
         var x: CGFloat = 0, y: CGFloat = 0
-        for (i, v) in subviews.enumerated() {
-            let size = i == 0 && v is NSTextField ? NSSize(width: min(width, max(minimumFieldWidth, width * 0.45)), height: lineHeight) : NSSize(width: min(v.intrinsicContentSize.width, width), height: v.intrinsicContentSize.height > 0 ? v.intrinsicContentSize.height : lineHeight)
+        var shown = 0
+        for (i, v) in subviews.enumerated() where !v.isHidden {
+            let natural = Self.naturalSize(of: v)
+            let size = i == 0 && v is NSTextField ? NSSize(width: min(width, max(minimumFieldWidth, width * 0.45)), height: lineHeight) : NSSize(width: min(natural.width, width), height: natural.height > 0 ? natural.height : lineHeight)
+            shown += 1
             if x > 0, x + size.width > width { x = 0; y += lineHeight + 4 }
             v.frame = NSRect(x: x, y: y + (lineHeight - size.height) / 2, width: size.width, height: size.height)
             x += size.width + spacing
         }
-        let total = subviews.isEmpty ? 0 : y + lineHeight
+        let total = shown == 0 ? 0 : y + lineHeight
         if heightConstraint?.constant != total { heightConstraint?.constant = total }
+    }
+
+    /// How big a view wants to be. A stack of controls is as big as the controls in it (the stack's own "fitting size" is its frame once it has been given one, which
+    /// would squeeze the titles out of its checkboxes).
+    static func naturalSize(of v: NSView) -> NSSize {
+        if let row = v as? RowView { return row.natural }
+        let own = v.intrinsicContentSize
+        if own.width > 0 { return NSSize(width: own.width, height: own.height > 0 ? own.height : v.fittingSize.height) }
+        return v.fittingSize
     }
 
     var bricks: [BrickView] { subviews.compactMap { $0 as? BrickView } }

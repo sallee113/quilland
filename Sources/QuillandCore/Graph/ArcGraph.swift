@@ -60,7 +60,7 @@ public enum ArcBuilder {
         func spinePoint(_ s: Double) -> GraphPoint { GraphPoint(x: 80 + step.x * s, y: 80 + step.y * s) }
 
         var me = GraphNode(id: id, kind: .character, title: card.name ?? "", isMain: card.main)
-        me.changes = []
+        me.anchored = true
         node(me, at: spinePoint(0))
 
         // The spine.
@@ -71,6 +71,7 @@ public enum ArcBuilder {
             let applies = scene(e) != nil
             n.doesNotApply = e.changesSomething && !applies
             n.notYet = !applies
+            n.anchored = true
             node(n, at: spinePoint(along[eid] ?? cumulative))
             var line = edge(previous, eid, .arc, weight: 4)
             if let g = gaps[eid], g > 0 { line.gap = g; line.label = Lp("{n} scene without them", "{n} scenes without them", g) }

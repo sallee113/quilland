@@ -263,13 +263,16 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
 
     func center(of id: String) -> CGPoint? { points[id] }
 
+    /// Can this node be moved? Not what is on the main axis of a computed view.
+    func isMovable(_ id: String) -> Bool { allowsDragging && byID[id]?.anchored == false }
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let p = convert(event.locationInWindow, from: nil)
         guard let n = node(at: p), let c = points[n.id] else { select(nil); return }
         select(n.id)
         if event.clickCount >= 2 { onOpen?(n); return }
-        guard allowsDragging else { return }
+        guard isMovable(n.id) else { return }
         dragging = (n.id, CGSize(width: c.x - p.x, height: c.y - p.y), false)
     }
 

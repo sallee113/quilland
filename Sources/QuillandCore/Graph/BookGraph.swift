@@ -54,6 +54,8 @@ public struct GraphNode: Equatable, Sendable {
     public var isContext = false
     /// A card that no event has realised yet (drawn hollow, with a dashed outline).
     public var hollow = false
+    /// On the main axis of a computed view (the spine of an arc, of the locations, the roots of the place tree, the plan map): it cannot be moved. What is attached to it can.
+    public var anchored = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
