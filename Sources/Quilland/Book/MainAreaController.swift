@@ -550,6 +550,10 @@ final class MainAreaController: NSViewController {
             guard let self, let plan, let scene = self.firstScene(of: section) else { return [] }
             return PlanFilter.hidden(store: plan.store, sceneOrder: self.session.structure.scenes.map(\.id), from: scene)
         }
+        plan.changesFor = { [weak self] id in
+            guard let self, let e = self.eventStore.event(id) else { return "" }
+            return GraphTexts.summary(GraphBuilder.changes(of: e, characters: self.characters, worlds: self.worlds, relationships: self.relationships))
+        }
         plan.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         plan.onEventsChanged = { [weak self] in self?.eventStore.reload() }
         plan.onShowFromChanged = { [weak self] id in self?.planFrom = id }

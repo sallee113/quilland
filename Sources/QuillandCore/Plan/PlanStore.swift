@@ -53,6 +53,8 @@ public final class PlanStore {
         let eventsFolder = folder.appendingPathComponent("bible/events")
         for name in ((try? fm.contentsOfDirectory(atPath: eventsFolder.path)) ?? []).sorted() where name.hasSuffix(".json") {
             if let data = try? Data(contentsOf: eventsFolder.appendingPathComponent(name)), let o = try? JSONParser.parseObject(data), let id = o.string("id") {
+                // (The default event "Book starts" is not an event of the story: it is not on the plan.)
+                if o.bool("start") == true { continue }
                 events[id] = o.string("title") ?? ""
                 if let color = o.string("color") { eventColors[id] = color }
                 eventLinks[id] = Array((o.stringMap("links") ?? [:]).keys)

@@ -13,6 +13,8 @@ struct PlanItem: Equatable {
     var lineIndex: Int?
     var start: Int?
     var floatingAt: NSPoint?
+    /// For an event: what it changes (empty: nothing); the Δ before its title and the tooltip.
+    var changes = ""
 }
 
 enum PlanColors {
@@ -83,6 +85,7 @@ final class PlanItemView: NSView {
         layer?.shadowOffset = CGSize(width: 2, height: -3)
         layer?.shadowRadius = 5
         layer?.shadowOpacity = 0
+        toolTip = item.changes.isEmpty ? nil : item.changes
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -148,7 +151,8 @@ final class PlanItemView: NSView {
         }
         if isTopLayer {
             let titleColor: NSColor = .labelColor
-            let title = NSAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: titleColor])
+            let title = NSMutableAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: titleColor])
+            if !item.changes.isEmpty { title.insert(NSAttributedString(string: "Δ ", attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .bold), .foregroundColor: NSColor.controlAccentColor]), at: 0) }
             title.draw(with: NSRect(x: 12, y: 8, width: bounds.width - 20, height: 34), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
             let label = item.kind == .event ? L("event · in the book") : item.text
             let body = NSAttributedString(string: label, attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
@@ -156,7 +160,7 @@ final class PlanItemView: NSView {
         } else {
             // The layer below shows its title in the strip that peeks out from under the layer on top: the events are a little to the left and up of
             // the cards, so an event shows its title along its top edge and a card (below, in Events mode) along its bottom edge.
-            let small = NSAttributedString(string: (item.kind == .event ? "◧ " : "") + item.title, attributes: [.font: NSFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: NSColor.secondaryLabelColor])
+            let small = NSAttributedString(string: (item.kind == .event ? "◧ " : "") + (item.changes.isEmpty ? "" : "Δ ") + item.title, attributes: [.font: NSFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: NSColor.secondaryLabelColor])
             let y: CGFloat = item.kind == .event ? 2 : bounds.height - 15
             small.draw(with: NSRect(x: item.kind == .event ? 8 : 26, y: y, width: bounds.width - 34, height: 13), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }

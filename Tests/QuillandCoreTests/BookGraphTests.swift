@@ -184,3 +184,66 @@ struct BookGraphTests {
         #expect(GraphStore(folder: book).positions.isEmpty && !FileManager.default.fileExists(atPath: book.appendingPathComponent("plan/graph.json").path), "nothing left: no file")
     }
 }
+
+@Suite("The book graph: what events change")
+struct BookGraphChangeTests {
+    /// The fixture, with Анна's profile and main flag changed at the arrival, the sisters becoming enemies at the departure, and Анна–Вера (friends) ending there.
+    struct Changed {
+        let f: BookGraphTests.Fixture
+        let sisters: String, rivals: String, friends: String, start: String
+    }
+
+    static func changed() throws -> Changed {
+        let f = try BookGraphTests.fixture()
+        let id = f.ids
+        let start = try #require(f.events.startEvent?.id)
+        let rels = f.relationships.relationships
+        let sisters = try #require(rels.first { $0.kind == "сёстры" }?.id), rivals = try #require(rels.first { $0.kind == "соперники" }?.id), friends = try #require(rels.first { $0.kind == "подруги" }?.id)
+        try f.events.update(start) { $0.relationships = [sisters: "starts", rivals: "starts", friends: "starts"] }
+        try f.events.update(id["arrival"]!) { $0.setEffect(.profile, of: id["anna"]!, text: "Стала старше."); $0.setEffectFlag(of: id["anna"]!, true) }
+        try f.events.update(id["departure"]!) { $0.relationships = [friends: "ends", sisters: ""]; $0.setEffect(.kind, of: sisters, text: "враги") }
+        return Changed(f: f, sisters: sisters, rivals: rivals, friends: friends, start: start)
+    }
+
+    @Test("an event that changes something is marked, and so is the line that carries the change")
+    func marks() throws {
+        let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }
+        let id = c.f.ids
+        let g = c.f.graph()
+        #expect(g.node(id["arrival"]!)?.changes.first?.fields == [.main, .profile] && g.node(id["arrival"]!)?.changes.first?.main == true, "the arrival changes a character")
+        #expect(g.node(id["departure"]!)?.changes.contains { $0.marker == "ends" } == true && g.node(id["departure"]!)?.changes.contains { $0.fields == [.kind] } == true, "the departure ends a relationship and changes a kind")
+        let line = g.edges.first { $0.kind == .takesPart && Set([$0.a, $0.b]) == Set([id["anna"]!, id["arrival"]!]) }
+        #expect(line?.changes.map(\.fields) == [[.main, .profile]], "the line from the event to the character carries it")
+        #expect(g.edges.first { $0.kind == .takesPart && Set([$0.a, $0.b]) == Set([id["lev"]!, id["arrival"]!]) }?.changes.isEmpty == true, "and no other line does")
+        #expect(g.node(c.start) == nil && !g.nodes.contains { $0.title == "Начало книги" }, "Book starts is not drawn")
+    }
+
+    @Test("a relationship that has ended is dashed; the kinds that change are shown in order; the switch hides the ended ones")
+    func ended() throws {
+        let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }
+        let id = c.f.ids
+        let g = c.f.graph()
+        func pair(_ a: String, _ b: String) -> GraphEdge? { g.edges.first { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([a, b]) } }
+        let annaVera = pair(id["anna"]!, id["vera"]!)
+        #expect(annaVera?.ended == true && annaVera?.periods.first?.to == "Отъезд" && annaVera?.periods.first?.from == nil, "friends ended at the departure, and started with the book")
+        let annaLev = pair(id["anna"]!, id["lev"]!)
+        #expect(annaLev?.ended == false && annaLev?.label == "сёстры → враги, соперники", "a pair is dashed only when every relationship in it has ended; the kinds are in order: \(String(describing: annaLev?.label))")
+        var o = GraphOptions(); o.showEnded = false
+        let hidden = c.f.graph(o)
+        #expect(!hidden.edges.contains { $0.kind == .relationship && Set([$0.a, $0.b]) == Set([id["anna"]!, id["vera"]!]) } && hidden.edges.contains { $0.kind == .relationship }, "with the switch off the ended one is not drawn, the others are")
+    }
+
+    @Test("Changes only keeps the events that change something, what they change and the relationships that turn")
+    func changesOnly() throws {
+        let c = try Self.changed(); defer { try? FileManager.default.removeItem(at: c.f.parent) }
+        let id = c.f.ids
+        var o = GraphOptions(); o.changesOnly = true
+        let g = c.f.graph(o)
+        #expect(Set(g.nodes.map(\.id)) == [id["arrival"]!, id["departure"]!, id["anna"]!, id["lev"]!, id["vera"]!], "\(g.nodes.map(\.title))")
+        #expect(g.edges.filter { $0.kind == .takesPart }.count == 1 && g.edges.filter { $0.kind == .relationship }.count == 2, "only the lines that carry a change or turn")
+        try c.f.events.update(id["departure"]!) { $0.relationships = [:]; $0.effects = [:] }
+        try c.f.events.update(c.start) { $0.relationships = [:] }
+        let few = c.f.graph(o)
+        #expect(Set(few.nodes.map(\.id)) == [id["arrival"]!, id["anna"]!], "an event that changes nothing is gone")
+    }
+}

@@ -102,6 +102,9 @@ public struct GraphViewMemory: Equatable, Sendable {
     /// Kinds shown: `character`, `place`, `event`, `scene`.
     public var kinds: [String] = ["character", "place", "event"]
     public var showUnlinked = true
+    /// Draw the relationships that have ended, and keep only the events that change something.
+    public var showEnded = true
+    public var changesOnly = false
     public var section: String?
     public var focus: String?
     public var depth = 1
@@ -116,6 +119,8 @@ public struct GraphViewMemory: Equatable, Sendable {
         look = o.string("look") ?? "whole"
         kinds = o.strings("kinds") ?? ["character", "place", "event"]
         showUnlinked = o.bool("show_unlinked") ?? true
+        showEnded = o.bool("show_ended") ?? true
+        changesOnly = o.bool("changes_only") ?? false
         section = o.string("section")
         focus = o.string("focus")
         depth = o.int("depth") ?? 1
@@ -125,7 +130,7 @@ public struct GraphViewMemory: Equatable, Sendable {
     }
 
     var object: JSONObject {
-        var o: JSONObject = ["look": .string(look), "show_unlinked": .bool(showUnlinked), "depth": .int(depth)]
+        var o: JSONObject = ["look": .string(look), "show_unlinked": .bool(showUnlinked), "show_ended": .bool(showEnded), "changes_only": .bool(changesOnly), "depth": .int(depth)]
         o.setStrings("kinds", kinds)
         o.setString("section", section)
         o.setString("focus", focus)

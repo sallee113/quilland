@@ -77,7 +77,7 @@ final class PlanCanvasView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    func reload(store: PlanStore, mode: PlanMode, selected: Set<String>, hidden: Set<String> = [], delegate: PlanItemViewDelegate) {
+    func reload(store: PlanStore, mode: PlanMode, selected: Set<String>, hidden: Set<String> = [], changes: (String) -> String = { _ in "" }, delegate: PlanItemViewDelegate) {
         layout = PlanLayout.make(from: store, hidden: hidden)
         headers.forEach { $0.removeFromSuperview() }
         itemViews.forEach { $0.removeFromSuperview() }
@@ -117,7 +117,8 @@ final class PlanCanvasView: NSView {
         }
         for entry in store.entries {
             guard let event = entry.event, !hidden.contains(event), let li = lineIndex(entry.lane), let s = entry.start, let row = layout.row(forStart: s) else { continue }
-            let item = PlanItem(kind: .event, id: event, title: store.events[event] ?? "(event)", text: "", colorName: store.eventColors[event], lineIndex: li, start: s, floatingAt: nil)
+            var item = PlanItem(kind: .event, id: event, title: store.events[event] ?? "(event)", text: "", colorName: store.eventColors[event], lineIndex: li, start: s, floatingAt: nil)
+            item.changes = changes(event)
             let v = PlanItemView(item: item, frame: NSRect(x: layout.columnX(li), y: row.y, width: PlanLayout.columnWidth, height: PlanLayout.eventHeight))
             eventViews.append(v)
         }
@@ -293,6 +294,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
             bannerButton.centerYAnchor.constraint(equalTo: banner.centerYAnchor), banner.heightAnchor.constraint(equalToConstant: 34),
         ])
         view = container
+        subscriptions.append(subscribe(to: .bookDataChanged) { [weak self] in self?.reload() })
         // A pinch zoom goes around the pointer; when it ends, the selected card is brought back into view if it was left out.
         NotificationCenter.default.addObserver(forName: NSScrollView.didEndLiveMagnifyNotification, object: scrollView, queue: .main) { [weak self] _ in self?.keepSelectionVisible() }
         reload()
@@ -302,6 +304,9 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     var showFrom: String? { didSet { if showFrom != oldValue { fromPopupSync(); reload() } } }
     var sectionChoices: [(id: String, title: String, depth: Int)] = [] { didSet { fillFromPopup() } }
     var hiddenFor: (String) -> Set<String> = { _ in [] }
+    /// What an event changes, in words (empty: nothing), for the Δ and the tooltip of its item.
+    var changesFor: (String) -> String = { _ in "" }
+    private var subscriptions: [Subscription] = []
     var onShowFromChanged: ((String?) -> Void)?
     private(set) var hidden: Set<String> = []
     private let fromPopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -347,7 +352,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         syncZoomButtons()
         if let id = selectedID, hidden.contains(id) { selectedID = nil }
         selection = selection.filter { !hidden.contains($0) && (store.cards[$0] != nil || store.events[$0] != nil) }
-        canvas.reload(store: store, mode: mode, selected: selection, hidden: hidden, delegate: self)
+        canvas.reload(store: store, mode: mode, selected: selection, hidden: hidden, changes: changesFor, delegate: self)
         updateSelectionNote()
         onChange?()
     }

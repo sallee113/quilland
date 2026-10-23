@@ -7,6 +7,8 @@ struct GraphViewState {
     var look = Look.whole
     var kinds: Set<GraphKind> = [.character, .place, .event]
     var showUnlinked = true
+    var showEnded = true
+    var changesOnly = false
     var section: String?
     var focus: String?
     var depth = 1
@@ -21,6 +23,7 @@ struct GraphViewState {
         look = [Look.whole, .social, .neighbourhood].first { ["whole", "social", "neighbourhood"][$0.rawValue] == m.look } ?? .whole
         kinds = Set(m.kinds.compactMap(GraphKind.init(rawValue:)))
         showUnlinked = m.showUnlinked
+        showEnded = m.showEnded; changesOnly = m.changesOnly
         section = m.section; focus = m.focus; depth = max(1, min(3, m.depth))
         zoom = m.zoom
         if let x = m.centerX, let y = m.centerY { center = GraphPoint(x: x, y: y) }
@@ -31,6 +34,7 @@ struct GraphViewState {
         m.look = ["whole", "social", "neighbourhood"][look.rawValue]
         m.kinds = GraphKind.allCases.filter(kinds.contains).map(\.rawValue)
         m.showUnlinked = showUnlinked
+        m.showEnded = showEnded; m.changesOnly = changesOnly
         m.section = section; m.focus = focus; m.depth = depth
         m.zoom = zoom; m.centerX = center?.x; m.centerY = center?.y
         return m
@@ -66,6 +70,8 @@ final class GraphViewController: NSViewController {
     private let depthControl = NSSegmentedControl(labels: ["1", "2", "3"], trackingMode: .selectOne, target: nil, action: nil)
     private var kindBoxes: [GraphKind: NSButton] = [:]
     private let unlinkedBox = NSButton(checkboxWithTitle: L("Show unlinked"), target: nil, action: nil)
+    private let endedBox = NSButton(checkboxWithTitle: L("Show ended relationships"), target: nil, action: nil)
+    private let changesOnlyBox = NSButton(checkboxWithTitle: L("Changes only"), target: nil, action: nil)
     private let sectionPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let zoomOutButton = NSButton(title: "−", target: nil, action: nil)
     private let zoomInButton = NSButton(title: "+", target: nil, action: nil)
@@ -103,6 +109,10 @@ final class GraphViewController: NSViewController {
         }
         unlinkedBox.target = self; unlinkedBox.action = #selector(unlinkedChanged)
         unlinkedBox.toolTip = L("Things with no line to anything shown: a place no event uses, a character in no event")
+        endedBox.target = self; endedBox.action = #selector(endedChanged)
+        endedBox.toolTip = L("A relationship that has ended is drawn dashed; its tooltip says from which event to which")
+        changesOnlyBox.target = self; changesOnlyBox.action = #selector(changesOnlyChanged)
+        changesOnlyBox.toolTip = L("Only the events that change something, with what they change: the turning points of the story")
         for (b, action) in [(zoomOutButton, #selector(zoomOutAction)), (zoomInButton, #selector(zoomInAction)), (fitButton, #selector(fitAction)), (resetButton, #selector(resetPressed))] {
             b.target = self; b.action = action; b.bezelStyle = .rounded; b.controlSize = .small
         }
@@ -112,8 +122,9 @@ final class GraphViewController: NSViewController {
 
         let row1 = NSStackView(views: [lookControl, NSTextField(labelWithString: L("Look at")), focusPopup, NSTextField(labelWithString: L("Steps")), depthControl, NSTextField(labelWithString: L("Section")), sectionPopup])
         let row2 = NSStackView(views: [kindBoxes[.character]!, kindBoxes[.place]!, kindBoxes[.event]!, kindBoxes[.scene]!, unlinkedBox, zoomOutButton, zoomInButton, fitButton, resetButton, note])
-        for r in [row1, row2] { r.spacing = 10; r.alignment = .centerY }
-        let bar = NSStackView(views: [row1, row2])
+        let row3 = NSStackView(views: [endedBox, changesOnlyBox])
+        for r in [row1, row2, row3] { r.spacing = 10; r.alignment = .centerY }
+        let bar = NSStackView(views: [row1, row2, row3])
         bar.orientation = .vertical; bar.alignment = .leading; bar.spacing = 6
         bar.translatesAutoresizingMaskIntoConstraints = false
 
@@ -154,6 +165,8 @@ final class GraphViewController: NSViewController {
         var o = GraphOptions()
         o.kinds = state.kinds
         o.showUnlinked = state.showUnlinked
+        o.showEnded = state.showEnded
+        o.changesOnly = state.changesOnly
         switch state.look {
         case .whole: o.mode = .whole
         case .social: o.mode = .social
@@ -264,6 +277,8 @@ final class GraphViewController: NSViewController {
         depthControl.selectedSegment = max(0, min(2, state.depth - 1))
         for (kind, box) in kindBoxes { box.state = state.kinds.contains(kind) ? .on : .off }
         unlinkedBox.state = state.showUnlinked ? .on : .off
+        endedBox.state = state.showEnded ? .on : .off
+        changesOnlyBox.state = state.changesOnly ? .on : .off
     }
 
     private func fillFocusPopup() {
@@ -340,6 +355,8 @@ final class GraphViewController: NSViewController {
         reload()
     }
 
+    @objc private func endedChanged() { state.showEnded = endedBox.state == .on; resetViewport(); reload() }
+    @objc private func changesOnlyChanged() { state.changesOnly = changesOnlyBox.state == .on; resetViewport(); reload() }
     @objc private func unlinkedChanged() { state.showUnlinked = unlinkedBox.state == .on; resetViewport(); reload() }
 
     @objc private func sectionChanged() {
@@ -444,6 +461,8 @@ final class GraphViewController: NSViewController {
     var emptyText: String? { emptyLabel.isHidden ? nil : emptyLabel.stringValue }
     func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); resetViewport(); reload() }
     func setKind(_ kind: GraphKind, _ on: Bool) { if on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }; syncControlsFromState(); resetViewport(); reload() }
+    func setShowEnded(_ on: Bool) { state.showEnded = on; syncControlsFromState(); resetViewport(); reload() }
+    func setChangesOnly(_ on: Bool) { state.changesOnly = on; syncControlsFromState(); resetViewport(); reload() }
     func setShowUnlinked(_ on: Bool) { state.showUnlinked = on; syncControlsFromState(); resetViewport(); reload() }
     func setSection(_ id: String?) { state.section = id; resetViewport(); reload() }
     func setDepth(_ depth: Int) { state.depth = depth; syncControlsFromState(); resetViewport(); reload() }
