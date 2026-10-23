@@ -62,7 +62,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     }
 
     /// A card is drawn in its colour on the plan; the others in the colour of their kind.
-    static func color(of node: GraphNode) -> NSColor { node.kind == .card ? PlanColors.color(node.color) : color(node.kind) }
+    static func color(of node: GraphNode) -> NSColor { node.kind == .card || (node.kind == .stage && node.color != nil) ? PlanColors.color(node.color) : color(node.kind) }
 
     private func lineColour(_ id: String) -> NSColor { PlanColors.color(lineStyles[id]?.color) }
 
@@ -123,7 +123,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             if e.kind == .relationship, e.ended { path.setLineDash([7, 5], count: 2, phase: 0) }
             if e.kind == .arc, e.gap > 0 { path.setLineDash([9, 6], count: 2, phase: 0) }
             if e.kind == .wasAt { path.setLineDash([2, 4], count: 2, phase: 0) }
-            ((colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
+            (e.color.map(PlanColors.color) ?? (colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
             path.stroke()
             if !e.changes.isEmpty { drawDelta(at: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), lit: lit) }
             if !e.problems.isEmpty { drawWarning(at: warningPoint(e, a, b), lit: lit) }
@@ -140,8 +140,14 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             // (An opaque ground first, so that the lines under a node do not show through it.)
             NSColor.textBackgroundColor.setFill()
             path.fill()
-            fill(of: n).withAlphaComponent(lit ? (n.isContext ? 0.6 : 1) : 0.2).setFill()
-            path.fill()
+            if n.hollow {
+                // A card nobody has realised: hollow, with a dashed outline in its colour.
+                NSColor.textBackgroundColor.setFill(); path.fill()
+                fill(of: n).withAlphaComponent(lit ? 1 : 0.3).setStroke(); path.lineWidth = 2; path.setLineDash([4, 3], count: 2, phase: 0); path.stroke(); path.setLineDash([], count: 0, phase: 0)
+            } else {
+                fill(of: n).withAlphaComponent(lit ? (n.isContext ? 0.6 : 1) : 0.2).setFill()
+                path.fill()
+            }
             // A main character has a thick border. The chosen node has a ring of the accent colour round it, so that it shows on any colour (and on a main
             // character's thick border).
             if n.id == selected {

@@ -30,6 +30,7 @@ enum PlanColors {
         case "red": return .systemRed
         case "purple": return .systemPurple
         case "blue": return .systemBlue
+        case "gray": return .systemGray
         default: return .systemIndigo
         }
     }

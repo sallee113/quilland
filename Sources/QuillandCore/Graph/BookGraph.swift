@@ -3,7 +3,7 @@ import Foundation
 /// The kinds of things the graph draws.
 public enum GraphKind: String, CaseIterable, Sendable {
     case character, place, event, scene
-    /// A card of the plan (it is joined to the events that realise it).
+    /// A card of the plan (only in the plan map, where it is joined to the events that realise it).
     case card
     /// A state of a character in its arc (the card's own text at the start, then what each event makes of it). Only in the arc graph.
     case stage
@@ -52,6 +52,8 @@ public struct GraphNode: Equatable, Sendable {
     public var scene: String?
     /// A place that is only there as the parent of one that is linked (drawn smaller and lighter).
     public var isContext = false
+    /// A card that no event has realised yet (drawn hollow, with a dashed outline).
+    public var hollow = false
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
@@ -83,6 +85,8 @@ public struct GraphEdge: Equatable, Sendable {
     public var problems: [RelationshipTimeline.Problem] = []
     /// For the spine of an arc: how many scenes lie between two events of the character with none of theirs.
     public var gap = 0
+    /// A plan colour for the line (its name: `teal`…): a strand of the plan map.
+    public var color: String?
     /// The relationship changes its kind, ends, or starts at an event after the start of the book.
     public var turns: Bool { periods.contains { $0.kinds.count > 1 || $0.to != nil || $0.from != nil } }
 }
@@ -194,7 +198,6 @@ public enum GraphBuilder {
             all[id] = node; order.append(id)
         }
         for s in structure.scenes { add(s.id, .scene, sceneTitles[s.id]) }
-        for id in (plan?.cards.keys.sorted() ?? []) { if let card = plan?.cards[id], all[id] == nil { all[id] = GraphNode(id: id, kind: .card, title: card.title ?? "", color: card.color); order.append(id) } }
 
         var edges: [GraphEdge] = []
         func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = [], notYet: Bool = false, problems: [RelationshipTimeline.Problem] = []) {
@@ -222,8 +225,6 @@ public enum GraphBuilder {
             guard let id = p.id else { continue }
             for key in p.links.keys.sorted() { link(id, key, .inScene) }
         }
-        // A card is joined to the events that realise it.
-        if let plan { for id in plan.cards.keys.sorted() { for event in plan.realisedBy(id) { link(id, event, .realises) } } }
         // Relationships: one line for each pair of characters; the kinds of the relationships between the same two are put together.
         var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod], started: Bool, problems: [RelationshipTimeline.Problem])] = [:]
         var pairOrder: [String] = []
@@ -301,8 +302,8 @@ public enum GraphBuilder {
             keep = kept
         }
         if let line = options.plotLine, plan != nil {
-            var kept = Set(order.filter { all[$0]?.kind == .card ? plan?.cards[$0]?.line == line : (all[$0]?.kind == .event && laneOf[$0] == line) })
-            // What the events of the line are linked to (a card brings nothing but itself).
+            var kept = Set(order.filter { all[$0]?.kind == .event && laneOf[$0] == line })
+            // What the events of the line are linked to.
             for e in edges where e.kind != .relationship && e.kind != .realises {
                 if kept.contains(e.a), all[e.a]?.kind == .event { kept.insert(e.b) }
                 if kept.contains(e.b), all[e.b]?.kind == .event { kept.insert(e.a) }

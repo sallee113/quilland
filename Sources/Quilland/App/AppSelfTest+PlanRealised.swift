@@ -33,16 +33,17 @@ extension AppSelfTest {
 
         main.setMode(.graph); spin(0.5)
         if let gv = main.graphView {
-            gv.setKind(.card, true); spin(0.3)
-            check(gv.shownIDs.contains(card) && gv.shownIDs.contains(idle), "Plan cards are a kind of the graph")
-            check(gv.graph.edges.contains { $0.kind == .realises && Set([$0.a, $0.b]) == Set([card, e1]) } && !gv.graph.edges.contains { $0.a == idle || $0.b == idle }, "a card is joined to its events, and an idea never written to nothing")
-            gv.setShowUnlinked(false); spin(0.3)
-            check(gv.shownIDs.contains(card) && !gv.shownIDs.contains(idle), "an unrealised card shows only with unlinked on")
-            gv.setShowUnlinked(true)
+            gv.setAsOf(nil); gv.setChangesOnly(false); gv.setColourByLine(false); gv.setPlotLine(nil); gv.setLook(.plan); spin(0.4)
+            check(gv.shownIDs.contains(card) && gv.shownIDs.contains(idle) && gv.shownIDs.contains(e1), "the plan map shows the cards and the events on the plan")
+            check(gv.graph.edges.contains { $0.kind == .realises && Set([$0.a, $0.b]) == Set([card, e1]) }, "a card is joined to the events that realised it")
+            check(gv.graph.node(idle)?.hollow == true && gv.graph.node(card)?.hollow == false, "a card nobody has realised is hollow, a realised one is not")
+            check(gv.canvas.allowsDragging == false && gv.controlsEnabled.kinds == false && !gv.shownIDs.contains(where: { main.characters.character($0) != nil }), "nothing is moved, the book graph's filters are off, and no characters are in it")
+            check(GraphViewState(memory: gv.state.memory).look == .plan, "the look is remembered")
             gv.onOpen?(.card, card); spin(0.5)
             check(main.mode == .plan && main.planController?.selectedID == card, "opening a card goes to the Plan and chooses it", "\(main.mode) \(String(describing: main.planController?.selectedID))")
             main.setMode(.graph); spin(0.3)
-            main.graphView?.setKind(.card, false)
+            main.graphView?.setLook(.whole); spin(0.3)
+            check(main.graphView?.shownIDs.contains(card) == false, "the book's graph has no cards")
         } else { check(false, "the Graph shows") }
 
         // Clean up.

@@ -136,3 +136,33 @@ struct LocationsTests {
         #expect(h.nodes.filter { $0.ref == planet }.count == 2, "and in the second scene it is a node of that scene's bush")
     }
 }
+
+@Suite("The plan map")
+struct PlanMapTests {
+    @Test("a strand for each plot line, side by side from the top left to the bottom right, cards and events in the order of the plan; a card no event has realised is hollow")
+    func strands() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let plan = try PlanStore(folder: f.structure.folder)
+        let one = try plan.addLine(name: "Усадьба", color: "teal"), two = try plan.addLine(name: "Дорога", color: "amber")
+        try plan.placeEvent(id["arrival"]!, onLine: one, start: 100); try plan.placeEvent(id["departure"]!, onLine: two, start: 200)
+        let idea = try plan.addCard(title: "Идея", line: one, start: 100, color: "pink"), written = try plan.addCard(title: "Написано", line: two, start: 300, color: "green")
+        let floating = try plan.addCard(title: "Плавающая", x: 10, y: 10)
+        try plan.setRealised(card: written, by: id["departure"]!, true)
+        let a = PlanMapBuilder.build(plan: plan, events: f.events), g = a.graph
+        func at(_ id: String) -> GraphPoint { a.positions[id]! }
+        let headOne = "plan:line:\(one)", headTwo = "plan:line:\(two)"
+        #expect(g.node(headOne)?.title == "Усадьба" && g.node(headOne)?.color == "teal" && g.node(headTwo)?.color == "amber" && g.node(PlanMapBuilder.looseStrand.isEmpty ? "" : "plan:line:" + PlanMapBuilder.looseStrand)?.title == "Not on a line", "a head for each strand, in the colour of its line, and one for what is on no line")
+        #expect(g.node(id["arrival"]!)?.kind == .event && g.node(idea)?.kind == .card && g.node(idea)?.color == "pink", "events and cards, a card in its own colour")
+        #expect(g.edges.contains { $0.kind == .arc && $0.a == headOne && $0.color == "teal" } && g.edges.contains { $0.kind == .arc && $0.b == written && $0.color == "amber" }, "each strand is a line in its colour")
+        #expect(g.edges.contains { $0.kind == .realises && $0.a == written && $0.b == id["departure"]! }, "a card is joined to the event that realised it, across strands")
+        #expect(g.node(idea)?.hollow == true && g.node(written)?.hollow == false && g.node(floating)?.hollow == true && g.node(idea)?.detail.contains("Not realised") == true, "a card nobody has realised is hollow")
+        func along(_ p: GraphPoint) -> Double { p.x * 0.84 + p.y * 0.54 }   // how far down the diagonal
+        #expect(along(at(id["arrival"]!)) < along(at(id["departure"]!)) && along(at(id["departure"]!)) < along(at(written)), "the plan's moments run along the diagonal from the top left to the bottom right, whatever the strand")
+        // Two strands side by side: the same moment is level across them; at one moment a card and an event of a strand are apart.
+        #expect(at(headOne).x != at(headTwo).x && at(headOne).y != at(headTwo).y, "the strands are side by side")
+        #expect(at(idea) != at(id["arrival"]!), "a card and an event at one moment are not on top of each other")
+        #expect(PlanMapBuilder.build(plan: plan, events: f.events).positions == a.positions, "the same every time")
+        #expect(PlanMapBuilder.build(plan: try PlanStore(folder: try PlanTests.folder()), events: f.events).graph.nodes.isEmpty, "an empty plan is an empty map")
+    }
+}
