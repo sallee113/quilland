@@ -101,6 +101,7 @@ final class PlanCanvasView: NSView {
         for id in store.cards.keys.sorted() {
             guard let card = store.cards[id], !hidden.contains(id) else { continue }
             var item = PlanItem(kind: .card, id: id, title: card.title ?? "", text: card.text ?? "", colorName: card.color, lineIndex: nil, start: card.start, floatingAt: nil)
+            item.realised = store.realisedBy(id).compactMap { store.events[$0] }
             var frame = NSRect(x: 0, y: 0, width: PlanLayout.columnWidth, height: PlanLayout.cardHeight)
             if let li = lineIndex(card.line), let s = card.start, let row = layout.row(forStart: s) {
                 item.lineIndex = li
@@ -119,6 +120,7 @@ final class PlanCanvasView: NSView {
             guard let event = entry.event, !hidden.contains(event), let li = lineIndex(entry.lane), let s = entry.start, let row = layout.row(forStart: s) else { continue }
             var item = PlanItem(kind: .event, id: event, title: store.events[event] ?? "(event)", text: "", colorName: store.eventColors[event], lineIndex: li, start: s, floatingAt: nil)
             item.changes = changes(event)
+            item.plannedBy = store.plannedBy(event: event).compactMap { store.cards[$0]?.title }
             let v = PlanItemView(item: item, frame: NSRect(x: layout.columnX(li), y: row.y, width: PlanLayout.columnWidth, height: PlanLayout.eventHeight))
             eventViews.append(v)
         }
@@ -435,6 +437,43 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     }
 
     var onOpenEvent: ((String) -> Void)?
+    /// The events in the order of the book (ids), for the list of the events that realise a card.
+    var eventOrder: () -> [String] = { [] }
+
+    /// Chooses a card or an event and brings it into view (from the Graph).
+    func reveal(_ id: String) {
+        let isCard = store.cards[id] != nil
+        guard isCard || store.events[id] != nil else { return }
+        mode = isCard ? .plan : .events
+        modeControl.selectedSegment = mode == .plan ? 0 : 1
+        setSelection([id], primary: id)
+        reload()
+        DispatchQueue.main.async { [weak self] in self?.keepSelectionVisible() }
+    }
+
+    /// "Realised by ▸": the events of the book, each ticked when the card has been written as it. A card may be realised by several events.
+    func realisedMenuItem(for card: String) -> NSMenuItem {
+        let item = NSMenuItem(title: L("Realised by"), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let have = Set(store.realisedBy(card))
+        let order = eventOrder().filter { store.events[$0] != nil }
+        let ordered = order + store.events.keys.filter { !order.contains($0) }.sorted { (store.events[$0] ?? "") < (store.events[$1] ?? "") }
+        for id in ordered {
+            let entry = ClosureMenuItem(title: store.events[id] ?? "") { [weak self] in self?.setRealised(card: card, by: id, !have.contains(id)) }
+            entry.state = have.contains(id) ? .on : .off
+            sub.addItem(entry)
+        }
+        if ordered.isEmpty { let none = NSMenuItem(title: L("No events yet"), action: nil, keyEquivalent: ""); none.isEnabled = false; sub.addItem(none) }
+        item.submenu = sub
+        return item
+    }
+
+    func setRealised(card: String, by event: String, _ on: Bool) {
+        registerUndo(L("Realised by"))
+        attempt { try store.setRealised(card: card, by: event, on) }
+        reload()
+        NotificationCenter.default.post(name: .bookDataChanged, object: nil)
+    }
 
     /// A small window for a card: its title, text and color.
     func editCard(_ id: String) {
@@ -791,6 +830,8 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
                 }
             }
             for lane in store.visibleLines { if let lid = lane.id { add(L("Link to “{name}”", ["name": lane.name ?? ""])) { [weak self] in self?.link(card: id, toLine: lid) } } }
+            menu.addItem(.separator())
+            menu.addItem(realisedMenuItem(for: id))
             menu.addItem(.separator())
             add(L("Delete Card")) { [weak self] in self?.selectedID = id; self?.deleteSelected() }
         } else if let header = target as? PlanLineHeaderView {

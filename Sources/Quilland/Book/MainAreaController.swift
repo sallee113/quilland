@@ -485,6 +485,7 @@ final class MainAreaController: NSViewController {
         view.worlds = worlds
         view.events = eventStore
         view.relationships = relationships
+        view.plan = { [folder] in try? PlanStore(folder: folder) }
         view.store = GraphStore(folder: folder)
         view.structure = { [weak self] in self?.session.structure ?? BookStructure(folder: URL(fileURLWithPath: "/")) }
         view.index = { [weak self] in
@@ -499,6 +500,7 @@ final class MainAreaController: NSViewController {
             case .place: self?.setMode(.world); self?.worldView?.select(id)
             case .event: self?.setMode(.events); self?.eventsView?.select(id)
             case .scene: self?.reveal(scene: id, range: nil)
+            case .card: self?.setMode(.plan); self?.planController?.reveal(id)
             }
         }
         view.onStateChange = { [weak self] in self?.graphState = $0 }
@@ -553,6 +555,10 @@ final class MainAreaController: NSViewController {
         plan.changesFor = { [weak self] id in
             guard let self, let e = self.eventStore.event(id) else { return "" }
             return GraphTexts.summary(GraphBuilder.changes(of: e, characters: self.characters, worlds: self.worlds, relationships: self.relationships))
+        }
+        plan.eventOrder = { [weak self] in
+            guard let self else { return [] }
+            return self.eventStore.ordered(sceneOrder: self.session.structure.scenes.map(\.id)).compactMap(\.id)
         }
         plan.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         plan.onEventsChanged = { [weak self] in self?.eventStore.reload() }

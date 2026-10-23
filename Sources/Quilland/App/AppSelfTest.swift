@@ -127,6 +127,7 @@ final class AppSelfTest {
         if let code = eventChanges() { return code }
         if let code = cardChanges() { return code }
         if let code = collectStory() { return code }
+        if let code = planRealised() { return code }
         if let code = deleting() { return code }
         if let code = eventMigration() { return code }
         if let code = outlineMoves() { return code }

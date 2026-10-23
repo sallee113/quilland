@@ -207,6 +207,27 @@ public final class PlanStore {
         try? FileManager.default.removeItem(at: cardURL(id))
     }
 
+    // MARK: Cards realised by events
+
+    /// The real events a card is realised by (its `links` to events that exist), by title.
+    public func realisedBy(_ card: String) -> [String] {
+        (cards[card]?.links.keys ?? [:].keys).filter { events[$0] != nil }.sorted { (events[$0] ?? "") < (events[$1] ?? "") }
+    }
+
+    /// The cards that are realised by an event (the event shows "planned by …"), by title.
+    public func plannedBy(event: String) -> [String] {
+        cards.values.filter { $0.links[event] != nil }.compactMap(\.id).sorted { (cards[$0]?.title ?? "") < (cards[$1]?.title ?? "") }
+    }
+
+    /// Says that a card is (or is no longer) realised by an event. The link is the card's own (`links`), with no description.
+    public func setRealised(card: String, by event: String, _ on: Bool) throws {
+        guard let c = cards[card], events[event] != nil else { return }
+        var links = c.links
+        if on { if links[event] == nil { links[event] = "" } } else { links.removeValue(forKey: event) }
+        guard links != c.links else { return }
+        try updateCard(card) { $0.links = links }
+    }
+
     // MARK: Real events on the canvas
 
     public func entry(forEvent id: String) -> TimelineFile.Entry? { canvas.entries.first { $0.event == id } }

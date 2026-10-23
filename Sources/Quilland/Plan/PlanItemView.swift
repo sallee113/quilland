@@ -15,6 +15,9 @@ struct PlanItem: Equatable {
     var floatingAt: NSPoint?
     /// For an event: what it changes (empty: nothing); the Δ before its title and the tooltip.
     var changes = ""
+    /// For a card: the titles of the events that realise it. For an event: the titles of the cards that planned it.
+    var realised: [String] = []
+    var plannedBy: [String] = []
 }
 
 enum PlanColors {
@@ -86,6 +89,8 @@ final class PlanItemView: NSView {
         layer?.shadowRadius = 5
         layer?.shadowOpacity = 0
         toolTip = item.changes.isEmpty ? nil : item.changes
+        if item.kind == .card, !item.realised.isEmpty { toolTip = L("Realised by: {events}", ["events": item.realised.joined(separator: ", ")]) }
+        if item.kind == .event, !item.plannedBy.isEmpty { toolTip = (toolTip.map { $0 + "\n" } ?? "") + L("Planned by: {cards}", ["cards": item.plannedBy.joined(separator: ", ")]) }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -154,9 +159,15 @@ final class PlanItemView: NSView {
             let title = NSMutableAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: titleColor])
             if !item.changes.isEmpty { title.insert(NSAttributedString(string: "Δ ", attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .bold), .foregroundColor: NSColor.controlAccentColor]), at: 0) }
             title.draw(with: NSRect(x: 12, y: 8, width: bounds.width - 20, height: 34), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
-            let label = item.kind == .event ? L("event · in the book") : item.text
+            let label = item.kind == .event ? (item.plannedBy.isEmpty ? L("event · in the book") : L("planned by {cards}", ["cards": item.plannedBy.joined(separator: ", ")])) : item.text
             let body = NSAttributedString(string: label, attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
-            body.draw(with: NSRect(x: 12, y: 42, width: bounds.width - 20, height: bounds.height - 48), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            // A card that has been written says by which event, along its bottom edge.
+            let realised = item.kind == .card && !item.realised.isEmpty
+            body.draw(with: NSRect(x: 12, y: 42, width: bounds.width - 20, height: bounds.height - 48 - (realised ? 14 : 0)), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            if realised {
+                let line = NSAttributedString(string: "◆ " + item.realised.joined(separator: ", "), attributes: [.font: NSFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: NSColor.systemOrange])
+                line.draw(with: NSRect(x: 12, y: bounds.height - 18, width: bounds.width - 20, height: 13), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            }
         } else {
             // The layer below shows its title in the strip that peeks out from under the layer on top: the events are a little to the left and up of
             // the cards, so an event shows its title along its top edge and a card (below, in Events mode) along its bottom edge.

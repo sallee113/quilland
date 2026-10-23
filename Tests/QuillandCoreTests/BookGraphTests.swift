@@ -247,3 +247,46 @@ struct BookGraphChangeTests {
         #expect(Set(few.nodes.map(\.id)) == [id["arrival"]!, id["anna"]!], "an event that changes nothing is gone")
     }
 }
+
+@Suite("Cards realised by events")
+struct CardRealisedTests {
+    @Test("a card is realised by several events, the link is the card's own, and it goes when the event does")
+    func links() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let plan = try PlanStore(folder: f.structure.folder)
+        let card = try plan.addCard(title: "Приезд в усадьбу", color: "teal"), other = try plan.addCard(title: "Побег")
+        try plan.setRealised(card: card, by: id["arrival"]!, true)
+        try plan.setRealised(card: card, by: id["departure"]!, true)
+        try plan.setRealised(card: card, by: id["arrival"]!, true)
+        try plan.setRealised(card: card, by: "no-such-event", true)
+        #expect(Set(plan.realisedBy(card)) == [id["arrival"]!, id["departure"]!] && plan.realisedBy(other).isEmpty, "several events; one that does not exist is not a link")
+        #expect(plan.plannedBy(event: id["arrival"]!) == [card] && plan.plannedBy(event: id["port"]!).isEmpty, "the event knows which cards planned it")
+        #expect((try PlanStore(folder: f.structure.folder)).realisedBy(card).count == 2, "kept in the card's file")
+        try plan.setRealised(card: card, by: id["departure"]!, false)
+        #expect(plan.realisedBy(card) == [id["arrival"]!])
+        try BookIntegrity.deleteEvent(id["arrival"]!, book: f.structure.folder, started: .deleteThem, snapshot: false)
+        #expect(try PlanStore(folder: f.structure.folder).realisedBy(card).isEmpty, "deleting the event takes the link away from the card")
+    }
+
+    @Test("the graph shows cards as a kind of its own, joined to the events that realise them; an unrealised card is alone")
+    func graph() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let plan = try PlanStore(folder: f.structure.folder)
+        let card = try plan.addCard(title: "Приезд в усадьбу", color: "teal"), idle = try plan.addCard(title: "Не написано")
+        try plan.setRealised(card: card, by: id["arrival"]!, true)
+        try plan.setRealised(card: card, by: id["departure"]!, true)
+        func graph(_ o: GraphOptions) -> BookGraph { GraphBuilder.build(characters: f.characters, worlds: f.worlds, events: f.events, relationships: f.relationships, structure: f.structure, options: o, plan: plan) }
+        #expect(!graph(GraphOptions()).nodes.contains { $0.kind == .card }, "cards are off until asked for")
+        var o = GraphOptions(); o.kinds = [.character, .place, .event, .card]
+        let g = graph(o)
+        #expect(g.node(card)?.kind == .card && g.node(card)?.color == "teal" && g.node(card)?.title == "Приезд в усадьбу")
+        #expect(g.edges.filter { $0.kind == .realises && $0.a == card }.map(\.b).sorted() == [id["arrival"]!, id["departure"]!].sorted(), "a line to each event that realises it")
+        #expect(g.node(idle) != nil && !g.edges.contains { $0.a == idle || $0.b == idle }, "an idea that was never written has no line")
+        o.showUnlinked = false
+        #expect(graph(o).node(idle) == nil && graph(o).node(card) != nil, "and shows only with unlinked on")
+        o = GraphOptions(); o.kinds = [.character, .place, .event, .card]; o.mode = .neighbourhood(id["arrival"]!, depth: 1)
+        #expect(graph(o).node(card) != nil, "the neighbourhood of an event has the card that planned it")
+    }
+}

@@ -3,6 +3,8 @@ import Foundation
 /// The kinds of things the graph draws.
 public enum GraphKind: String, CaseIterable, Sendable {
     case character, place, event, scene
+    /// A card of the plan (it is joined to the events that realise it).
+    case card
 }
 
 /// What an event does to one thing, for the marks and tooltips of the graph: the fields it fills in (a character's or a place's, or a relationship's kind), a
@@ -31,11 +33,13 @@ public struct GraphNode: Equatable, Sendable {
     public var isMain = false
     /// For an event: what it changes (empty: nothing). Drawn as a small Δ.
     public var changes: [GraphChange] = []
+    /// A card's colour on the plan (its name: `teal`, `pink`…; nil is the plan's default).
+    public var color: String?
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
 public struct GraphEdge: Equatable, Sendable {
-    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene }
+    public enum Kind: String, Sendable { case relationship, takesPart, heldAt, inScene, realises }
     public var a: String
     public var b: String
     public var kind: Kind
@@ -126,7 +130,7 @@ public enum GraphBuilder {
     }
 
     public static func build(characters: CharacterStore, worlds: WorldStore, events: EventStore, relationships: RelationshipStore, structure: BookStructure,
-                             options: GraphOptions) -> BookGraph {
+                             options: GraphOptions, plan: PlanStore? = nil) -> BookGraph {
         let sceneTitles = Dictionary(structure.scenes.map { ($0.id, $0.node.title) }, uniquingKeysWith: { a, _ in a })
         var all: [String: GraphNode] = [:]
         var order: [String] = []
@@ -145,6 +149,7 @@ public enum GraphBuilder {
             all[id] = GraphNode(id: id, kind: .event, title: e.title ?? "", changes: changes); order.append(id)
         }
         for s in structure.scenes { add(s.id, .scene, sceneTitles[s.id]) }
+        for id in (plan?.cards.keys.sorted() ?? []) { if let card = plan?.cards[id], all[id] == nil { all[id] = GraphNode(id: id, kind: .card, title: card.title ?? "", color: card.color); order.append(id) } }
 
         var edges: [GraphEdge] = []
         func link(_ a: String, _ b: String, _ kind: GraphEdge.Kind, label: String = "", weight: Int = 1, changes: [GraphChange] = [], ended: Bool = false, periods: [GraphPeriod] = []) {
@@ -169,6 +174,8 @@ public enum GraphBuilder {
             guard let id = p.id else { continue }
             for key in p.links.keys.sorted() { link(id, key, .inScene) }
         }
+        // A card is joined to the events that realise it.
+        if let plan { for id in plan.cards.keys.sorted() { for event in plan.realisedBy(id) { link(id, event, .realises) } } }
         // Relationships: one line for each pair of characters; the kinds of the relationships between the same two are put together.
         var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod])] = [:]
         var pairOrder: [String] = []
@@ -206,6 +213,7 @@ public enum GraphBuilder {
                 case .takesPart, .heldAt: return !e.changes.isEmpty
                 case .relationship: return e.turns
                 case .inScene: return false
+                case .realises: return false
                 }
             }
             for e in edges { kept.insert(e.a); kept.insert(e.b) }

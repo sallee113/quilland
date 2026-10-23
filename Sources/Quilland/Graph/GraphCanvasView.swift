@@ -50,15 +50,20 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .place: return .systemGreen
         case .event: return .systemOrange
         case .scene: return .systemGray
+        case .card: return .systemIndigo
         }
     }
 
-    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : 14 }
+    /// A card is drawn in its colour on the plan; the others in the colour of their kind.
+    static func color(of node: GraphNode) -> NSColor { node.kind == .card ? PlanColors.color(node.color) : color(node.kind) }
+
+    static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : 14) }
 
     private func shape(_ kind: GraphKind, at c: CGPoint, grow: CGFloat = 0) -> NSBezierPath {
         let r = Self.radius(kind) + grow
         switch kind {
         case .character, .scene: return NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+        case .card: return NSBezierPath(roundedRect: NSRect(x: c.x - r * 1.4, y: c.y - r, width: 2 * r * 1.4, height: 2 * r), xRadius: 3, yRadius: 3)
         case .place: return NSBezierPath(roundedRect: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), xRadius: 5, yRadius: 5)
         case .event:
             let d = NSBezierPath()
@@ -74,6 +79,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
         case .takesPart: return .secondaryLabelColor
         case .heldAt: return .systemGreen
         case .inScene: return .tertiaryLabelColor
+        case .realises: return .systemOrange
         }
     }
 
@@ -106,7 +112,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             // (An opaque ground first, so that the lines under a node do not show through it.)
             NSColor.textBackgroundColor.setFill()
             path.fill()
-            Self.color(n.kind).withAlphaComponent(lit ? 1 : 0.2).setFill()
+            Self.color(of: n).withAlphaComponent(lit ? 1 : 0.2).setFill()
             path.fill()
             // A main character has a thick border. The chosen node has a ring of the accent colour round it, so that it shows on any colour (and on a main
             // character's thick border).

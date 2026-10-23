@@ -48,6 +48,8 @@ final class GraphViewController: NSViewController {
     var worlds: WorldStore!
     var events: EventStore!
     var relationships: RelationshipStore!
+    /// The plan as it is on disk (the cards and what realises them); nil when it cannot be read.
+    var plan: () -> PlanStore? = { nil }
     var store: GraphStore!
     var structure: () -> BookStructure = { BookStructure(folder: URL(fileURLWithPath: "/")) }
     /// The index that tells what belongs to a section (for the section filter).
@@ -98,7 +100,7 @@ final class GraphViewController: NSViewController {
         sectionPopup.controlSize = .small
         lookControl.setAccessibilityLabel(L("What the graph shows"))
         focusPopup.setAccessibilityLabel(L("The thing to look at"))
-        let kindTitles: [(GraphKind, String, String)] = [(.character, "●", L("Characters")), (.place, "■", L("Places")), (.event, "◆", L("Events")), (.scene, "•", L("Scenes"))]
+        let kindTitles: [(GraphKind, String, String)] = [(.character, "●", L("Characters")), (.place, "■", L("Places")), (.event, "◆", L("Events")), (.scene, "•", L("Scenes")), (.card, "▭", L("Plan cards"))]
         for (kind, glyph, title) in kindTitles {
             let b = NSButton(checkboxWithTitle: title, target: self, action: #selector(kindChanged(_:)))
             let s = NSMutableAttributedString(string: glyph + " ", attributes: [.foregroundColor: GraphCanvasView.color(kind), .font: NSFont.systemFont(ofSize: 13)])
@@ -121,7 +123,7 @@ final class GraphViewController: NSViewController {
         note.font = .systemFont(ofSize: 11)
 
         let row1 = NSStackView(views: [lookControl, NSTextField(labelWithString: L("Look at")), focusPopup, NSTextField(labelWithString: L("Steps")), depthControl, NSTextField(labelWithString: L("Section")), sectionPopup])
-        let row2 = NSStackView(views: [kindBoxes[.character]!, kindBoxes[.place]!, kindBoxes[.event]!, kindBoxes[.scene]!, unlinkedBox, zoomOutButton, zoomInButton, fitButton, resetButton, note])
+        let row2 = NSStackView(views: [kindBoxes[.character]!, kindBoxes[.place]!, kindBoxes[.event]!, kindBoxes[.scene]!, kindBoxes[.card]!, unlinkedBox, zoomOutButton, zoomInButton, fitButton, resetButton, note])
         let row3 = NSStackView(views: [endedBox, changesOnlyBox])
         for r in [row1, row2, row3] { r.spacing = 10; r.alignment = .centerY }
         let bar = NSStackView(views: [row1, row2, row3])
@@ -188,7 +190,7 @@ final class GraphViewController: NSViewController {
         if let f = state.focus, characters.character(f) == nil, worlds.entry(f) == nil, events.event(f) == nil { state.focus = nil }
         if let sec = state.section, !sections().contains(where: { $0.id == sec }) { state.section = nil }
         store.reload()
-        graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options)
+        graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: plan())
         let ids = Set(graph.nodes.map(\.id))
         let pinned = store.positions.filter { ids.contains($0.key) }
         let placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned)

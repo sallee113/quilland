@@ -607,6 +607,11 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
             planButton.isEnabled = !(planStore()?.lines.isEmpty ?? true)
             planButton.toolTip = planButton.isEnabled ? nil : L("Make a plot line on the Plan first")
         }
+        // The cards (ideas on the plan) this event realises.
+        if let plan = planStore() {
+            let planned = plan.plannedBy(event: id).compactMap { plan.cards[$0]?.title }
+            if !planned.isEmpty { planLabel.stringValue += " · " + L("Planned by: {cards}", ["cards": planned.joined(separator: ", ")]) }
+        }
     }
 
     // MARK: Editing the connections
