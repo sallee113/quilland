@@ -11,6 +11,9 @@ struct GraphViewState {
     var changesOnly = false
     /// The scene the graph is as of (nil: the whole book).
     var asOf: String?
+    /// Colour by the plot line of the plan, and the one plot line shown (nil: all).
+    var colourByLine = false
+    var plotLine: String?
     var section: String?
     var focus: String?
     var depth = 1
@@ -26,6 +29,7 @@ struct GraphViewState {
         kinds = Set(m.kinds.compactMap(GraphKind.init(rawValue:)))
         showUnlinked = m.showUnlinked
         showEnded = m.showEnded; changesOnly = m.changesOnly; asOf = m.asOf
+        colourByLine = m.colourBy == "plot_line"; plotLine = m.plotLine
         section = m.section; focus = m.focus; depth = max(1, min(3, m.depth))
         zoom = m.zoom
         if let x = m.centerX, let y = m.centerY { center = GraphPoint(x: x, y: y) }
@@ -37,6 +41,7 @@ struct GraphViewState {
         m.kinds = GraphKind.allCases.filter(kinds.contains).map(\.rawValue)
         m.showUnlinked = showUnlinked
         m.showEnded = showEnded; m.changesOnly = changesOnly; m.asOf = asOf
+        m.colourBy = colourByLine ? "plot_line" : "kind"; m.plotLine = plotLine
         m.section = section; m.focus = focus; m.depth = depth
         m.zoom = zoom; m.centerX = center?.x; m.centerY = center?.y
         return m
@@ -76,6 +81,9 @@ final class GraphViewController: NSViewController {
     private let unlinkedBox = NSButton(checkboxWithTitle: L("Show unlinked"), target: nil, action: nil)
     private let endedBox = NSButton(checkboxWithTitle: L("Show ended relationships"), target: nil, action: nil)
     private let changesOnlyBox = NSButton(checkboxWithTitle: L("Changes only"), target: nil, action: nil)
+    private let colourPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let linePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let legendRow = NSStackView()
     private let asOfSlider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let asOfBack = NSButton(title: "◀", target: nil, action: nil)
     private let asOfForward = NSButton(title: "▶", target: nil, action: nil)
@@ -141,9 +149,16 @@ final class GraphViewController: NSViewController {
         asOfLabel.lineBreakMode = .byTruncatingTail
         asOfSlider.widthAnchor.constraint(equalToConstant: 220).isActive = true
         asOfLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
+        colourPopup.addItems(withTitles: [L("Kind"), L("Plot line")])
+        colourPopup.target = self; colourPopup.action = #selector(colourChanged); colourPopup.controlSize = .small
+        colourPopup.setAccessibilityLabel(L("Colour by"))
+        linePopup.target = self; linePopup.action = #selector(lineFilterChanged); linePopup.controlSize = .small
+        linePopup.setAccessibilityLabel(L("Plot line"))
+        legendRow.orientation = .horizontal; legendRow.spacing = 12; legendRow.alignment = .centerY
         let row3 = NSStackView(views: [endedBox, changesOnlyBox, NSTextField(labelWithString: L("As of")), asOfBack, asOfSlider, asOfForward, asOfLabel])
-        for r in [row1, row2, row3] { r.spacing = 10; r.alignment = .centerY }
-        let bar = NSStackView(views: [row1, row2, row3])
+        let row4 = NSStackView(views: [NSTextField(labelWithString: L("Colour by")), colourPopup, NSTextField(labelWithString: L("Plot line")), linePopup, legendRow])
+        for r in [row1, row2, row3, row4] { r.spacing = 10; r.alignment = .centerY }
+        let bar = NSStackView(views: [row1, row2, row3, row4])
         bar.orientation = .vertical; bar.alignment = .leading; bar.spacing = 6
         bar.translatesAutoresizingMaskIntoConstraints = false
 
@@ -187,6 +202,7 @@ final class GraphViewController: NSViewController {
         o.showEnded = state.showEnded
         o.changesOnly = state.changesOnly
         o.asOf = state.asOf
+        o.plotLine = state.plotLine
         switch state.look {
         case .whole: o.mode = .whole
         case .social: o.mode = .social
@@ -207,9 +223,15 @@ final class GraphViewController: NSViewController {
         // What was remembered may be gone (a deleted thing, a section that was removed).
         if let f = state.focus, characters.character(f) == nil, worlds.entry(f) == nil, events.event(f) == nil { state.focus = nil }
         if let sec = state.section, !sections().contains(where: { $0.id == sec }) { state.section = nil }
+        if let line = state.plotLine, !(plan()?.lines.contains { $0.id == line } ?? false) { state.plotLine = nil }
         if let scene = state.asOf, !structure().scenes.contains(where: { $0.id == scene }) { state.asOf = nil }
         store.reload()
-        graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: plan())
+        let planStore = plan()
+        graph = GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: planStore)
+        canvas.lineStyles = Dictionary((planStore?.lines ?? []).compactMap { l in l.id.map { ($0, (name: l.name ?? "", color: l.color)) } }, uniquingKeysWith: { a, _ in a })
+        canvas.colourByLine = state.colourByLine
+        fillLinePopup(planStore?.lines ?? [])
+        updateLegend()
         let ids = Set(graph.nodes.map(\.id))
         let pinned = store.positions.filter { ids.contains($0.key) }
         // (As of a point only flags change, not the nodes and lines: the layout is not made again, so that the picture stays still while the point moves.)
@@ -410,6 +432,47 @@ final class GraphViewController: NSViewController {
     @objc private func asOfChanged(_ sender: NSSlider) { setAsOf(index: sender.integerValue) }
     @objc private func asOfStep(_ sender: NSButton) { setAsOf(index: asOfSlider.integerValue + sender.tag) }
 
+    // MARK: Colour by plot line
+
+    private func fillLinePopup(_ lines: [TimelineFile.Lane]) {
+        linePopup.removeAllItems()
+        linePopup.addItem(withTitle: L("Whole book")); linePopup.lastItem?.representedObject = ""
+        for l in lines { linePopup.addItem(withTitle: l.name ?? ""); linePopup.lastItem?.representedObject = l.id; linePopup.lastItem?.image = PlanColors.swatch(l.color) }
+        if let id = state.plotLine, let item = linePopup.itemArray.first(where: { ($0.representedObject as? String) == id }) { linePopup.select(item) } else { linePopup.selectItem(at: 0) }
+        linePopup.isEnabled = !lines.isEmpty
+        colourPopup.selectItem(at: state.colourByLine ? 1 : 0)
+    }
+
+    /// The colours of the plot lines that are on the graph, as chips (only when the nodes are coloured by plot line).
+    private func updateLegend() {
+        legendRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        legendRow.isHidden = !state.colourByLine
+        guard state.colourByLine else { return }
+        let used = Set(graph.nodes.flatMap(\.lines))
+        var chips: [(String, NSColor)] = canvas.lineStyles.filter { used.contains($0.key) }.sorted { $0.value.name < $1.value.name }.map { ($0.value.name, PlanColors.color($0.value.color)) }
+        if graph.nodes.contains(where: { $0.lines.isEmpty && $0.kind != .scene }) { chips.append((L("not on a plot line"), .systemGray)) }
+        for (name, color) in chips {
+            let box = NSView(); box.wantsLayer = true; box.layer?.cornerRadius = 3; box.layer?.backgroundColor = color.cgColor
+            box.translatesAutoresizingMaskIntoConstraints = false
+            box.widthAnchor.constraint(equalToConstant: 10).isActive = true; box.heightAnchor.constraint(equalToConstant: 10).isActive = true
+            let label = NSTextField(labelWithString: name); label.font = .systemFont(ofSize: 11); label.textColor = .secondaryLabelColor
+            let chip = NSStackView(views: [box, label]); chip.spacing = 4
+            legendRow.addArrangedSubview(chip)
+        }
+        legendTitles = chips.map(\.0)
+    }
+
+    private(set) var legendTitles: [String] = []
+
+    @objc private func colourChanged() { state.colourByLine = colourPopup.indexOfSelectedItem == 1; reload() }
+
+    @objc private func lineFilterChanged() {
+        let id = linePopup.selectedItem?.representedObject as? String ?? ""
+        state.plotLine = id.isEmpty ? nil : id
+        resetViewport()
+        reload()
+    }
+
     @objc private func endedChanged() { state.showEnded = endedBox.state == .on; resetViewport(); reload() }
     @objc private func changesOnlyChanged() { state.changesOnly = changesOnlyBox.state == .on; resetViewport(); reload() }
     @objc private func unlinkedChanged() { state.showUnlinked = unlinkedBox.state == .on; resetViewport(); reload() }
@@ -516,6 +579,8 @@ final class GraphViewController: NSViewController {
     var emptyText: String? { emptyLabel.isHidden ? nil : emptyLabel.stringValue }
     func setLook(_ look: GraphViewState.Look) { state.look = look; syncControlsFromState(); resetViewport(); reload() }
     func setKind(_ kind: GraphKind, _ on: Bool) { if on { state.kinds.insert(kind) } else { state.kinds.remove(kind) }; syncControlsFromState(); resetViewport(); reload() }
+    func setColourByLine(_ on: Bool) { state.colourByLine = on; reload() }
+    func setPlotLine(_ id: String?) { state.plotLine = id; resetViewport(); reload() }
     func setAsOf(_ scene: String?) { state.asOf = scene; reload() }
     var asOfText: String { asOfLabel.stringValue }
     var asOfControls: (back: Bool, forward: Bool) { (asOfBack.isEnabled, asOfForward.isEnabled) }

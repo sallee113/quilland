@@ -11,6 +11,9 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     /// Where each node is, in the canvas's own coordinates.
     private(set) var points: [String: CGPoint] = [:]
     /// The nodes the author has put somewhere (a ring marks them).
+    /// Colour the nodes by the plot line they are on (the plan's lines, with their colours and names), not by their kind.
+    var colourByLine = false { didSet { needsDisplay = true; rebuildToolTips() } }
+    var lineStyles: [String: (name: String, color: String?)] = [:] { didSet { needsDisplay = true } }
     var pinned: Set<String> = [] { didSet { needsDisplay = true } }
     private(set) var selected: String? { didSet { needsDisplay = true } }
     var onSelect: ((String?) -> Void)?
@@ -57,6 +60,19 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
     /// A card is drawn in its colour on the plan; the others in the colour of their kind.
     static func color(of node: GraphNode) -> NSColor { node.kind == .card ? PlanColors.color(node.color) : color(node.kind) }
 
+    private func lineColour(_ id: String) -> NSColor { PlanColors.color(lineStyles[id]?.color) }
+
+    /// What a node is filled with: by plot line, an event, a card, or a character or place on one line has that line's colour; one on several keeps its own (with dots, see
+    /// `dotLines`), and one on none is grey.
+    func fill(of n: GraphNode) -> NSColor {
+        guard colourByLine, n.kind != .scene else { return Self.color(of: n) }
+        if n.lines.count == 1 { return lineColour(n.lines[0]) }
+        return n.lines.isEmpty ? .systemGray : Self.color(of: n)
+    }
+
+    /// The lines a node is marked with by dots (on several lines).
+    func dotLines(of n: GraphNode) -> [String] { colourByLine && (n.kind == .character || n.kind == .place) && n.lines.count > 1 ? n.lines : [] }
+
     static func radius(_ kind: GraphKind) -> CGFloat { kind == .scene ? 6 : (kind == .card ? 11 : 14) }
 
     private func shape(_ kind: GraphKind, at c: CGPoint, grow: CGFloat = 0) -> NSBezierPath {
@@ -96,7 +112,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             path.lineWidth = min(1 + CGFloat(e.weight - 1) * 0.8, 5)
             if e.kind == .inScene { path.setLineDash([3, 3], count: 2, phase: 0) }
             if e.kind == .relationship, e.ended { path.setLineDash([7, 5], count: 2, phase: 0) }
-            Self.lineColor(e.kind).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
+            ((colourByLine && e.kind != .relationship ? e.line.map(lineColour) : nil) ?? Self.lineColor(e.kind)).withAlphaComponent(lit ? 0.9 : 0.15).setStroke()
             path.stroke()
             if !e.changes.isEmpty { drawDelta(at: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), lit: lit) }
             if e.kind == .relationship, !e.label.isEmpty, lit {
@@ -112,7 +128,7 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             // (An opaque ground first, so that the lines under a node do not show through it.)
             NSColor.textBackgroundColor.setFill()
             path.fill()
-            Self.color(of: n).withAlphaComponent(lit ? 1 : 0.2).setFill()
+            fill(of: n).withAlphaComponent(lit ? 1 : 0.2).setFill()
             path.fill()
             // A main character has a thick border. The chosen node has a ring of the accent colour round it, so that it shows on any colour (and on a main
             // character's thick border).
@@ -123,6 +139,15 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             } else if n.isMain { NSColor.labelColor.withAlphaComponent(lit ? 0.95 : 0.25).setStroke(); path.lineWidth = 4; path.stroke() }
             else if pinned.contains(n.id) { NSColor.labelColor.withAlphaComponent(lit ? 0.7 : 0.2).setStroke(); path.lineWidth = 1.5; path.stroke() }
             if !n.changes.isEmpty { drawDeltaOnNode(at: c, lit: lit) }
+            let dots = dotLines(of: n)
+            for (i, line) in dots.prefix(8).enumerated() {
+                // Small dots in the colours of the lines, along the upper edge (the name is below).
+                let a = Double.pi + Double.pi * Double(i + 1) / Double(min(dots.count, 8) + 1), r = Self.radius(n.kind) + 5
+                let p = CGPoint(x: c.x + CGFloat(cos(a)) * r, y: c.y + CGFloat(sin(a)) * r)
+                let dot = NSBezierPath(ovalIn: NSRect(x: p.x - 3.5, y: p.y - 3.5, width: 7, height: 7))
+                lineColour(line).withAlphaComponent(lit ? 1 : 0.25).setFill(); dot.fill()
+                NSColor.textBackgroundColor.setStroke(); dot.lineWidth = 1; dot.stroke()
+            }
             let title = n.title.count > 24 ? String(n.title.prefix(23)) + "…" : n.title
             let text = NSAttributedString(string: title, attributes: [.font: labelFont, .foregroundColor: NSColor.labelColor.withAlphaComponent(lit ? 1 : 0.3), .backgroundColor: NSColor.textBackgroundColor.withAlphaComponent(lit ? 0.6 : 0)])
             let size = text.size()
@@ -170,10 +195,14 @@ final class GraphCanvasView: NSView, NSViewToolTipOwner {
             if !e.changes.isEmpty { add(NSRect(x: mid.x - 9, y: mid.y - 9, width: 18, height: 18), GraphTexts.summary(e.changes)) }
             else if e.kind == .relationship { add(NSRect(x: mid.x - 40, y: mid.y - 10, width: 80, height: 20), GraphTexts.periods(e.periods)) }
         }
-        for n in graph.nodes where !n.changes.isEmpty {
+        for n in graph.nodes {
             guard let c = points[n.id] else { continue }
+            var parts: [String] = []
+            if !n.changes.isEmpty { parts.append(GraphTexts.summary(n.changes)) }
+            if colourByLine, !n.lines.isEmpty, n.kind != .scene { parts.append(L("Plot lines: {names}", ["names": n.lines.map { lineStyles[$0]?.name ?? "" }.joined(separator: ", ")])) }
+            guard !parts.isEmpty else { continue }
             let r = Self.radius(n.kind) + 4
-            add(NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), n.title + "\n" + GraphTexts.summary(n.changes))
+            add(NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), n.title + "\n" + parts.joined(separator: "\n"))
         }
     }
 

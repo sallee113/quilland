@@ -320,3 +320,51 @@ struct CardRealisedTests {
         #expect(graph(o).node(card) != nil, "the neighbourhood of an event has the card that planned it")
     }
 }
+
+@Suite("The graph and the plot lines")
+struct GraphPlotLineTests {
+    /// The fixture's two events on two lines of the plan; Анна is in both, Лев only in the arrival; a card on the second line.
+    static func lined() throws -> (f: BookGraphTests.Fixture, plan: PlanStore, one: String, two: String, card: String) {
+        let f = try BookGraphTests.fixture()
+        let plan = try PlanStore(folder: f.structure.folder)
+        let one = try plan.addLine(name: "Усадьба", color: "teal"), two = try plan.addLine(name: "Дорога", color: "amber")
+        try plan.placeEvent(f.ids["arrival"]!, onLine: one, start: 100)
+        try plan.placeEvent(f.ids["departure"]!, onLine: two, start: 200)
+        let card = try plan.addCard(title: "Побег", line: two, start: 300)
+        try plan.setRealised(card: card, by: f.ids["departure"]!, true)
+        return (f, plan, one, two, card)
+    }
+
+    @Test("a node knows the plot lines it is on: an event its own, a character or place those of its events")
+    func lines() throws {
+        let t = try Self.lined(); defer { try? FileManager.default.removeItem(at: t.f.parent) }
+        let id = t.f.ids
+        var o = GraphOptions(); o.kinds = [.character, .place, .event, .card]
+        let g = GraphBuilder.build(characters: t.f.characters, worlds: t.f.worlds, events: t.f.events, relationships: t.f.relationships, structure: t.f.structure, options: o, plan: t.plan)
+        #expect(g.node(id["arrival"]!)?.lines == [t.one] && g.node(id["departure"]!)?.lines == [t.two] && g.node(t.card)?.lines == [t.two])
+        #expect(g.node(id["anna"]!)?.lines == [t.one, t.two], "Анна is in both events, so on both lines, in the order of the plan")
+        #expect(g.node(id["lev"]!)?.lines == [t.one] && g.node(id["manor"]!)?.lines == [t.one] && g.node(id["port"]!)?.lines == [t.two])
+        #expect(g.node(id["lone"]!)?.lines.isEmpty == true && g.node(id["vera"]!)?.lines.isEmpty == true, "one in no event is on no line")
+        #expect(g.edges.first { $0.kind == .takesPart && Set([$0.a, $0.b]) == Set([id["lev"]!, id["arrival"]!]) }?.line == t.one && g.edges.first { $0.kind == .realises }?.line == t.two, "a line from an event carries the event's line")
+        #expect(g.edges.first { $0.kind == .relationship }?.line == nil)
+        let without = BookGraph(nodes: [], edges: [])
+        #expect(without.nodes.isEmpty)
+        let none = GraphBuilder.build(characters: t.f.characters, worlds: t.f.worlds, events: t.f.events, relationships: t.f.relationships, structure: t.f.structure, options: GraphOptions())
+        #expect(none.nodes.allSatisfy { $0.lines.isEmpty }, "with no plan there are no lines")
+    }
+
+    @Test("one plot line: its events and cards with what they are linked to, and nothing of the other line")
+    func filter() throws {
+        let t = try Self.lined(); defer { try? FileManager.default.removeItem(at: t.f.parent) }
+        let id = t.f.ids
+        func build(_ line: String?) -> BookGraph {
+            var o = GraphOptions(); o.kinds = [.character, .place, .event, .card]; o.plotLine = line
+            return GraphBuilder.build(characters: t.f.characters, worlds: t.f.worlds, events: t.f.events, relationships: t.f.relationships, structure: t.f.structure, options: o, plan: t.plan)
+        }
+        #expect(Set(build(t.one).nodes.map(\.id)) == [id["arrival"]!, id["anna"]!, id["lev"]!, id["manor"]!], "the first line: its event, who is in it and where it is")
+        #expect(Set(build(t.two).nodes.map(\.id)) == [id["departure"]!, id["anna"]!, id["port"]!, t.card], "the second: its event and its card, who is in it and where it is")
+        #expect(build(nil).nodes.count == GraphBuilder.build(characters: t.f.characters, worlds: t.f.worlds, events: t.f.events, relationships: t.f.relationships, structure: t.f.structure, options: { var o = GraphOptions(); o.kinds = [.character, .place, .event, .card]; return o }(), plan: t.plan).nodes.count)
+        var o = GraphOptions(); o.kinds = [.character, .place, .event, .card]; o.plotLine = t.two; o.mode = .social
+        #expect(!GraphBuilder.build(characters: t.f.characters, worlds: t.f.worlds, events: t.f.events, relationships: t.f.relationships, structure: t.f.structure, options: o, plan: t.plan).nodes.contains { $0.id == id["lev"]! }, "it combines with the other filters")
+    }
+}

@@ -37,6 +37,8 @@ public struct GraphNode: Equatable, Sendable {
     public var color: String?
     /// As of a point in the book: it has not come yet (an event after the point, a character or place not met yet, a scene after it). Drawn faded.
     public var notYet = false
+    /// The plot lines (ids, in the order of the plan) it belongs to: an event, its line on the plan; a card, its line; a character or place, the lines of the events it is linked to.
+    public var lines: [String] = []
 }
 
 /// A line between two nodes. `a` and `b` are in no particular order (a link is stored once, on one side; the graph does not care which).
@@ -59,6 +61,8 @@ public struct GraphEdge: Equatable, Sendable {
     public var notYet = false
     /// Not drawn (it is there only to keep the layout where it was): a relationship not started yet, or ended with the ended ones switched off, as of a point.
     public var hidden = false
+    /// For a line from or to an event: the plot line that event is on (nil: none).
+    public var line: String?
     /// The relationship changes its kind, ends, or starts at an event after the start of the book.
     public var turns: Bool { periods.contains { $0.kinds.count > 1 || $0.to != nil || $0.from != nil } }
 }
@@ -87,6 +91,8 @@ public struct GraphOptions: Equatable, Sendable {
     /// A scene: the book as it is after it (relationships started, changed or ended by then, who has been met, who is a main character). The nodes and lines are all kept, so that
     /// the layout does not move; what is not there yet is flagged. nil: the whole book.
     public var asOf: String?
+    /// One plot line of the plan: its events and cards, with the characters, places and scenes they are linked to.
+    public var plotLine: String?
 
     public init() {}
 }
@@ -221,6 +227,29 @@ public enum GraphBuilder {
             let shared = (eventsOf[p.a] ?? []).intersection(eventsOf[p.b] ?? []).count
             link(p.a, p.b, .relationship, label: p.labels.joined(separator: ", "), weight: 1 + shared, ended: p.started && p.periods.allSatisfy { $0.to != nil }, periods: p.periods, notYet: !p.started)
         }
+        // The plot lines (of the plan): each event is on at most one; a character or place is on those of its events.
+        let laneIDs = plan?.lines.compactMap(\.id) ?? []
+        var laneOf: [String: String] = [:]
+        for entry in plan?.entries ?? [] { if let event = entry.event, let lane = entry.lane, laneIDs.contains(lane) { laneOf[event] = lane } }
+        if plan != nil {
+            var linesOf: [String: Set<String>] = [:]
+            for i in edges.indices {
+                let eventEnd = all[edges[i].a]?.kind == .event ? edges[i].a : (all[edges[i].b]?.kind == .event ? edges[i].b : nil)
+                guard let event = eventEnd, edges[i].kind != .relationship else { continue }
+                edges[i].line = laneOf[event]
+                if edges[i].kind == .takesPart || edges[i].kind == .heldAt, let lane = laneOf[event] { linesOf[edges[i].a == event ? edges[i].b : edges[i].a, default: []].insert(lane) }
+            }
+            for id in order {
+                guard var n = all[id] else { continue }
+                switch n.kind {
+                case .event: n.lines = laneOf[id].map { [$0] } ?? []
+                case .card: n.lines = plan?.cards[id]?.line.flatMap { laneIDs.contains($0) ? [$0] : nil } ?? []
+                case .character, .place: n.lines = laneIDs.filter { linesOf[id]?.contains($0) == true }
+                case .scene: break
+                }
+                all[id] = n
+            }
+        }
         if !options.showEnded, point == nil { edges.removeAll { $0.kind == .relationship && $0.ended } }
 
         // Only the turning points: the events that change something, what they change, and the relationships that turn.
@@ -242,6 +271,15 @@ public enum GraphBuilder {
                 }
             }
             keep = kept
+        }
+        if let line = options.plotLine, plan != nil {
+            var kept = Set(order.filter { all[$0]?.kind == .card ? plan?.cards[$0]?.line == line : (all[$0]?.kind == .event && laneOf[$0] == line) })
+            // What the events of the line are linked to (a card brings nothing but itself).
+            for e in edges where e.kind != .relationship && e.kind != .realises {
+                if kept.contains(e.a), all[e.a]?.kind == .event { kept.insert(e.b) }
+                if kept.contains(e.b), all[e.b]?.kind == .event { kept.insert(e.a) }
+            }
+            keep = keep.map { $0.intersection(kept) } ?? kept
         }
 
         // As of a point: what has not come yet is flagged, and a character is a main one as the events up to the point say.

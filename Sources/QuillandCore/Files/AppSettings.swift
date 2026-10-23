@@ -107,6 +107,9 @@ public struct GraphViewMemory: Equatable, Sendable {
     public var changesOnly = false
     /// The scene the graph is as of (nil: the whole book).
     public var asOf: String?
+    /// What the nodes are coloured by: `kind` or `plot_line`; and the one plot line shown (nil: all).
+    public var colourBy = "kind"
+    public var plotLine: String?
     public var section: String?
     public var focus: String?
     public var depth = 1
@@ -124,6 +127,8 @@ public struct GraphViewMemory: Equatable, Sendable {
         showEnded = o.bool("show_ended") ?? true
         changesOnly = o.bool("changes_only") ?? false
         asOf = o.string("as_of")
+        colourBy = o.string("colour_by") ?? "kind"
+        plotLine = o.string("plot_line")
         section = o.string("section")
         focus = o.string("focus")
         depth = o.int("depth") ?? 1
@@ -138,6 +143,8 @@ public struct GraphViewMemory: Equatable, Sendable {
         o.setString("section", section)
         o.setString("focus", focus)
         o.setString("as_of", asOf)
+        if colourBy != "kind" { o.setString("colour_by", colourBy) }
+        o.setString("plot_line", plotLine)
         if let zoom { o["zoom"] = .string(String(format: "%.3f", zoom)) }
         if let centerX, let centerY { o["center_x"] = .int(Int(centerX.rounded())); o["center_y"] = .int(Int(centerY.rounded())) }
         return o
