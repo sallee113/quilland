@@ -24,7 +24,9 @@ extension AppSelfTest {
         check(main.relationships.relationship(r1) == nil && main.relationships.relationship(r2) == nil && main.relationships.relationship(r3) != nil && main.relationships.relationships.count == before - 2, "two of them are deleted at once and the third stays")
         check(main.eventStore.startEvent?.relationships[r1] == nil && main.eventStore.startEvent?.relationships[r3] == "starts", "and are gone from Book starts")
         check(main.banner.isShowing, "with a banner offering Undo instead of a question", main.banner.text)
+        check(main.eventsView?.selected == startID, "Book starts is still the chosen event afterwards, not the first of the story", "\(String(describing: main.eventsView?.selected))")
         main.undoStructure(); spin(0.5)
+        check(main.eventsView?.selected == startID, "and after Undo")
         main.relationships.reload(); main.eventStore.reload()
         check(main.relationships.relationship(r1) != nil && main.relationships.relationship(r2) != nil && main.eventStore.startEvent?.relationships[r1] == "starts", "one Undo brings both back")
         // A relationship that ends in another event goes with its end mark.
@@ -33,6 +35,14 @@ extension AppSelfTest {
         main.eventStore.reload(); main.relationships.reload()
         check(main.relationships.relationship(r3) == nil && main.eventStore.event(other)?.relationships[r3] == nil, "a relationship that ends elsewhere leaves that event too")
         main.undoStructure(); spin(0.5)
+
+        // The same for a character and a place: an unrelated change does not move the choice.
+        main.setMode(.characters); spin(0.3)
+        main.charactersView?.select(lev); spin(0.2)
+        main.deleteRelationships([r1]); spin(0.4)
+        check(main.charactersView?.selected == lev, "a character stays chosen after a change elsewhere", "\(String(describing: main.charactersView?.selected))")
+        main.undoStructure(); spin(0.5)
+        check(main.charactersView?.selected == lev, "and after Undo")
 
         for r in [r1, r2, r3] { try? BookIntegrity.deleteRelationship(r, book: main.folder, snapshot: false) }
         try? BookIntegrity.deleteEvent(other, book: main.folder, started: .deleteThem, snapshot: false)

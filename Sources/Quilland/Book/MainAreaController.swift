@@ -269,13 +269,22 @@ final class MainAreaController: NSViewController {
     func rebuild() {
         // What was typed in a card and still waits for its save timer is saved before the card goes (the timers do not outlive their views).
         commitPendingEdits()
+        // The card that was chosen in a list view stays chosen when the view is built again (after a delete, a merge or an Undo), as long as it still exists.
+        let chosen = (character: charactersView?.selected, place: worldView?.selected, event: eventsView?.selected)
         tearDownViews()
         guard let built = buildViews() else { return }
         var content = built.view
         if showsRightPanel, !focusMode, let main = built.controller { content = besideRightPanel(main) }
         show(content)
+        keepChosen(chosen)
         restoreCursor()
         onChange?()
+    }
+
+    private func keepChosen(_ chosen: (character: String?, place: String?, event: String?)) {
+        if let id = chosen.character, let view = charactersView, view.selected != id, characters.character(id) != nil { view.select(id) }
+        if let id = chosen.place, let view = worldView, view.selected != id, worlds.entry(id) != nil || worlds.world(id) != nil { view.select(id) }
+        if let id = chosen.event, let view = eventsView, view.selected != id, eventStore.event(id) != nil { view.select(id) }
     }
 
     private func tearDownViews() {
