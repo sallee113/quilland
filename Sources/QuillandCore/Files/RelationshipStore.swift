@@ -54,6 +54,7 @@ public final class RelationshipStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try AtomicFile.write(JSONWriter.data(record.object), to: url(id))
         relationships.append(record)
+        CardAges.stamp(id, book: book)
         return id
     }
 

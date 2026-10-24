@@ -7,6 +7,8 @@ public struct DuplicateGroup: Identifiable, Equatable, Sendable {
         public var title: String
         /// How much the book says of it (scenes, rows, links), to suggest which to keep.
         public var weight: Int
+        /// When the app made the card (nil: it is older than the records, or made elsewhere).
+        public var age: Date?
     }
 
     public var kind: CollectKind
@@ -15,8 +17,10 @@ public struct DuplicateGroup: Identifiable, Equatable, Sendable {
     public var reasons: [String]
     public var key: String { members.map(\.id).sorted().joined(separator: "|") }
     public var id: String { key }
-    /// The member to keep when nothing else is said: the one with most in it.
-    public var suggestedKeeper: Member { members.max { $0.weight < $1.weight } ?? members[0] }
+    /// The card that is already there: the first (members are in order, the oldest first).
+    public var existing: Member { members[0] }
+    /// The others, which are the new ones: what Merge puts into the existing card and Delete removes.
+    public var newer: [Member] { Array(members.dropFirst()) }
 }
 
 public enum BookDuplicates {
@@ -51,7 +55,7 @@ public enum BookDuplicates {
     }
 
     /// The groups of cards that look like one: in a kind, cards joined by a verdict of the finder, however many. `dismissed` are the groups the writer said are not the same.
-    public static func find(characters: CharacterStore, worlds: WorldStore, events: EventStore, relationships: RelationshipStore, dismissed: Set<String> = []) -> [DuplicateGroup] {
+    public static func find(characters: CharacterStore, worlds: WorldStore, events: EventStore, relationships: RelationshipStore, dismissed: Set<String> = [], ages: [String: Date] = [:]) -> [DuplicateGroup] {
         let all = facets(characters: characters, worlds: worlds, events: events, relationships: relationships)
         var groups: [DuplicateGroup] = []
         for kind in [CollectKind.characters, .places, .events, .relationships] {
@@ -72,7 +76,15 @@ public enum BookDuplicates {
             var byRoot: [Int: [Int]] = [:]
             for i in 0..<items.count { byRoot[root(i), default: []].append(i) }
             for (r, indices) in byRoot where indices.count > 1 {
-                let members = indices.map { DuplicateGroup.Member(id: items[$0].facet.id, title: items[$0].title, weight: items[$0].weight) }
+                // The oldest first: cards with no time noted (the most in them first), then the ones with a time, earliest first.
+                let members = indices.map { DuplicateGroup.Member(id: items[$0].facet.id, title: items[$0].title, weight: items[$0].weight, age: ages[items[$0].facet.id]) }.sorted { a, b in
+                    switch (a.age, b.age) {
+                    case (nil, nil): return a.weight != b.weight ? a.weight > b.weight : a.title.localizedLowercase < b.title.localizedLowercase
+                    case (nil, _?): return true
+                    case (_?, nil): return false
+                    case let (x?, y?): return x != y ? x < y : a.weight > b.weight
+                    }
+                }
                 let vs = verdicts[r] ?? []
                 var reasons: [String] = []
                 for v in vs where !reasons.contains(v.reason) { reasons.append(v.reason) }

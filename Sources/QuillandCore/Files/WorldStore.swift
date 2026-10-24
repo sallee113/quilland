@@ -185,6 +185,7 @@ public final class WorldStore {
         try AtomicFile.write(JSONWriter.data(record.object), to: url(entry: id))
         entries.append(record)
         sortAll()
+        CardAges.stamp(id, book: book)
         return id
     }
 

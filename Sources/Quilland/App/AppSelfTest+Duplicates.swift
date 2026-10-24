@@ -1,7 +1,7 @@
 import AppKit
 import QuillandCore
 
-/// The Duplicates tab: cards that look like one are listed, merged into one of them (one Undo takes it back), or said to be not the same.
+/// The Duplicates tab: cards that look like one are listed; the new one is merged into the one that is already there, or deleted (one Undo takes it back), or they are said to be not the same.
 extension AppSelfTest {
     func duplicatesTab() -> Int32? {
         let main = self.main!
@@ -22,17 +22,34 @@ extension AppSelfTest {
         dv.select { $0.key == group.key }
         check(dv.selectedGroup?.key == group.key, "a group can be chosen")
 
-        // Merge into one of them: one step, with the other's rows added.
+        // The card made first is the one that is already there; Merge puts the new one into it: one step, with the new one's rows added.
+        check(group.existing.id == a && group.newer.map(\.id) == [b], "the card made first is the existing one, and the other is new")
         let eventsBefore = main.eventStore.events.count
-        let keeper = group.suggestedKeeper.id
-        check(dv.merge(group, keep: keeper, confirm: false), "Merge Into… merges the group")
+        let keeper = a
+        check(dv.merge(group), "Merge merges the new card into the existing one, with no question asked")
         main.eventStore.reload()
-        let gone = keeper == a ? b : a
+        let gone = b
         check(main.eventStore.event(gone) == nil && main.eventStore.events.count == eventsBefore - 1 && main.eventStore.event(keeper)?.characters.keys.contains(anna) == true && main.eventStore.event(keeper)?.characters.keys.contains(lev) == true, "the other is gone, and the kept one has the people of both")
         check(!dv.groups.contains { $0.key == group.key }, "and the group is no longer listed")
+        check(main.banner.isShowing && main.banner.text.contains("Merge into"), "the banner says what was done, with Undo, instead of asking first", main.banner.text)
         main.undoStructure(); spin(0.5)
         main.eventStore.reload()
         check(main.eventStore.event(a) != nil && main.eventStore.event(b) != nil, "one Undo brings both events back")
+
+        // Delete one card of a group: no question, one Undo, and a relationship that started in it starts in the one that is kept.
+        main.showSearch(.duplicates); spin(0.3); dv.refresh()
+        guard let again = dv.groups.first(where: { $0.kind == .events && Set($0.members.map(\.id)) == [a, b] }) else { check(false, "the group is back after the Undo"); return 1 }
+        let rel = try! main.relationships.add(characters: [anna, lev], kind: "Двойн-друзья")
+        try! main.eventStore.update(b) { var m = $0.relationships; m[rel] = "starts"; $0.relationships = m }
+        main.reloadStores()
+        let keeper2 = again.existing.id
+        check(again.newer.map(\.id) == [b] && dv.delete(again), "Delete removes the new card of the group")
+        main.eventStore.reload()
+        check(main.eventStore.event(b) == nil && main.eventStore.event(a) != nil && main.eventStore.event(keeper2)?.relationships[rel] == "starts", "the other card stays, and the relationship that started in the deleted one starts in it", "\(String(describing: main.eventStore.event(keeper2)?.relationships))")
+        main.undoStructure(); spin(0.5)
+        main.eventStore.reload()
+        check(main.eventStore.event(b) != nil && main.eventStore.event(b)?.relationships[rel] == "starts", "one Undo brings it back as it was")
+        try? BookIntegrity.deleteRelationship(rel, book: main.folder, snapshot: false); main.reloadStores()
 
         // Not the Same: remembered.
         main.showSearch(.duplicates); spin(0.3)

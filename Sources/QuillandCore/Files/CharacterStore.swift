@@ -57,6 +57,7 @@ public final class CharacterStore {
         try AtomicFile.write(JSONWriter.data(record.object), to: url(id))
         characters.append(record)
         sortCharacters()
+        CardAges.stamp(id, book: book)
         return id
     }
 

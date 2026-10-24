@@ -79,10 +79,38 @@ struct DuplicateMergeTests {
         #expect(groups.contains { $0.kind == .characters && Set($0.members.map(\.id)) == [id["vera"]!, vera2] }, "Вера and Вера Павловна, in one scene")
         #expect(!groups.contains { $0.kind == .places && Set($0.members.map(\.id)) == [hall1, hall2] }, "the same place name inside two different places is two places")
         let group = try #require(groups.first { $0.kind == .events && Set($0.members.map(\.id)) == [a, b] })
-        #expect(group.reasons.isEmpty == false && ["Встреча у озера", "Встреча у озера вечером"].contains(group.suggestedKeeper.title), "a reason, and one to keep")
+        #expect(group.reasons.isEmpty == false && ["Встреча у озера", "Встреча у озера вечером"].contains(group.existing.title), "a reason, and one that is there already")
         BookDuplicates.dismiss([group.key], book: book)
         #expect(!find(BookDuplicates.dismissed(book: book)).contains { $0.key == group.key } && find(BookDuplicates.dismissed(book: book)).count == groups.count - 1, "Not the Same is remembered")
         BookDuplicates.forgetDismissed(book: book)
         #expect(BookDuplicates.dismissed(book: book).isEmpty)
+    }
+
+    @Test("the card made first is the one that is there; cards with no time noted come first, the heavier one first; a card gets its time once")
+    func existingAndNew() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let book = f.structure.folder
+        let world = try #require(f.worlds.worlds.first?.id)
+        func find() -> [DuplicateGroup] { BookDuplicates.find(characters: CharacterStore(book: book), worlds: WorldStore(book: book), events: EventStore(book: book), relationships: RelationshipStore(book: book), ages: CardAges.ages(book: book)) }
+        // Three events that say the same, made one after another: the first is the existing one, the others are new.
+        let a = try f.events.add(title: "Встреча у озера"), b = try f.events.add(title: "Встреча у озера вечером"), c = try f.events.add(title: "Встреча у озера ночью")
+        for e in [a, b, c] { try f.events.update(e) { $0.links = ["s1": ""]; $0.characters = [f.ids["anna"]!: "", f.ids["lev"]!: ""] } }
+        let ages = CardAges.ages(book: book)
+        #expect(ages[a] != nil && ages[b] != nil && ages[c] != nil && ages[a]! <= ages[b]! && ages[b]! <= ages[c]!, "each card made by the app has its time noted")
+        let group = try #require(find().first { $0.kind == .events && Set($0.members.map(\.id)) == [a, b, c] })
+        #expect(group.existing.id == a && group.newer.map(\.id) == [b, c], "the first made is the existing one")
+        // A card keeps the time it was first noted.
+        CardAges.stamp(a, book: book, at: Date().addingTimeInterval(3600))
+        #expect(CardAges.ages(book: book)[a] == ages[a], "a time noted is not changed")
+        // Places and relationships are noted too.
+        let p = try f.worlds.addEntry(name: "Усадьба", world: world), r = try f.relationships.add(characters: [f.ids["anna"]!, f.ids["lev"]!], kind: "друзья")
+        let person = try f.characters.add(name: "Новый")
+        let more = CardAges.ages(book: book)
+        #expect(more[p] != nil && more[r] != nil && more[person] != nil, "places, relationships and characters get their time as well")
+        // Cards with no time noted (made before the records) are older than any noted; the one holding more is the existing one.
+        try? FileManager.default.removeItem(at: book.appendingPathComponent(".quilland/card-ages.json"))
+        CardAges.stamp(c, book: book)
+        let mixed = try #require(find().first { $0.kind == .events && Set($0.members.map(\.id)) == [a, b, c] })
+        #expect(mixed.existing.id == a && mixed.members.map(\.id) == [a, b, c], "the cards with no time are older, the one with a time comes last (the newest)")
     }
 }
