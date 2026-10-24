@@ -133,6 +133,15 @@ extension MainAreaController {
         }
     }
 
+    /// Several relationships at once (the wrong ones that start with the book): one step, one Undo.
+    func deleteRelationships(_ ids: [String]) {
+        let name = ids.count == 1 ? (relationships.relationship(ids[0])?.kind ?? "") : Lp("{n} relationship", "{n} relationships", ids.count)
+        restructure(focusText: false, undoName: L("Delete “{name}”", ["name": name])) { editor in
+            for id in ids { try BookIntegrity.deleteRelationship(id, book: editor.folder, snapshot: false) }
+            return nil
+        }
+    }
+
     func deleteEvent(_ id: String, started: BookIntegrity.StartedRelationships) {
         let title = eventStore.event(id)?.title ?? ""
         restructure(focusText: false, undoName: L("Delete “{name}”", ["name": title])) { editor in

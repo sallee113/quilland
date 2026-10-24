@@ -33,6 +33,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     var onOpenPlace: ((String) -> Void)?
     /// Delete…: the owner of the book deletes the event with everything that refers to it (and can undo it), and is told what becomes of the relationships that start in it.
     var onDelete: ((String, BookIntegrity.StartedRelationships) -> Void)?
+    /// Delete from the Book (in the event the book starts with): the owner deletes these relationships with everything that refers to them, as one undoable step.
+    var onDeleteRelationships: (([String]) -> Void)?
     var onOpenCharacter: ((String) -> Void)?
     var onShowPlan: (() -> Void)?
     var onChange: (() -> Void)?
@@ -362,6 +364,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
     private func syncRemoveButton() { removeButton.isEnabled = connections.indices.contains(table.selectedRow) }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
+    var removeButtonTitle: String { removeButton.title }
     var addLinkEnabled: Bool { addButton.isEnabled }
     /// For the checks: what the Place part of the "Add…" menu lists.
     var placeMenuItems: [(title: String, heading: Bool)] { PlaceMenu.titles(of: addButton.menu?.items.first { $0.title == L("Place") }?.submenu) }
@@ -522,6 +525,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         // The default event cannot be deleted or put on the plan.
         deleteButton.isHidden = e.start
         if e.start { planLabel.stringValue = L("Where the relationships that are only stated start"); planButton.isHidden = true } else { planButton.isHidden = false }
+        removeButton.title = e.start ? L("Delete from the Book") : L("Remove Link")
         warningLabel.stringValue = !e.start && e.changesSomething && RelationshipTimeline(events: events, sceneOrder: sceneOrder).order(of: id) == nil ? L("This event changes something but has no scene, so its changes do not apply.") : ""
         warningLabel.isHidden = warningLabel.stringValue.isEmpty
     }
@@ -686,7 +690,17 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         return table.rect(ofColumn: index).maxX <= scroll.contentView.bounds.width + 0.5
     }
 
-    @objc private func removeLink() { removeConnection(row: table.selectedRow) }
+    @objc private func removeLink() {
+        if selected != nil, selected == events.startEvent?.id { deleteRelationships(rows: Array(table.selectedRowIndexes)) } else { removeConnection(row: table.selectedRow) }
+    }
+
+    /// In the event the book starts with: deletes the relationships of these rows from the book (they cannot be taken away from here and kept: a relationship starts
+    /// somewhere). Nothing is asked; one Undo brings them back.
+    func deleteRelationships(rows: [Int]) {
+        let ids = rows.compactMap { connections.indices.contains($0) && connections[$0].kind == .relationship ? connections[$0].refID : nil }
+        guard !ids.isEmpty else { return }
+        onDeleteRelationships?(ids)
+    }
 
     @objc private func openConnection() {
         let row = table.clickedRow
@@ -1061,6 +1075,11 @@ extension EventsViewController {
         let row = table.clickedRow
         guard connections.indices.contains(row), connections[row].kind == .relationship else { return }
         buildRowMenu(for: connections[row], into: menu)
+        if selected != nil, selected == events.startEvent?.id {
+            let rows = table.selectedRowIndexes.contains(row) ? Array(table.selectedRowIndexes) : [row]
+            menu.addItem(.separator())
+            menu.addItem(ClosureMenuItem(title: L("Delete from the Book")) { [weak self] in self?.deleteRelationships(rows: rows) })
+        }
     }
 
     func buildRowMenu(for c: EventConnection, into menu: NSMenu) {

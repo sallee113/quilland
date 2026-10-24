@@ -471,6 +471,7 @@ final class MainAreaController: NSViewController {
         view.onOpenChanges = { [weak self] event, target, kind in self?.openChanges(event: event, target: target, kind: kind) }
         view.changesWindowProvider = { [weak self] event, target in self?.changeWindows[event + "|" + target] }
         view.onDelete = { [weak self] id, started in self?.deleteEvent(id, started: started) }
+        view.onDeleteRelationships = { [weak self] ids in self?.deleteRelationships(ids) }
         view.onChange = { [weak self] in self?.onChange?() }
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         view.relationFilter.source = relationFilterSource()

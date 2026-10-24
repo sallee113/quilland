@@ -135,6 +135,7 @@ final class AppSelfTest {
         if let code = collectStory() { return code }
         if let code = collectDuplicates() { return code }
         if let code = duplicatesTab() { return code }
+        if let code = bookStartsDelete() { return code }
         if let code = planRealised() { return code }
         if let code = deleting() { return code }
         if let code = eventMigration() { return code }
