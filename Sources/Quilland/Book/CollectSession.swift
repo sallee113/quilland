@@ -390,7 +390,7 @@ final class CollectSession {
         // A fact that was always so goes into the card's own text as a new paragraph (the notes are the author's: nothing is written there).
         for item in chosen where item.kind == .observations {
             let key = Names.normalize(item.about)
-            func appended(_ base: String) -> String? { Names.normalize(base).contains(Names.normalize(item.detail)) ? nil : (base.isEmpty ? item.detail : base + "\n\n" + item.detail) }
+            func appended(_ base: String) -> String? { DuplicateFinder.says(base, item.detail) ? nil : (base.isEmpty ? item.detail : base + "\n\n" + item.detail) }
             if let id = characterIDs[key] {
                 if let text = appended(main.characters.profile(id)) { try? main.characters.setProfile(id, text); report.updated += 1 } else { skip(item, L("the card already says this")) }
             } else if let id = entryIDs[key] {

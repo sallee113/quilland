@@ -126,7 +126,7 @@ public enum CollectJob {
                         for t in here + elsewhere where !events.contains(where: { Names.normalize($0) == Names.normalize(t) }) { events.append(t) }
                         events = Array(events.prefix(30))
                     }
-                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, kinds: kinds))]
+                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, kinds: kinds, language: request.language))]
                     do {
                         let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
                         let result = CollectParser.parse(reply, kinds: kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)

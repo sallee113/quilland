@@ -83,4 +83,16 @@ struct DuplicateFinderTests {
         #expect(bodies.count == 2 && !bodies[0].contains("already known"), "the first scene: nothing known yet")
         #expect(bodies[1].contains("- Старый разговор") && bodies[1].contains("- Приезд Анны"), "the second is told the book's event of its scene and the one found in the first")
     }
+
+    @Test("a card's text already says a finding when a sentence of it has nearly all its words, in any case form")
+    func says() {
+        let text = "Тихая девочка живёт в открытом космосе.\n\nОписывается как место, где все живут в открытом космосе."
+        #expect(DuplicateFinder.says(text, "живёт как девочка в открытом космосе"), "most of the words, one sentence")
+        #expect(DuplicateFinder.says(text, "описывается как место, где все живут в открытом космосе"), "the same words")
+        #expect(DuplicateFinder.says(text, "Тихая девочка"), "a short one that is in the text as it stands")
+        #expect(!DuplicateFinder.says(text, "Хромает после аварии на станции"), "another thing")
+        #expect(!DuplicateFinder.says(text, "Капитан корабля"), "a short one that is not in it")
+        #expect(!DuplicateFinder.says(text, "тихая девочка боится открытого космоса и корабля"), "words from the text, but too few of one sentence")
+        #expect(!DuplicateFinder.says("", "что угодно"), "an empty card says nothing")
+    }
 }

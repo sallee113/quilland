@@ -365,6 +365,9 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     private func syncRemoveButton() { removeButton.isEnabled = connections.indices.contains(table.selectedRow) }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
     var removeButtonTitle: String { removeButton.title }
+    /// For the checks: the event the list shows as chosen, and the one the card shows.
+    var chosenListTitle: String? { if list.selectedRow >= 0, listRows.indices.contains(list.selectedRow), case .event(let e) = listRows[list.selectedRow] { return e.title } else { return nil } }
+    var cardTitle: String { titleField.stringValue }
     var addLinkEnabled: Bool { addButton.isEnabled }
     /// For the checks: what the Place part of the "Add…" menu lists.
     var placeMenuItems: [(title: String, heading: Bool)] { PlaceMenu.titles(of: addButton.menu?.items.first { $0.title == L("Place") }?.submenu) }

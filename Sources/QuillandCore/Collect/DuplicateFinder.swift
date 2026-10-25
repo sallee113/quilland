@@ -54,6 +54,24 @@ public enum DuplicateFinder {
         return Declension.forms(of: a).contains(b) || Declension.forms(of: b).contains(a)
     }
 
+    /// Whether a card's text already says what a finding says, in the same or nearly the same words: the text has it, or one sentence of the text holds at least
+    /// three quarters of the words of the finding (in any case form). A finding of fewer than three words must be in the text as it stands.
+    public static func says(_ text: String, _ detail: String) -> Bool {
+        let wanted = Names.normalize(detail)
+        guard !wanted.isEmpty else { return false }
+        if Names.normalize(text).contains(wanted) { return true }
+        let need = words(detail)
+        guard need.count >= 3 else { return false }
+        for sentence in text.split(whereSeparator: { ".!?…\n".contains($0) }) {
+            let have = words(String(sentence))
+            var used = Set<Int>()
+            var n = 0
+            for w in need { if let i = have.indices.first(where: { !used.contains($0) && sameWord(w, have[$0]) }) { used.insert(i); n += 1 } }
+            if Double(n) / Double(need.count) >= 0.75 { return true }
+        }
+        return false
+    }
+
     /// How many words of the shorter list are in the longer one, and how many there are in the shorter.
     static func shared(_ a: [String], _ b: [String]) -> (count: Int, shorter: Int) {
         let (small, large) = a.count <= b.count ? (a, b) : (b, a)

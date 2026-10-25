@@ -36,6 +36,35 @@ extension AppSelfTest {
         check(main.relationships.relationship(r3) == nil && main.eventStore.event(other)?.relationships[r3] == nil, "a relationship that ends elsewhere leaves that event too")
         main.undoStructure(); spin(0.5)
 
+        // Taking a link away from an ordinary event keeps that event chosen, in the list and on the card (whichever kind of link, and wherever it stands in its group).
+        if let scenes = Optional(main.session.structure.scenes), scenes.count > 1 {
+            let place = try! main.worlds.addEntry(name: "Начало-Место", world: main.worlds.worlds[0].id!)
+            let e1 = try! main.eventStore.add(title: "Начало: один"), e2 = try! main.eventStore.add(title: "Начало: два"), e3 = try! main.eventStore.add(title: "Начало: три"), e4 = try! main.eventStore.add(title: "Начало: четыре")
+            for (i, e) in [e1, e2, e3].enumerated() { try! main.eventStore.update(e) { $0.links = [scenes[0].id: "", scenes[1].id: ""]; $0.order = (i + 1) * 100; $0.characters = [anna: "", lev: ""]; $0.places = [place: ""]; $0.relationships = [r1: ""] } }
+            try! main.eventStore.update(e4) { $0.links = [scenes[1].id: ""]; $0.order = 50 }
+            main.reloadStores(); ev.reload(); spin(0.2)
+            for kind in [EventConnection.Kind.scene, .place, .character, .relationship, .scene] {
+                ev.select(e2); spin(0.2)
+                guard let row = ev.connections.firstIndex(where: { $0.kind == kind && ($0.marker != "starts") }) else { check(false, "a \(kind) link to take away"); continue }
+                ev.removeConnection(row: row); spin(0.3)
+                check(ev.selected == e2 && ev.chosenListTitle == "Начало: два" && ev.cardTitle == "Начало: два", "taking a \(kind) link away keeps the event chosen, in the list and on the card", "\(String(describing: ev.selected)) \(String(describing: ev.chosenListTitle)) \(ev.cardTitle)")
+            }
+            // With the list filtered by a character, taking that character away from the chosen event takes the event out of the list: the choice is then the same event
+            // still (the card), or nothing, never another event.
+            ev.select(e3); spin(0.2)
+            try! main.eventStore.update(e3) { $0.characters = [lev: ""] }; main.reloadStores(); ev.reload()
+            ev.relationFilter.set(.character(lev)); spin(0.3)
+            ev.select(e3); spin(0.2)
+            if let row = ev.connections.firstIndex(where: { $0.kind == .character && $0.refID == lev }) {
+                ev.removeConnection(row: row); spin(0.3)
+                check(ev.chosenListTitle == nil || ev.chosenListTitle == ev.cardTitle, "with the list filtered, the list never shows one event chosen and the card another", "\(String(describing: ev.chosenListTitle)) | \(ev.cardTitle) | \(String(describing: ev.selected))")
+            }
+            ev.relationFilter.clear(); spin(0.2)
+            for e in [e1, e2, e3, e4] { try? BookIntegrity.deleteEvent(e, book: main.folder, started: .deleteThem, snapshot: false) }
+            try? BookIntegrity.deletePlace(place, book: main.folder, snapshot: false)
+            main.reloadStores(); ev.reload(); ev.select(startID); spin(0.2)
+        }
+
         // The same for a character and a place: an unrelated change does not move the choice.
         main.setMode(.characters); spin(0.3)
         main.charactersView?.select(lev); spin(0.2)

@@ -57,7 +57,7 @@ extension CollectSession {
         for item in collected.items where item.kind == .observations {
             let key = Names.normalize(item.about)
             let base = characterIDs[key].map { main.characters.profile($0) } ?? entryIDs[key].map { main.worlds.text($0) }
-            if let base, Names.normalize(base).contains(Names.normalize(item.detail)) { out[item.id] = CardAddition() }
+            if let base, DuplicateFinder.says(base, item.detail) { out[item.id] = CardAddition() }
         }
         for item in collected.items where item.kind == .changes {
             let key = Names.normalize(item.name)
@@ -73,7 +73,20 @@ extension CollectSession {
             guard ["profile", "description"].contains(item.field) else { continue }
             let base = character != nil ? main.characters.profile(target) : main.worlds.text(target)
             let field: EffectField = character != nil ? .profile : .description
-            if Names.normalize(base) == Names.normalize(item.detail) || record?.effectText(field, of: target) != nil { out[item.id] = CardAddition() }
+            if DuplicateFinder.says(base, item.detail) || record?.effectText(field, of: target) != nil { out[item.id] = CardAddition() }
+        }
+        // A relationship the book has already between them (of that kind): it adds nothing when its scenes are linked, or when it has ended already.
+        let timeline = RelationshipTimeline(events: main.eventStore, sceneOrder: main.session.structure.scenes.map(\.id))
+        for item in collected.items where item.kind == .relationships {
+            let ids = item.members.compactMap { characterIDs[Names.normalize($0)] }
+            guard Set(ids).count >= 2 else { continue }
+            let same = main.relationships.relationships.filter { Set($0.characters) == Set(ids) }
+            guard let r = StoryAccept.existing(item, among: same, main: main), let id = r.id else { continue }
+            switch item.when {
+            case "changes": continue
+            case "ends": if timeline.marks(of: id).end != nil { out[item.id] = CardAddition() }
+            default: if item.evidence.allSatisfy({ r.links[$0.scene] != nil }) { out[item.id] = CardAddition() }
+            }
         }
         additions = out
     }

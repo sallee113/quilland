@@ -109,7 +109,7 @@ final class StoryAccept {
         default:
             let field: EffectField = item.field == "profile" ? .profile : .description
             let base = character != nil ? main.characters.profile(target) : main.worlds.text(target)
-            if Names.normalize(base) == Names.normalize(item.detail) { return .skipped(L("the card already says this")) }
+            if Names.normalize(base) == Names.normalize(item.detail) || DuplicateFinder.says(base, item.detail) { return .skipped(L("the card already says this")) }
             if record?.effectText(field, of: target) != nil { return .skipped(L("this event already changes it")) }
             try? main.eventStore.update(event) { $0.setEffect(field, of: target, text: item.detail) }
         }
@@ -118,6 +118,15 @@ final class StoryAccept {
     }
 
     // MARK: A relationship
+
+    /// The relationship the book already has between them: of the same kind, or of a kind the finder says is the same worded otherwise.
+    static func existing(_ item: CollectedItem, among same: [RelationshipRecord], main: MainAreaController) -> RelationshipRecord? {
+        let wanted = item.facet
+        return same.first { Names.normalize($0.kind ?? "") == Names.normalize(item.type) } ?? same.first(where: { r in
+            let people = r.characters.compactMap { id in main.characters.character(id).map { Set(([$0.name ?? ""] + $0.aliases).map(Names.normalize)) } }
+            return DuplicateFinder.compare(wanted, DupeFacet(kind: .relationships, id: r.id ?? "", names: [], people: people, text: r.kind ?? ""))?.level == .same
+        })
+    }
 
     private func startsAtBook(_ relationship: String) {
         guard timeline.marks(of: relationship).start == nil else { return }
@@ -134,12 +143,7 @@ final class StoryAccept {
         guard Set(ids).count >= 2 else { return .skipped(L("it needs two characters that have cards")) }
         let members = Array(NSOrderedSet(array: ids)) as? [String] ?? ids
         let same = main.relationships.relationships.filter { Set($0.characters) == Set(ids) }
-        // The relationship the book already has between them: of the same kind, or of a kind the finder says is the same worded otherwise.
-        let wanted = item.facet
-        let exact = same.first { Names.normalize($0.kind ?? "") == Names.normalize(item.type) } ?? same.first(where: { r in
-            let people = r.characters.compactMap { id in main.characters.character(id).map { Set(([$0.name ?? ""] + $0.aliases).map(Names.normalize)) } }
-            return DuplicateFinder.compare(wanted, DupeFacet(kind: .relationships, id: r.id ?? "", names: [], people: people, text: r.kind ?? ""))?.level == .same
-        })
+        let exact = Self.existing(item, among: same, main: main)
         let when = item.when.isEmpty ? "stated" : item.when
         func links(_ id: String) { try? main.relationships.update(id) { $0.links = $0.links.merging(linkText) { old, _ in old } } }
         switch when {

@@ -58,6 +58,22 @@ extension AppSelfTest {
         check(sv.itemCount == 1 && text.contains("already has a card: adds") && text.contains("people: Дубль-Вера") && (scenes.count < 2 || text.contains("the scene “")), "one that adds a scene or a person is listed, and says what it adds", text)
         try? BookIntegrity.deleteCharacter(vera, book: main.folder, snapshot: false)
 
+        // A relationship the book has: found again with its scene already linked, it adds nothing and is not listed; a fact the card says in other words is not either.
+        main.collect.clear()
+        var friends = CollectedItem(kind: .relationships, name: ""); friends.members = ["Дубль-Анна", "Дубль-Лев"]; friends.type = "Дубль-друзья"; friends.when = "stated"
+        friends.evidence = [CollectedEvidence(scene: s0, quote: "Первая строка", range: NSRange(location: 0, length: 3), note: "")]
+        main.collect.inject([friends]); sv.checkAll(); _ = sv.acceptChecked()
+        main.collect.inject([friends]); spin(0.2)
+        check(sv.itemCount == 0 && main.collect.alreadyInBookCount == 1, "a relationship found again, with its scene linked, is not listed", "\(sv.itemCount)")
+        try! main.characters.setProfile(anna, "Тихая девочка живёт в открытом космосе.")
+        var fact = CollectedItem(kind: .observations, name: ""); fact.about = "Дубль-Анна"; fact.detail = "живёт как девочка в открытом космосе"; fact.evidence = friends.evidence
+        main.collect.clear(); main.collect.inject([fact]); spin(0.2)
+        check(sv.itemCount == 0, "a fact the card says in other words is not listed", "\(sv.itemCount)")
+        fact.detail = "Хромает после аварии"; main.collect.clear(); main.collect.inject([fact]); spin(0.2)
+        check(sv.itemCount == 1, "a fact that is new is", "\(sv.itemCount)")
+        for r in main.relationships.relationships where r.kind == "Дубль-друзья" { if let id = r.id { try? BookIntegrity.deleteRelationship(id, book: main.folder, snapshot: false) } }
+        main.reloadStores()
+
         // A change that names an event the book has (and a lone one in the same scene) goes to that event: no second event of the same title is made.
         if scenes.count > 1 {
             func change(_ who: String, _ detail: String, event: String) -> CollectedItem {

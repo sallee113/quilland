@@ -28,7 +28,8 @@ public enum CollectPrompt {
     }
 
     /// What to look for, for the kinds of one pass.
-    public static func task(kinds: Set<CollectKind>) -> String {
+    public static func task(kinds: Set<CollectKind>, language: String = "") -> String {
+        let name = languageName(language) ?? "the language of the passage"
         var s = "Answer with ONE JSON object with these keys (leave out any other):"
         if kinds.contains(.characters) {
             s += "\n\"characters\": people or beings who act, speak or are named in the passage: [{\"name\": \"\", \"aliases\": [], \"description\": \"who this is, as far as the passage says\", \"note\": \"what this character does in the passage\", \"quote\": \"\"}]"
@@ -46,13 +47,13 @@ public enum CollectPrompt {
             s += "\n\"changes\": how a character or a place CHANGES in this passage, from now on (a character gets a new name, learns the truth, is crippled, changes their way of life; a place burns down or is rebuilt). Not a fact that was true all along, and never the name, the notes or whether someone is a main character. Give only what is NEW compared with the known card: [{\"about\": \"the name of the character or place\", \"field\": \"profile (a character) | description (a place) | aliases (new names of a character)\", \"value\": \"the NEW state in one or two short sentences (not for aliases)\", \"aliases\": [\"new names, for aliases only\"], \"event\": \"the title of the event above, or of a known event, that it belongs to, or empty\", \"note\": \"\", \"quote\": \"\"}]"
         }
         if kinds.contains(.relationships) {
-            s += "\n\"relationships\": a LASTING bond between two named characters that the passage states or clearly shows (family, friendship, enmity, work, love); never a mere meeting of strangers. \"when\": \"stated\" if it is simply so (it was so before the passage), \"starts\" if it begins in this passage, \"changes\" if it becomes another kind (friends become enemies), \"ends\" if it ends (a break, a death): [{\"characters\": [\"A\", \"B\"], \"kind\": \"sisters\", \"when\": \"stated\", \"note\": \"how it shows here\", \"quote\": \"\"}]"
+            s += "\n\"relationships\": a LASTING bond between two named characters that the passage states or clearly shows (a family tie, friendship, enmity, work, love); never a mere meeting of strangers. The kind of bond is a word or two written in \(name), never in English unless the passage is English. \"when\": \"stated\" if it is simply so (it was so before the passage), \"starts\" if it begins in this passage, \"changes\" if it becomes another kind (friends become enemies), \"ends\" if it ends (a break, a death): [{\"characters\": [\"A\", \"B\"], \"kind\": \"the kind of bond, in \(name)\", \"when\": \"stated\", \"note\": \"how it shows here\", \"quote\": \"\"}]"
         }
         return s
     }
 
     /// The instructions and what to look for in one text (the instructions are sent first, then the passage, then what to look for: see `user`).
-    public static func system(kinds: Set<CollectKind>, language: String = "") -> String { shared(language: language) + "\n" + task(kinds: kinds) }
+    public static func system(kinds: Set<CollectKind>, language: String = "") -> String { shared(language: language) + "\n" + task(kinds: kinds, language: language) }
 
     /// The cards of the book that the passage names, as what is known now, so that the model can tell a new fact from one already written down: each with its text
     /// (cut short) and its relationships, until `budget` characters are used.
@@ -86,7 +87,7 @@ public struct CollectKnown {
 
 extension CollectPrompt {
 
-    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", knownEvents: [String] = [], kinds: Set<CollectKind>) -> String {
+    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", knownEvents: [String] = [], kinds: Set<CollectKind>, language: String = "") -> String {
         // The passage first: both passes begin with the same words, so that the model's server need not read it twice.
         var s = "Passage from the scene “\(sceneTitle)”:\n\"\"\"\n\(chunk)\n\"\"\"\n"
         if !knownCharacters.isEmpty { s += "Characters already on cards (use exactly these names when the same person is meant): " + knownCharacters.joined(separator: ", ") + "\n" }
@@ -94,7 +95,7 @@ extension CollectPrompt {
         if !known.isEmpty { s += "Known cards (what is written on them now):\n" + known }
         // So that the same event is not proposed twice under two titles (the book's own events of this scene, and those found earlier in the run).
         if !knownEvents.isEmpty { s += "Events already known for this scene or found earlier (if the passage shows one of them, use exactly its title for it, never a new one):\n" + knownEvents.map { "- " + $0 }.joined(separator: "\n") + "\n" }
-        s += task(kinds: kinds)
+        s += task(kinds: kinds, language: language)
         return s
     }
 }

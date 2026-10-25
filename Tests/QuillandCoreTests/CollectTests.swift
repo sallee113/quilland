@@ -85,6 +85,14 @@ struct CollectTests {
         #expect(set.items.count == 3, "two changes of one thing are not merged as names are")
     }
 
+    @Test("the kind of a relationship is asked for in the book's language, with no English example to copy")
+    func relationshipKindLanguage() {
+        let ru = CollectPrompt.task(kinds: [.relationships], language: "ru"), none = CollectPrompt.task(kinds: [.relationships])
+        #expect(ru.contains("written in Russian") && ru.contains("in Russian\"") && !ru.contains("sisters"), "the kind is in Russian, and the schema shows no English word to copy")
+        #expect(none.contains("the language of the passage") && !none.contains("sisters"))
+        #expect(CollectPrompt.user(chunk: "Т", sceneTitle: "С", knownCharacters: [], knownPlaces: [], kinds: [.relationships], language: "ru").contains("in Russian"), "the request carries it")
+    }
+
     @Test("the two passes ask for different things, and the second is told the cards the passage names")
     func passes() {
         #expect(CollectKind.characters.pass == .facts && CollectKind.observations.pass == .facts && CollectKind.events.pass == .story && CollectKind.changes.pass == .story && CollectKind.relationships.pass == .story)
