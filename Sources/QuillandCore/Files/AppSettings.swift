@@ -151,6 +151,22 @@ public struct GraphViewMemory: Equatable, Sendable {
     }
 }
 
+/// Where the author left the Events view: the chosen event and how far the list is scrolled.
+public struct EventsViewMemory: Equatable, Sendable {
+    public var selected: String?
+    public var scroll: Double
+    public init(selected: String? = nil, scroll: Double = 0) { self.selected = selected; self.scroll = scroll }
+    init?(object: JSONObject) {
+        guard object.string("selected") != nil || object.int("scroll") != nil else { return nil }
+        self.init(selected: object.string("selected"), scroll: Double(object.int("scroll") ?? 0))
+    }
+    var object: JSONObject {
+        var o: JSONObject = ["scroll": .int(Int(scroll.rounded()))]
+        if let selected { o["selected"] = .string(selected) }
+        return o
+    }
+}
+
 /// Where the author left off in one book (`<book>/.quilland/state.json`, ignored by Git): the scene and the place in it, and the view.
 public struct LocalBookState: Equatable, Sendable {
     public var scene: String?
@@ -170,8 +186,11 @@ public struct LocalBookState: Equatable, Sendable {
     public var split: Bool = false
     /// The Graph view's settings and place.
     public var graph: GraphViewMemory?
+    /// The Events view's chosen event and place in the list.
+    public var events: EventsViewMemory?
 
-    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false, graph: GraphViewMemory? = nil) {
+    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false, graph: GraphViewMemory? = nil, events: EventsViewMemory? = nil) {
+        self.events = events
         self.split = split
         self.graph = graph
         self.exportFolder = exportFolder
@@ -195,7 +214,7 @@ public struct LocalBookState: Equatable, Sendable {
     public static func load(book: URL) -> LocalBookState {
         guard let data = try? Data(contentsOf: url(book)), let o = try? JSONParser.parseObject(data) else { return LocalBookState() }
         let cursor = o.object("cursor") ?? [:]
-        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false, graph: o.object("graph").flatMap(GraphViewMemory.init(object:)))
+        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false, graph: o.object("graph").flatMap(GraphViewMemory.init(object:)), events: o.object("events").flatMap(EventsViewMemory.init(object:)))
     }
 
     /// Keeps the keys it does not know (other parts of the state).
@@ -206,6 +225,7 @@ public struct LocalBookState: Equatable, Sendable {
         o["right_panel"] = .bool(rightPanel)
         o["split"] = .bool(split)
         if let graph { o["graph"] = .object(graph.object) } else { o.removeValue(forKey: "graph") }
+        if let events { o["events"] = .object(events.object) } else { o.removeValue(forKey: "events") }
         if let exportFolder { o["export_folder"] = .string(exportFolder) }
         if let planFrom { o["plan_from"] = .string(planFrom) } else { o.removeValue(forKey: "plan_from") }
         if let dayDate, let dayBaseline { o["today"] = .object(["baseline": .int(dayBaseline), "date": .string(dayDate)]) }

@@ -17,7 +17,8 @@ extension AppSelfTest {
         ev.reload(); ev.select(startID); spin(0.3)
         let rows = ev.connections.indices.filter { ev.connections[$0].kind == .relationship && [r1, r2].contains(ev.connections[$0].refID) }
         check(rows.count == 2, "the relationships that start with the book are listed in Book starts", "\(ev.connections.map(\.name))")
-        check(ev.removeButtonTitle == "Delete from the Book", "the button there says it deletes from the book", ev.removeButtonTitle)
+        ev.selectConnectionRow(rows[0])
+        check(ev.removeButtonTitle == "Delete from the Book", "with one of them chosen, the button says it deletes from the book", ev.removeButtonTitle)
         let before = main.relationships.relationships.count
         ev.deleteRelationships(rows: rows); spin(0.4)
         main.relationships.reload(); main.eventStore.reload()
@@ -49,6 +50,21 @@ extension AppSelfTest {
                 ev.removeConnection(row: row); spin(0.3)
                 check(ev.selected == e2 && ev.chosenListTitle == "Начало: два" && ev.cardTitle == "Начало: два", "taking a \(kind) link away keeps the event chosen, in the list and on the card", "\(String(describing: ev.selected)) \(String(describing: ev.chosenListTitle)) \(ev.cardTitle)")
             }
+            // A relationship that starts in an ordinary event is deleted from the book by the same button: no refusal, one Undo.
+            let wrong = try! main.relationships.add(characters: [anna, vera], kind: "начало-ошибка")
+            try! main.eventStore.update(e4) { var m = $0.relationships; m[wrong] = "starts"; $0.relationships = m }
+            main.reloadStores(); ev.reload(); ev.select(e4); spin(0.3)
+            if let row = ev.connections.firstIndex(where: { $0.refID == wrong }) {
+                ev.selectConnectionRow(row)
+                check(ev.removeButtonTitle == "Delete from the Book", "on a relationship that starts here, the button says it deletes from the book", ev.removeButtonTitle)
+                ev.removeConnection(row: row); spin(0.4)
+                main.relationships.reload()
+                check(main.relationships.relationship(wrong) == nil && ev.lastWarning == nil && ev.selected == e4 && ev.cardTitle == "Начало: четыре", "it is deleted with no refusal, and the event stays chosen")
+                main.undoStructure(); spin(0.5); main.relationships.reload()
+                check(main.relationships.relationship(wrong) != nil, "and one Undo brings it back")
+            }
+            try? BookIntegrity.deleteRelationship(wrong, book: main.folder, snapshot: false)
+            main.reloadStores(); ev.reload(); ev.select(e4); spin(0.2)
             // With the list filtered by a character, taking that character away from the chosen event takes the event out of the list: the choice is then the same event
             // still (the card), or nothing, never another event.
             ev.select(e3); spin(0.2)

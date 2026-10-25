@@ -362,9 +362,41 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
-    private func syncRemoveButton() { removeButton.isEnabled = connections.indices.contains(table.selectedRow) }
+    private func syncRemoveButton() {
+        removeButton.isEnabled = connections.indices.contains(table.selectedRow)
+        // A relationship that starts here cannot be taken away from here and kept (it starts somewhere): the button deletes it from the book.
+        removeButton.title = startingRows(Array(table.selectedRowIndexes)).isEmpty ? L("Remove Link") : L("Delete from the Book")
+    }
+
+    /// Of these rows, the relationships that start in this event.
+    private func startingRows(_ rows: [Int]) -> [Int] {
+        rows.filter { connections.indices.contains($0) && connections[$0].kind == .relationship && connections[$0].marker == "starts" }
+    }
     var removeLinkEnabled: Bool { removeButton.isEnabled }
     var removeButtonTitle: String { removeButton.title }
+
+    // MARK: Where it was left (kept for the book)
+
+    /// The chosen event and how far the list is scrolled.
+    var memory: EventsViewMemory { EventsViewMemory(selected: selected, scroll: Double(listScroll)) }
+    var listScroll: CGFloat { list.enclosingScrollView?.contentView.bounds.origin.y ?? 0 }
+
+    /// Chooses the event that was chosen and puts the list where it was (the event is still in the book, or only the place is kept).
+    func restore(_ m: EventsViewMemory?) {
+        guard let m else { return }
+        if let id = m.selected, events.event(id) != nil { select(id) }
+        scrollList(to: CGFloat(m.scroll))
+        // (The view has no size yet when the book opens: once it has, the place is put again.)
+        DispatchQueue.main.async { [weak self] in self?.scrollList(to: CGFloat(m.scroll)) }
+    }
+
+    func scrollList(to y: CGFloat) {
+        guard let scroll = list.enclosingScrollView else { return }
+        let clip = scroll.contentView
+        scroll.layoutSubtreeIfNeeded()
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: NSPoint(x: 0, y: y), size: clip.bounds.size)).origin)
+        scroll.reflectScrolledClipView(clip)
+    }
     /// For the checks: the event the list shows as chosen, and the one the card shows.
     var chosenListTitle: String? { if list.selectedRow >= 0, listRows.indices.contains(list.selectedRow), case .event(let e) = listRows[list.selectedRow] { return e.title } else { return nil } }
     var cardTitle: String { titleField.stringValue }
@@ -528,7 +560,6 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         // The default event cannot be deleted or put on the plan.
         deleteButton.isHidden = e.start
         if e.start { planLabel.stringValue = L("Where the relationships that are only stated start"); planButton.isHidden = true } else { planButton.isHidden = false }
-        removeButton.title = e.start ? L("Delete from the Book") : L("Remove Link")
         warningLabel.stringValue = !e.start && e.changesSomething && RelationshipTimeline(events: events, sceneOrder: sceneOrder).order(of: id) == nil ? L("This event changes something but has no scene, so its changes do not apply.") : ""
         warningLabel.isHidden = warningLabel.stringValue.isEmpty
     }
@@ -663,7 +694,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         case .character: update { var l = $0.characters; l.removeValue(forKey: c.refID); $0.characters = l }
         case .relationship:
             // A relationship must start at some event: taking the row away from the event where it starts is refused (start it in another event instead).
-            guard c.marker != "starts" else { warn(L("It starts here"), L("A relationship starts at some event. Start it in another event first (right-click the row).")); return }
+            guard c.marker != "starts" else { deleteRelationships(rows: [row]); return }
             update { var m = $0.relationships; m.removeValue(forKey: c.refID); $0.relationships = m; var e = $0.effects; e.removeValue(forKey: c.refID); $0.effects = e }
         }
     }
@@ -694,7 +725,8 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
     }
 
     @objc private func removeLink() {
-        if selected != nil, selected == events.startEvent?.id { deleteRelationships(rows: Array(table.selectedRowIndexes)) } else { removeConnection(row: table.selectedRow) }
+        let starting = startingRows(Array(table.selectedRowIndexes))
+        if !starting.isEmpty { deleteRelationships(rows: starting) } else { removeConnection(row: table.selectedRow) }
     }
 
     /// In the event the book starts with: deletes the relationships of these rows from the book (they cannot be taken away from here and kept: a relationship starts
@@ -1078,8 +1110,8 @@ extension EventsViewController {
         let row = table.clickedRow
         guard connections.indices.contains(row), connections[row].kind == .relationship else { return }
         buildRowMenu(for: connections[row], into: menu)
-        if selected != nil, selected == events.startEvent?.id {
-            let rows = table.selectedRowIndexes.contains(row) ? Array(table.selectedRowIndexes) : [row]
+        if !startingRows([row]).isEmpty {
+            let rows = table.selectedRowIndexes.contains(row) ? startingRows(Array(table.selectedRowIndexes)) : [row]
             menu.addItem(.separator())
             menu.addItem(ClosureMenuItem(title: L("Delete from the Book")) { [weak self] in self?.deleteRelationships(rows: rows) })
         }

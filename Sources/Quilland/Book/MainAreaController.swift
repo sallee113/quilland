@@ -89,6 +89,8 @@ final class MainAreaController: NSViewController {
     var onCursorMoved: ((String, Int) -> Void)?
     var onChange: (() -> Void)?
     var pendingCursor: (scene: String, position: Int)?
+    /// Where the Events view was left (kept for the book, and while another view is shown).
+    private var eventsMemory: EventsViewMemory?
 
     init(folder: URL, state: LocalBookState) throws {
         self.folder = folder
@@ -101,6 +103,7 @@ final class MainAreaController: NSViewController {
         mode = state.mode == "compare" ? .book : (Mode(rawValue: state.mode) ?? .panels)
         isSplit = state.split || state.mode == "compare"
         graphState = GraphViewState(memory: state.graph)
+        eventsMemory = state.events
         if [.panels, .book].contains(mode) { writingMode = mode }
         showsRightPanel = state.rightPanel
         day = state
@@ -289,6 +292,7 @@ final class MainAreaController: NSViewController {
 
     private func tearDownViews() {
         graphView?.captureViewport()
+        if let events = eventsView { eventsMemory = events.memory }
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         writingSplit = nil
@@ -486,6 +490,7 @@ final class MainAreaController: NSViewController {
         view.relationFilter.source = relationFilterSource()
         _ = view.view
         eventsView = view
+        view.restore(eventsMemory)
         return Built(view: view.view, controller: nil)
     }
 
@@ -904,6 +909,6 @@ final class MainAreaController: NSViewController {
         remember()
         graphView?.captureViewport()
         _ = writtenToday
-        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit, graph: graphState.memory)
+        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit, graph: graphState.memory, events: eventsView?.memory ?? eventsMemory)
     }
 }
