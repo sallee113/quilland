@@ -39,6 +39,7 @@ extension AppSelfTest {
         main.collect.inject(items)
         main.showSearch(.suggestions); spin(0.3)
         let sv = main.searchPanel.suggestView
+        check(main.collect.additions[a7.id]?.isEmpty == true && !main.collect.visibleItems.contains { $0.id == a7.id } && main.collect.alreadyInBookCount == 1, "a change that says what the card says is not listed")
         sv.checkAll()
         let report = sv.acceptChecked()!
         main.eventStore.reload(); main.relationships.reload()
@@ -55,7 +56,7 @@ extension AppSelfTest {
         let single = events.first { $0.title == "Кол-Лев: profile" }
         check(single?.links.keys.contains(s2) == true && single?.effectText(.profile, of: lev) == "Ранен.", "a lone change with no event makes one titled with what it changes", "\(events.map { $0.title ?? "" })")
         check(main.characters.profile(anna) == "Тихая девочка." && main.characters.character(anna)?.notes == ["Заметка автора."] && main.worlds.text(manor) == "Цветущий дом." && main.characters.character(anna)?.aliases.isEmpty == true, "the cards themselves, and the author's notes, are not changed")
-        check(main.collect.skipReason(for: a7.id)?.contains("already says this") == true, "a change that says what the card says is skipped, with the reason", "\(String(describing: main.collect.skipReason(for: a7.id)))")
+        check(main.collect.skipReason(for: a7.id) == nil, "and so is not tried when the rest is accepted")
 
         let friends = main.relationships.relationships.first { $0.kind == "друзья" }?.id ?? ""
         check(main.eventStore.startEvent?.relationships[friends] == "starts", "a relationship that is simply so starts with the book (Book starts)")
@@ -71,7 +72,7 @@ extension AppSelfTest {
         // The bar and the status line follow a run request by request (not only from scene to scene).
         main.showSearch(.suggestions); spin(0.3)
         let view = main.searchPanel.suggestView
-        main.collect.injectProgress(CollectProgress(scene: 1, of: 1, title: "Одна сцена", found: 7, piece: 2, pieces: 5)); spin(0.3)
+        main.collect.injectProgress(CollectProgress(scene: 1, of: 1, title: "Одна сцена", found: 8, piece: 2, pieces: 5)); spin(0.3)
         check(abs(view.barFraction - 0.4) < 0.001, "the bar shows the steps done out of all of them, so it moves while the only scene is read", "\(view.barFraction)")
         check(view.statusText.contains("Scene 1 of 1: Одна сцена") && view.statusText.contains("7 found") && view.statusText.contains("part 3 of 5"), "the status line says what has been found so far and which part is being read", view.statusText)
         main.collect.injectProgress(nil); spin(0.2)

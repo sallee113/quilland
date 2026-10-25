@@ -90,8 +90,11 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
             rows.append(.group(L("Contradictions"), session.findings.count))
             rows += session.findings.map { .finding($0) }
         }
+        if !session.running { session.refreshAdditions() }   // (the book may have changed since: while a run goes on, the findings do it as they come)
+        let shown = session.visibleItems
+        let hidden = session.alreadyInBookCount
         for kind in CollectKind.allCases {
-            let items = session.items.filter { $0.kind == kind }
+            let items = shown.filter { $0.kind == kind }
             guard !items.isEmpty else { continue }
             rows.append(.group(Self.groupTitle(kind), items.count))
             rows += items.map { .item($0) }
@@ -109,9 +112,11 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
         if let p = session.progress { bar.doubleValue = p.pieces > 0 ? Double(p.piece) / Double(p.pieces) : Double(p.scene - 1) / Double(max(1, p.of)) }
         if running {
             let p = session.progress
-            status.stringValue = p.map { q in L("Scene {n} of {total}: {title} · {found} found", ["n": q.scene, "total": q.of, "title": q.title, "found": q.found]) + (q.pieces > 1 ? " · " + L("part {piece} of {pieces}", ["piece": min(q.piece + 1, q.pieces), "pieces": q.pieces]) : "") } ?? session.message
+            status.stringValue = p.map { q in L("Scene {n} of {total}: {title} · {found} found", ["n": q.scene, "total": q.of, "title": q.title, "found": max(0, q.found - session.alreadyInBookCount)]) + (q.pieces > 1 ? " · " + L("part {piece} of {pieces}", ["piece": min(q.piece + 1, q.pieces), "pieces": q.pieces]) : "") } ?? session.message
         } else {
-            status.stringValue = session.message.isEmpty ? (rows.isEmpty ? L("Nothing yet. Collect from the Book… asks the model to read the scenes, and Check Consistency… looks for contradictions.") : "") : session.message
+            let base = session.message.isEmpty ? (rows.isEmpty && hidden == 0 ? L("Nothing yet. Collect from the Book… asks the model to read the scenes, and Check Consistency… looks for contradictions.") : "") : session.message
+            let left = hidden > 0 ? Lp("{n} finding already in the book: not listed", "{n} findings already in the book: not listed", hidden) : ""
+            status.stringValue = [base, left].filter { !$0.isEmpty }.joined(separator: " · ")
         }
         updateButtons()
     }
@@ -119,8 +124,8 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     private func updateButtons() {
         guard let session else { return }
         let n = session.checked.count
-        let acceptable = session.items.filter { session.checked.contains($0.id) }.count
-        let total = session.items.count + session.findings.count
+        let acceptable = session.visibleItems.filter { session.checked.contains($0.id) }.count
+        let total = session.visibleItems.count + session.findings.count
         acceptButton.title = Lp("Accept {n} Checked", "Accept {n} Checked", acceptable)
         acceptButton.isEnabled = acceptable > 0 && !session.running
         dismissButton.isEnabled = n > 0
@@ -133,7 +138,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     /// For the checks: how far the bar is, and what the status line says.
     var barFraction: Double { bar.doubleValue }
     var statusText: String { status.stringValue }
-    var itemCount: Int { session?.items.count ?? 0 }
+    var itemCount: Int { session?.visibleItems.count ?? 0 }
     var findingCount: Int { session?.findings.count ?? 0 }
     var checkedCount: Int { session?.checked.count ?? 0 }
     /// For the checks: what the row of a finding says (its text).
@@ -173,7 +178,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
             return cell
         case .item(let item):
             let cell = SuggestionCell()
-            cell.configure(item, existing: session?.existingMatch(item), sceneTitle: { [weak self] id in self?.main?.session.structure.scenes.first { $0.id == id }?.node.title ?? "" }, checked: session?.checked.contains(item.id) == true, skipReason: session?.skipReason(for: item.id), lookAlike: session?.lookAlikes[item.id])
+            cell.configure(item, existing: session?.existingMatch(item), adds: session?.additions[item.id], sceneTitle: { [weak self] id in self?.main?.session.structure.scenes.first { $0.id == id }?.node.title ?? "" }, checked: session?.checked.contains(item.id) == true, skipReason: session?.skipReason(for: item.id), lookAlike: session?.lookAlikes[item.id])
             cell.onToggle = { [weak self] on in
                 if on { self?.session?.checked.insert(item.id) } else { self?.session?.checked.remove(item.id) }
                 self?.updateButtons()
@@ -199,12 +204,12 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
 
     @objc private func checkAllPressed() {
         guard let session else { return }
-        let all = Set(session.items.map(\.id) + session.findings.map(\.id))
+        let all = Set(session.visibleItems.map(\.id) + session.findings.map(\.id))
         session.checked = session.checked.count == all.count ? [] : all
         refresh()
     }
 
-    func checkAll() { session?.checked = Set((session?.items.map(\.id) ?? []) + (session?.findings.map(\.id) ?? [])); refresh() }
+    func checkAll() { session?.checked = Set((session?.visibleItems.map(\.id) ?? []) + (session?.findings.map(\.id) ?? [])); refresh() }
 
     @objc private func openCardPressed() { openSource() }
 
@@ -278,7 +283,18 @@ final class SuggestionCell: NSTableCellView {
         text.attributedStringValue = s
     }
 
-    func configure(_ item: CollectedItem, existing: String?, sceneTitle: (String) -> String, checked: Bool, skipReason: String? = nil, lookAlike: LookAlike? = nil) {
+    /// What the row says about a card the finding repeats: what accepting adds to it.
+    static func cardText(_ adds: CardAddition?, sceneTitle: (String) -> String) -> String {
+        guard let adds, !adds.isEmpty else { return L("already has a card") }
+        var parts: [String] = []
+        if adds.scenes.count == 1 { parts.append(L("the scene “{title}”", ["title": sceneTitle(adds.scenes[0])])) }
+        else if adds.scenes.count > 1 { parts.append(Lp("{n} scene", "{n} scenes", adds.scenes.count)) }
+        if !adds.people.isEmpty { parts.append(L("people: {names}", ["names": adds.people.joined(separator: ", ")])) }
+        if !adds.names.isEmpty { parts.append(L("other names: {names}", ["names": adds.names.joined(separator: ", ")])) }
+        return L("already has a card: adds {what}", ["what": parts.joined(separator: "; ")])
+    }
+
+    func configure(_ item: CollectedItem, existing: String?, adds: CardAddition? = nil, sceneTitle: (String) -> String, checked: Bool, skipReason: String? = nil, lookAlike: LookAlike? = nil) {
         box.state = checked ? .on : .off
         let s = NSMutableAttributedString(string: item.title, attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold)])
         var tags: [String] = []
@@ -291,7 +307,7 @@ final class SuggestionCell: NSTableCellView {
         let scenes = Set(item.evidence.map(\.scene)).count
         tags.append(Lp("{n} scene", "{n} scenes", scenes))
         s.append(NSAttributedString(string: "   " + tags.joined(separator: " · "), attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]))
-        if existing != nil { s.append(NSAttributedString(string: "   " + L("already has a card: only the scenes are added"), attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.systemOrange])) }
+        if existing != nil { s.append(NSAttributedString(string: "   " + Self.cardText(adds, sceneTitle: sceneTitle), attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.systemOrange])) }
         // Not the same for sure, but alike: a card of the book, or another row of the list. The reason is in the tooltip.
         if let lookAlike {
             s.append(NSAttributedString(string: "   " + (lookAlike.isCard ? L("looks like the card “{name}”", ["name": lookAlike.title]) : L("looks like another row: “{name}”", ["name": lookAlike.title])), attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.systemYellow]))

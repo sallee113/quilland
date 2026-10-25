@@ -128,6 +128,10 @@
       "one": "{n} résultat",
       "other": "{n} résultats"
     },
+    "{n} findings already in the book: not listed": {
+      "one": "{n} résultat déjà dans le livre : non affiché",
+      "other": "{n} résultats déjà dans le livre : non affichés"
+    },
     "{n} findings left out: their quotes are not in the text": {
       "one": "{n} résultat écarté : sa citation n’est pas dans le texte",
       "other": "{n} résultats écartés : leurs citations ne sont pas dans le texte"
@@ -1292,7 +1296,8 @@
     "after “{scene}”": "après « {scene} »",
     "ai artificial intelligence model lm studio local server address context tokens connection": "ia intelligence artificielle modèle lm studio serveur local adresse contexte tokens connexion",
     "ai prompts instructions temperature wording continue writing consistency grammar synopsis chat collect model": "ia prompts instructions température formulation continuer écriture cohérence grammaire synopsis discussion recueillir modèle",
-    "already has a card: only the scenes are added": "a déjà une fiche : seules les scènes sont ajoutées",
+    "already has a card": "a déjà une fiche",
+    "already has a card: adds {what}": "a déjà une fiche : ajoute {what}",
     "also called": "aussi appelé",
     "also called {names}": "aussi appelé {names}",
     "also {names}": "aussi {names}",
@@ -1351,9 +1356,11 @@
     "nothing found": "rien trouvé",
     "one name is a word of the other: “{a}” and “{b}”": "un nom est un mot de l’autre : « {a} » et « {b} »",
     "one title says all the words of the other": "un titre dit tous les mots de l’autre",
+    "other names: {names}": "autres noms : {names}",
     "panels right panel tabs section characters follow delay cursor": "panneaux panneau de droite onglets section personnages suivre délai curseur",
     "part": "partie",
     "part {piece} of {pieces}": "partie {piece} sur {pieces}",
+    "people: {names}": "participants : {names}",
     "places": "lieux",
     "plan": "plan",
     "planned by {cards}": "prévu par {cards}",
@@ -1384,6 +1391,7 @@
     "the same title": "le même titre",
     "the same two characters and the same kind": "les deux mêmes personnages et le même genre",
     "the same two characters, and one kind says all the words of the other": "les deux mêmes personnages, et un genre dit tous les mots de l’autre",
+    "the scene “{title}”": "la scène « {title} »",
     "there is no relationship between them to change": "il n’y a pas de relation entre eux à modifier",
     "they share a name": "ils ont un nom en commun",
     "this event already changes it": "cet événement la modifie déjà",

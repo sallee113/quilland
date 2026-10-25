@@ -125,6 +125,10 @@
       "one": "{n} finding",
       "other": "{n} findings"
     },
+    "{n} findings already in the book: not listed": {
+      "one": "{n} finding already in the book: not listed",
+      "other": "{n} findings already in the book: not listed"
+    },
     "{n} findings left out: their quotes are not in the text": {
       "one": "{n} finding left out: its quote is not in the text",
       "other": "{n} findings left out: their quotes are not in the text"
@@ -1289,7 +1293,8 @@
     "after “{scene}”": "",
     "ai artificial intelligence model lm studio local server address context tokens connection": "",
     "ai prompts instructions temperature wording continue writing consistency grammar synopsis chat collect model": "",
-    "already has a card: only the scenes are added": "",
+    "already has a card": "",
+    "already has a card: adds {what}": "",
     "also called": "",
     "also called {names}": "",
     "also {names}": "",
@@ -1348,9 +1353,11 @@
     "nothing found": "",
     "one name is a word of the other: “{a}” and “{b}”": "",
     "one title says all the words of the other": "",
+    "other names: {names}": "",
     "panels right panel tabs section characters follow delay cursor": "",
     "part": "",
     "part {piece} of {pieces}": "",
+    "people: {names}": "",
     "places": "",
     "plan": "",
     "planned by {cards}": "",
@@ -1381,6 +1388,7 @@
     "the same title": "",
     "the same two characters and the same kind": "",
     "the same two characters, and one kind says all the words of the other": "",
+    "the scene “{title}”": "",
     "there is no relationship between them to change": "",
     "they share a name": "",
     "this event already changes it": "",

@@ -39,7 +39,44 @@ extension AppSelfTest {
         let report = sv.acceptChecked()!
         main.eventStore.reload()
         check(main.eventStore.events.count == before + 2, "accepting makes no second card for the same event: only the look-alike and the new one are made", "\(main.eventStore.events.map { $0.title ?? "" })")
-        check(report.updated >= 1 && main.eventStore.events.filter { $0.title == "Ссора на станции" }.count == 1 && !main.eventStore.events.contains { $0.title == "Ссора на станции вечером" }, "the same event added its scene to the card it repeats", "\(report)")
+        check(main.eventStore.events.filter { $0.title == "Ссора на станции" }.count == 1 && !main.eventStore.events.contains { $0.title == "Ссора на станции вечером" }, "no second card was made for the same event", "\(report)")
+
+        // A finding that repeats a card and would add nothing (the scene and the people are there) is not listed; the status line says how many.
+        main.collect.clear(); main.showSearch(.suggestions); spin(0.2)
+        let nothing = event("Ссора на станции", at: 40)
+        main.collect.inject([nothing]); spin(0.2)
+        check(sv.itemCount == 0 && main.collect.items.count == 1 && main.collect.alreadyInBookCount == 1, "a finding that would add nothing to its card is not listed", "\(sv.itemCount)")
+        check(sv.statusText.contains("1 finding already in the book"), "and the status line says so", sv.statusText)
+        // One that adds a scene or a person is listed, and says what it adds.
+        let vera = try! main.characters.add(name: "Дубль-Вера"); main.reloadStores()
+        main.collect.clear()
+        var more = event("Ссора на станции", at: 50)
+        more.members = ["Дубль-Анна", "Дубль-Вера"]
+        if scenes.count > 1 { more.evidence = [CollectedEvidence(scene: scenes[1].id, quote: "Вторая строка", range: NSRange(location: 5, length: 3), note: "")] }
+        main.collect.inject([more]); spin(0.2)
+        let text = sv.rowText(for: more.id)
+        check(sv.itemCount == 1 && text.contains("already has a card: adds") && text.contains("people: Дубль-Вера") && (scenes.count < 2 || text.contains("the scene “")), "one that adds a scene or a person is listed, and says what it adds", text)
+        try? BookIntegrity.deleteCharacter(vera, book: main.folder, snapshot: false)
+
+        // A change that names an event the book has (and a lone one in the same scene) goes to that event: no second event of the same title is made.
+        if scenes.count > 1 {
+            func change(_ who: String, _ detail: String, event: String) -> CollectedItem {
+                var c = CollectedItem(kind: .changes, name: who); c.field = "profile"; c.detail = detail; c.eventTitle = event
+                c.evidence = [CollectedEvidence(scene: scenes[1].id, quote: "Вторая строка", range: NSRange(location: 5, length: 3), note: "")]
+                return c
+            }
+            main.collect.clear()
+            main.collect.inject([change("Дубль-Анна", "Стала смелой.", event: "Ссора на станции"), change("Дубль-Лев", "Хмурый.", event: "")])
+            sv.checkAll()
+            _ = sv.acceptChecked()
+            main.eventStore.reload()
+            let named = main.eventStore.events.filter { $0.title == "Ссора на станции" }
+            check(named.count == 1 && named.first?.effectText(.profile, of: anna) == "Стала смелой." && named.first?.effectText(.profile, of: lev) == "Хмурый." && !main.eventStore.events.contains { $0.title?.hasPrefix("Changes in") == true }, "changes that name an event the book has go to it, and no event of the same title is made", "\(main.eventStore.events.map { $0.title ?? "" })")
+            // Found again (in other words): the event already changes it, so accepting could only refuse it: it is not listed.
+            main.collect.clear()
+            main.collect.inject([change("Дубль-Анна", "Совсем осмелела.", event: "Ссора на станции")]); spin(0.2)
+            check(sv.itemCount == 0 && main.collect.alreadyInBookCount == 1, "a change the named event already makes is not listed", "\(sv.itemCount)")
+        }
 
         main.searchPanel.onClose?(); spin(0.2)
         main.collect.clear()

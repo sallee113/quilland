@@ -186,9 +186,8 @@ extension AppSelfTest {
             check(main.collect.message.contains("2 skipped") && main.collect.message.contains("дом Сборкина"), "and the message names what was skipped", main.collect.message)
             check(sv.reasonShown(for: orphan.id), "and the row shows the reason")
             // The same again does not make a second card.
-            main.collect.inject([c]); sv.checkAll()
-            let second = sv.acceptChecked()!
-            check(second.created.isEmpty && second.updated == 1 && main.characters.characters.filter { $0.name == "Сборкин" }.count == 1, "accepting a thing found again only updates its card")
+            main.collect.inject([c])
+            check(sv.itemCount == 2 && main.collect.alreadyInBookCount == 1 && main.characters.characters.filter { $0.name == "Сборкин" }.count == 1, "a thing found again that adds nothing to its card is not listed, and no second card is made", "\(sv.itemCount)")
             // An event that is already in the book gets its participants too.
             try? main.eventStore.update(ev?.id ?? "-") { r in var l = r.characters; l.removeValue(forKey: known); r.characters = l }
             main.collect.inject([event]); sv.checkAll()

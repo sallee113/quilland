@@ -57,6 +57,7 @@ extension CollectSession {
             }
         }
         lookAlikes = marks
+        refreshAdditions()
     }
 
     /// The book changed (cards were made): what the findings are compared with is made again.

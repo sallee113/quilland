@@ -32,6 +32,8 @@ final class CollectSession {
     /// What the finder says of the findings as they come in: those that look like a card or another row (not the same for sure), and how many were joined to a row they repeat.
     var lookAlikes: [UUID: LookAlike] = [:]
     private(set) var mergedOnTheFly = 0
+    /// What each finding that repeats a card of the book would add to it (`refreshAdditions`); one that would add nothing is not listed.
+    var additions: [UUID: CardAddition] = [:]
     var cardFacetCache: [CollectKind: [(facet: DupeFacet, title: String)]]?
     var cardFacetSignature = ""
     private(set) var progress: CollectProgress?
@@ -51,6 +53,7 @@ final class CollectSession {
         }
     }
 
+    /// All the findings, also those that need no change; the ones to show are `visibleItems`.
     var items: [CollectedItem] { collected.items }
 
     // MARK: Running
@@ -62,6 +65,7 @@ final class CollectSession {
         checked = []
         skipReasons = [:]
         lookAlikes = [:]
+        additions = [:]
         mergedOnTheFly = 0
         cardFacetCache = nil
         summary = nil
@@ -165,7 +169,7 @@ final class CollectSession {
         onChange?()
     }
 
-    func clear() { collected = CollectedSet(); findings = []; checked = []; skipReasons = [:]; lookAlikes = [:]; mergedOnTheFly = 0; cardFacetCache = nil; summary = nil; message = ""; onChange?() }
+    func clear() { collected = CollectedSet(); findings = []; checked = []; skipReasons = [:]; lookAlikes = [:]; additions = [:]; mergedOnTheFly = 0; cardFacetCache = nil; summary = nil; message = ""; onChange?() }
 
     // MARK: Consistency Check
 

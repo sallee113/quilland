@@ -24,6 +24,8 @@ final class StoryAccept {
 
     init(main: MainAreaController, characterIDs: [String: String], entryIDs: [String: String], story: [CollectedItem]) {
         self.main = main; self.characterIDs = characterIDs; self.entryIDs = entryIDs
+        // The events the book has already: a change that names one goes to it, and no second event of that title is made.
+        for e in main.eventStore.events { if let id = e.id, let title = e.title { eventIDs[Names.normalize(title)] = id } }
         groups = Dictionary(grouping: story.filter { $0.kind == .changes || ($0.kind == .relationships && $0.when != "stated") }, by: { $0.evidence.first?.scene ?? "" })
     }
 
@@ -51,6 +53,7 @@ final class StoryAccept {
         let group = groups[scene] ?? [item]
         let named = group.first { !$0.eventTitle.isEmpty }?.eventTitle
         let sceneTitle = main.session.structure.scenes.first { $0.id == scene }?.node.title ?? ""
+        if let named, let id = eventIDs[Names.normalize(named)] { return id }   // (the event the scene's findings name is there already)
         let title = named ?? (group.count == 1 ? self.title(of: item) : L("Changes in “{scene}”", ["scene": sceneTitle]))
         guard let id = try? main.eventStore.add(title: title) else { return nil }
         try? main.eventStore.update(id) { $0.links = [scene: ""] }

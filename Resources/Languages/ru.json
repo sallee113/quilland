@@ -190,6 +190,12 @@
       "one": "{n} замечание",
       "other": "{n} замечания"
     },
+    "{n} findings already in the book: not listed": {
+      "few": "{n} находки уже есть в книге: не показаны",
+      "many": "{n} находок уже есть в книге: не показаны",
+      "one": "{n} находка уже есть в книге: не показана",
+      "other": "{n} находки уже есть в книге: не показаны"
+    },
     "{n} findings left out: their quotes are not in the text": {
       "few": "Отброшено {n} находки: цитат нет в тексте",
       "many": "Отброшено {n} находок: цитат нет в тексте",
@@ -1424,7 +1430,8 @@
     "after “{scene}”": "после «{scene}»",
     "ai artificial intelligence model lm studio local server address context tokens connection": "ии искусственный интеллект модель lm studio локальный сервер адрес контекст токены связь",
     "ai prompts instructions temperature wording continue writing consistency grammar synopsis chat collect model": "ии подсказки инструкции температура формулировка продолжить согласованность грамматика синопсис чат собрать модель",
-    "already has a card: only the scenes are added": "карточка уже есть: добавятся только сцены",
+    "already has a card": "карточка уже есть",
+    "already has a card: adds {what}": "карточка уже есть: добавятся {what}",
     "also called": "другие имена",
     "also called {names}": "другие имена: {names}",
     "also {names}": "ещё: {names}",
@@ -1483,9 +1490,11 @@
     "nothing found": "ничего не найдено",
     "one name is a word of the other: “{a}” and “{b}”": "одно имя — слово другого: «{a}» и «{b}»",
     "one title says all the words of the other": "одно название содержит все слова другого",
+    "other names: {names}": "другие имена: {names}",
     "panels right panel tabs section characters follow delay cursor": "панели правая панель вкладки раздел персонажи следовать задержка курсор",
     "part": "часть",
     "part {piece} of {pieces}": "часть {piece} из {pieces}",
+    "people: {names}": "участники: {names}",
     "places": "места",
     "plan": "план",
     "planned by {cards}": "задумано в: {cards}",
@@ -1516,6 +1525,7 @@
     "the same title": "то же название",
     "the same two characters and the same kind": "те же двое и тот же род связи",
     "the same two characters, and one kind says all the words of the other": "те же двое, и один род связи содержит все слова другого",
+    "the scene “{title}”": "сцена «{title}»",
     "there is no relationship between them to change": "между ними нет связи, которую можно изменить",
     "they share a name": "у них есть общее имя",
     "this event already changes it": "это событие уже меняет это",
