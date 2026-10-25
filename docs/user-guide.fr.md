@@ -72,6 +72,8 @@ Le menu Présentation (⌘1–⌘9 et ⌘0) choisit ce que montre la zone princi
 
 Faire glisser les bordures entre les panneaux change leur taille ; Quilland s’en souvient.
 
+**Chaque vue est laissée comme vous l’avez laissée.** Quand vous passez à une autre vue et revenez, ou fermez le livre et le rouvrez, chaque vue est comme elle était : les listes Personnages, Monde, Événements et Recherche gardent l’élément choisi, leur défilement et les filtres (le mot saisi et les pastilles *Filtrer par…*) ; l’arbre du Monde garde ce qui était fermé ; la vue « Plan détaillé » garde les parties et chapitres repliés ; le Plan garde son zoom et sa position ; le Graphe garde son aspect et ses réglages ; les Rappels gardent leur position. Cela est conservé sur votre machine (`.quilland/state.json`, hors Git). Un filtre actif reste actif, et sa pastille s’affiche ; retirez-le avec le ✕ de la pastille. Ce qui n’existe plus dans le livre est ignoré.
+
 ## 3. Écrire
 
 L’éditeur montre votre texte tel qu’il apparaîtra. Le fichier est en Markdown, mais vous ne tapez pas de symboles Markdown : les titres, le gras, l’italique et les blocs détachés s’affichent mis en forme.

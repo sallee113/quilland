@@ -150,6 +150,16 @@ final class RemindersViewController: NSViewController, NSTableViewDataSource, NS
         emptyLabel.isHidden = !store.reminders.isEmpty
     }
 
+    // MARK: Where it was left (kept for the book)
+
+    var memory: ViewMemory { ViewMemory(scroll: Double(table.scrolledBy)) }
+
+    func restore(_ m: ViewMemory?) {
+        guard let m else { return }
+        reload()
+        table.restoreScroll(m.scroll)
+    }
+
     private func row(_ i: Int) -> Row? { rows.indices.contains(i) ? rows[i] : nil }
 
     /// What the list shows now, for the checks: the texts of the open ones, then the done ones.

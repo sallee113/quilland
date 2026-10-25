@@ -151,18 +151,35 @@ public struct GraphViewMemory: Equatable, Sendable {
     }
 }
 
-/// Where the author left the Events view: the chosen event and how far the list is scrolled.
-public struct EventsViewMemory: Equatable, Sendable {
+/// Where the author left a view of the book: the chosen item, how far its list is scrolled, the word filter and the "Filter by…" chips, and (a tree) what is
+/// closed. A view is made again each time it is shown; this puts it back as it was.
+public struct ViewMemory: Equatable, Sendable {
     public var selected: String?
     public var scroll: Double
-    public init(selected: String? = nil, scroll: Double = 0) { self.selected = selected; self.scroll = scroll }
-    init?(object: JSONObject) {
-        guard object.string("selected") != nil || object.int("scroll") != nil else { return nil }
-        self.init(selected: object.string("selected"), scroll: Double(object.int("scroll") ?? 0))
+    public var filter: String
+    /// The "Filter by…" chips as `kind:id`.
+    public var anchors: [String]
+    /// The ids of what is closed in a tree (what has children and was left shut).
+    public var closed: [String]
+    /// A canvas (the Plan): how far it is scrolled across, and the zoom (0: not kept).
+    public var scrollX: Double
+    public var zoom: Double
+    public init(selected: String? = nil, scroll: Double = 0, filter: String = "", anchors: [String] = [], closed: [String] = [], scrollX: Double = 0, zoom: Double = 0) {
+        self.selected = selected; self.scroll = scroll; self.filter = filter; self.anchors = anchors; self.closed = closed; self.scrollX = scrollX; self.zoom = zoom
+    }
+    init?(object o: JSONObject) {
+        let m = ViewMemory(selected: o.string("selected"), scroll: Double(o.int("scroll") ?? 0), filter: o.string("filter") ?? "", anchors: o.strings("anchors") ?? [], closed: o.strings("closed") ?? [], scrollX: Double(o.int("scroll_x") ?? 0), zoom: Double(o.int("zoom_permille") ?? 0) / 1000)
+        guard m != ViewMemory() else { return nil }
+        self = m
     }
     var object: JSONObject {
         var o: JSONObject = ["scroll": .int(Int(scroll.rounded()))]
         if let selected { o["selected"] = .string(selected) }
+        if !filter.isEmpty { o["filter"] = .string(filter) }
+        if !anchors.isEmpty { o.setStrings("anchors", anchors) }
+        if !closed.isEmpty { o.setStrings("closed", closed) }
+        if scrollX != 0 { o["scroll_x"] = .int(Int(scrollX.rounded())) }
+        if zoom > 0 { o["zoom_permille"] = .int(Int((zoom * 1000).rounded())) }
         return o
     }
 }
@@ -186,11 +203,11 @@ public struct LocalBookState: Equatable, Sendable {
     public var split: Bool = false
     /// The Graph view's settings and place.
     public var graph: GraphViewMemory?
-    /// The Events view's chosen event and place in the list.
-    public var events: EventsViewMemory?
+    /// Where each list view was left, by the name of the view (`characters`, `world`, `events`, `research`, `reminders`).
+    public var views: [String: ViewMemory] = [:]
 
-    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false, graph: GraphViewMemory? = nil, events: EventsViewMemory? = nil) {
-        self.events = events
+    public init(scene: String? = nil, position: Int = 0, mode: String = "panels", rightPanel: Bool = false, dayDate: String? = nil, dayBaseline: Int? = nil, exportFolder: String? = nil, planFrom: String? = nil, split: Bool = false, graph: GraphViewMemory? = nil, views: [String: ViewMemory] = [:]) {
+        self.views = views
         self.split = split
         self.graph = graph
         self.exportFolder = exportFolder
@@ -211,10 +228,18 @@ public struct LocalBookState: Equatable, Sendable {
 
     static func url(_ book: URL) -> URL { book.appendingPathComponent(".quilland/state.json") }
 
+    private static func views(_ o: JSONObject) -> [String: ViewMemory] {
+        var out: [String: ViewMemory] = [:]
+        for (name, value) in o.object("views") ?? [:] { if case .object(let v) = value, let m = ViewMemory(object: v) { out[name] = m } }
+        // (The Events view's place was once kept on its own.)
+        if out["events"] == nil, let old = o.object("events"), let m = ViewMemory(object: old) { out["events"] = m }
+        return out
+    }
+
     public static func load(book: URL) -> LocalBookState {
         guard let data = try? Data(contentsOf: url(book)), let o = try? JSONParser.parseObject(data) else { return LocalBookState() }
         let cursor = o.object("cursor") ?? [:]
-        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false, graph: o.object("graph").flatMap(GraphViewMemory.init(object:)), events: o.object("events").flatMap(EventsViewMemory.init(object:)))
+        return LocalBookState(scene: cursor.string("scene"), position: cursor.int("position") ?? 0, mode: o.string("mode") ?? "panels", rightPanel: o.bool("right_panel") ?? false, dayDate: o.object("today")?.string("date"), dayBaseline: o.object("today")?.int("baseline"), exportFolder: o.string("export_folder"), planFrom: o.string("plan_from"), split: o.bool("split") ?? false, graph: o.object("graph").flatMap(GraphViewMemory.init(object:)), views: Self.views(o))
     }
 
     /// Keeps the keys it does not know (other parts of the state).
@@ -225,7 +250,9 @@ public struct LocalBookState: Equatable, Sendable {
         o["right_panel"] = .bool(rightPanel)
         o["split"] = .bool(split)
         if let graph { o["graph"] = .object(graph.object) } else { o.removeValue(forKey: "graph") }
-        if let events { o["events"] = .object(events.object) } else { o.removeValue(forKey: "events") }
+        o.removeValue(forKey: "events")   // (an earlier form of the Events view's place: it is in `views` now)
+        let kept = views.compactMapValues { $0 == ViewMemory() ? nil : $0.object }
+        if kept.isEmpty { o.removeValue(forKey: "views") } else { o["views"] = .object(kept.mapValues { .object($0) }) }
         if let exportFolder { o["export_folder"] = .string(exportFolder) }
         if let planFrom { o["plan_from"] = .string(planFrom) } else { o.removeValue(forKey: "plan_from") }
         if let dayDate, let dayBaseline { o["today"] = .object(["baseline": .int(dayBaseline), "date": .string(dayDate)]) }

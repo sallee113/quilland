@@ -293,6 +293,30 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         return []
     }
 
+    // MARK: Where it was left (kept for the book)
+
+    /// The chosen place, the place in the tree, what is open, and the filters.
+    var memory: ViewMemory {
+        ViewMemory(selected: selected, scroll: Double(outline.scrolledBy), filter: filterField.stringValue, anchors: relationFilter.memory,
+                   closed: byID.values.filter { !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted())
+    }
+
+    /// Puts the view back as it was left.
+    func restore(_ m: ViewMemory?) {
+        guard let m else { return }
+        filterField.stringValue = m.filter
+        relationFilter.restore(m.anchors)
+        if let id = m.selected, store.entry(id) != nil || store.world(id) != nil { selected = id }
+        reload()
+        // (A tree is opened wholly the first time; here what was left shut is shut again, and the chosen place is shown. A filter opens everything, as it does.)
+        if m.filter.isEmpty {
+            let closed = Set(m.closed)
+            for n in byID.values where closed.contains(n.id) { outline.collapseItem(n) }
+            if let id = selected { for n in path(to: id).dropLast() { outline.expandItem(n) }; let row = outline.row(forItem: byID[id]); if row >= 0 { outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) } }
+        }
+        outline.restoreScroll(m.scroll)
+    }
+
     func select(_ id: String, expandTo: Bool = true) {
         commitEdits()
         guard byID[id] != nil else { return }

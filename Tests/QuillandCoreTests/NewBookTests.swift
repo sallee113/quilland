@@ -91,10 +91,14 @@ struct NewBookTests {
         #expect(LocalBookState.load(book: book).graph == memory, "the Graph view's settings and place are kept")
         LocalBookState(scene: "s1", mode: "graph").save(book: book)
         #expect(LocalBookState.load(book: book).graph == nil, "and left out when there are none")
-        LocalBookState(scene: "s1", mode: "events", events: EventsViewMemory(selected: "e7", scroll: 412)).save(book: book)
-        #expect(LocalBookState.load(book: book).events == EventsViewMemory(selected: "e7", scroll: 412), "the Events view's chosen event and place in the list are kept")
+        let kept = ["events": ViewMemory(selected: "e7", scroll: 412, filter: "ссор", anchors: ["character:anna"]), "world": ViewMemory(selected: "w1", closed: ["a", "b"]), "research": ViewMemory()]
+        LocalBookState(scene: "s1", mode: "events", views: kept).save(book: book)
+        #expect(LocalBookState.load(book: book).views == ["events": kept["events"]!, "world": kept["world"]!], "each list view's chosen item, place, filters and open places are kept (an empty one is not)")
         LocalBookState(scene: "s1", mode: "events").save(book: book)
-        #expect(LocalBookState.load(book: book).events == nil, "and left out when there are none")
+        #expect(LocalBookState.load(book: book).views.isEmpty, "and left out when there are none")
+        let oldFile = #"{"format":1,"mode":"events","events":{"selected":"e9","scroll":30}}"#
+        try Data(oldFile.utf8).write(to: book.appendingPathComponent(".quilland/state.json"))
+        #expect(LocalBookState.load(book: book).views["events"] == ViewMemory(selected: "e9", scroll: 30), "the Events place kept in the earlier form is still read")
         var o = try JSONParser.parseObject(Data(contentsOf: book.appendingPathComponent(".quilland/state.json")))
         o["x_keep"] = .string("yes")
         try JSONWriter.data(o).write(to: book.appendingPathComponent(".quilland/state.json"))

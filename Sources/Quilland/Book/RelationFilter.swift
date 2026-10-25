@@ -29,6 +29,22 @@ final class RelationFilter: NSObject {
     let kind: RelationIndex.Kind
     var source: RelationFilterSource? { didSet { rebuild() } }
     private(set) var anchors: [RelationIndex.Anchor] = []
+
+    /// Puts the chips back from `memory`; the view then reloads itself (a chip whose item is gone from the book is taken off by `rebuild`).
+    func restore(_ keys: [String]) {
+        anchors = keys.compactMap { key in
+            guard let colon = key.firstIndex(of: ":") else { return nil }
+            let id = String(key[key.index(after: colon)...])
+            switch key[..<colon] {
+            case "section": return .section(id)
+            case "event": return .event(id)
+            case "character": return .character(id)
+            case "place": return .place(id)
+            default: return nil
+            }
+        }
+        invalidate()
+    }
     var onChange: (() -> Void)?
 
     let view = NSStackView()

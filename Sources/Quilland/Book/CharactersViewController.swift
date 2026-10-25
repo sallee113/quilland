@@ -276,6 +276,21 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         showCard()
     }
 
+    // MARK: Where it was left (kept for the book)
+
+    /// The chosen character, the place in the list and the filters.
+    var memory: ViewMemory { ViewMemory(selected: selected, scroll: Double(list.scrolledBy), filter: filterField.stringValue, anchors: relationFilter.memory) }
+
+    /// Puts the view back as it was left.
+    func restore(_ m: ViewMemory?) {
+        guard let m else { return }
+        filterField.stringValue = m.filter
+        relationFilter.restore(m.anchors)
+        if let id = m.selected, store.character(id) != nil { selected = id }
+        reload()
+        list.restoreScroll(m.scroll)
+    }
+
     func select(_ id: String) {
         commitEdits()
         selected = id

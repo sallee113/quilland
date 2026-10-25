@@ -798,6 +798,28 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
         if !scrollView.documentVisibleRect.contains(v.frame) { canvas.scrollToVisible(v.frame.insetBy(dx: -40, dy: -40)) }
     }
     func zoomToFit() { scrollView.magnify(toFit: canvas.frame) }
+
+    // MARK: Where it was left (kept for the book)
+
+    /// How far the canvas is scrolled, and the zoom.
+    var memory: ViewMemory {
+        let o = scrollView.contentView.bounds.origin
+        return ViewMemory(scroll: Double(o.y), scrollX: Double(o.x), zoom: Double(scrollView.magnification))
+    }
+
+    /// Puts the canvas back where it was (the view has no size yet when it is made: the place is put again once it has).
+    func restore(_ m: ViewMemory?) {
+        guard let m, m.zoom > 0 else { return }
+        scrollView.magnification = CGFloat(m.zoom)
+        let put = { [weak self] in
+            guard let clip = self?.scrollView.contentView else { return }
+            self?.scrollView.layoutSubtreeIfNeeded()
+            clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: NSPoint(x: m.scrollX, y: m.scroll), size: clip.bounds.size)).origin)
+            self?.scrollView.reflectScrolledClipView(clip)
+        }
+        put()
+        DispatchQueue.main.async(execute: put)
+    }
     private var visibleCenter: NSPoint { NSPoint(x: scrollView.contentView.bounds.midX, y: scrollView.contentView.bounds.midY) }
 
     // MARK: Context menus

@@ -220,6 +220,22 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         if let keep { select(keep, notify: false) }
     }
 
+    // MARK: Where it was left (kept for the book)
+
+    /// What was left shut in the tree, and how far it is scrolled.
+    var memory: ViewMemory { ViewMemory(scroll: Double(outline.scrolledBy), closed: byID.values.filter { $0.node.kind != .scene && !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted()) }
+
+    /// Shuts again what was shut when the tree was left (it is made with everything open), keeps the chosen section in view, and scrolls to where it was.
+    func restore(_ m: ViewMemory?) {
+        guard let m else { return }
+        let closed = Set(m.closed)
+        reloading = true
+        for item in byID.values where closed.contains(item.id) { outline.collapseItem(item) }
+        reloading = false
+        if let id = selectedIDs.first ?? selectedID { select(id, notify: false) }
+        outline.restoreScroll(m.scroll)
+    }
+
     /// Updates the sizes and statuses shown, without changing the structure.
     func refreshCounts() { outline.reloadData(forRowIndexes: IndexSet(0..<outline.numberOfRows), columnIndexes: IndexSet(integer: 0)) }
 

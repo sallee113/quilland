@@ -377,26 +377,22 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
 
     // MARK: Where it was left (kept for the book)
 
-    /// The chosen event and how far the list is scrolled.
-    var memory: EventsViewMemory { EventsViewMemory(selected: selected, scroll: Double(listScroll)) }
-    var listScroll: CGFloat { list.enclosingScrollView?.contentView.bounds.origin.y ?? 0 }
+    var listScroll: CGFloat { list.scrolledBy }
+    func scrollList(to y: CGFloat) { list.scroll(toPlace: y) }
 
-    /// Chooses the event that was chosen and puts the list where it was (the event is still in the book, or only the place is kept).
-    func restore(_ m: EventsViewMemory?) {
+    /// The chosen event, the place in the list and the filters.
+    var memory: ViewMemory { ViewMemory(selected: selected, scroll: Double(list.scrolledBy), filter: filterField.stringValue, anchors: relationFilter.memory) }
+
+    /// Puts the view back as it was left: the filters, the chosen event (when it is still there) and the place in the list.
+    func restore(_ m: ViewMemory?) {
         guard let m else { return }
-        if let id = m.selected, events.event(id) != nil { select(id) }
-        scrollList(to: CGFloat(m.scroll))
-        // (The view has no size yet when the book opens: once it has, the place is put again.)
-        DispatchQueue.main.async { [weak self] in self?.scrollList(to: CGFloat(m.scroll)) }
+        filterField.stringValue = m.filter
+        relationFilter.restore(m.anchors)
+        if let id = m.selected, events.event(id) != nil { selected = id }
+        reload()
+        list.restoreScroll(m.scroll)
     }
 
-    func scrollList(to y: CGFloat) {
-        guard let scroll = list.enclosingScrollView else { return }
-        let clip = scroll.contentView
-        scroll.layoutSubtreeIfNeeded()
-        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: NSPoint(x: 0, y: y), size: clip.bounds.size)).origin)
-        scroll.reflectScrolledClipView(clip)
-    }
     /// For the checks: the event the list shows as chosen, and the one the card shows.
     var chosenListTitle: String? { if list.selectedRow >= 0, listRows.indices.contains(list.selectedRow), case .event(let e) = listRows[list.selectedRow] { return e.title } else { return nil } }
     var cardTitle: String { titleField.stringValue }

@@ -70,6 +70,8 @@ The View menu (⌘1–⌘9 and ⌘0) chooses what the main area shows.
 
 Dragging the borders between panels changes their sizes; Quilland remembers them.
 
+**Every view is left as you left it.** When you go to another view and come back, or close the book and open it again, each view is as it was: the Characters, World, Events and Research lists keep the chosen item, how far they are scrolled and the filters (the word you typed and the *Filter by…* chips); the World tree keeps what was shut; the Outline keeps the parts and chapters that were folded; the Plan keeps its zoom and place; the Graph keeps its look and settings; the Reminders keep their place. This is kept on your machine (`.quilland/state.json`, not in Git). A filter that was on stays on, and its chip shows; take it off with the chip's ✕. Whatever no longer exists in the book is skipped.
+
 ## 3. Writing
 
 The editor shows your text as it will look. The file is Markdown, but you do not type Markdown symbols: headings, bold, italic and set-off blocks are shown as formatted text.

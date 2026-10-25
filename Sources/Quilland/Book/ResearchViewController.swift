@@ -225,6 +225,20 @@ final class ResearchViewController: NSViewController, NSTableViewDataSource, NST
         showCard()
     }
 
+    // MARK: Where it was left (kept for the book)
+
+    /// The chosen document, the place in the list and the filter.
+    var memory: ViewMemory { ViewMemory(selected: selected, scroll: Double(list.scrolledBy), filter: filterField.stringValue) }
+
+    /// Puts the view back as it was left.
+    func restore(_ m: ViewMemory?) {
+        guard let m else { return }
+        filterField.stringValue = m.filter
+        if let id = m.selected, research.document(id) != nil { selected = id }
+        reload()
+        list.restoreScroll(m.scroll)
+    }
+
     func select(_ id: String) {
         commitEdits()
         selected = id

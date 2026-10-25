@@ -90,7 +90,7 @@ final class MainAreaController: NSViewController {
     var onChange: (() -> Void)?
     var pendingCursor: (scene: String, position: Int)?
     /// Where the Events view was left (kept for the book, and while another view is shown).
-    private var eventsMemory: EventsViewMemory?
+    private var viewMemories: [String: ViewMemory] = [:]
 
     init(folder: URL, state: LocalBookState) throws {
         self.folder = folder
@@ -103,7 +103,7 @@ final class MainAreaController: NSViewController {
         mode = state.mode == "compare" ? .book : (Mode(rawValue: state.mode) ?? .panels)
         isSplit = state.split || state.mode == "compare"
         graphState = GraphViewState(memory: state.graph)
-        eventsMemory = state.events
+        viewMemories = state.views
         if [.panels, .book].contains(mode) { writingMode = mode }
         showsRightPanel = state.rightPanel
         day = state
@@ -256,6 +256,22 @@ final class MainAreaController: NSViewController {
     }
 
     /// The scene and the place of the cursor now, so that a rebuilt view can put it back.
+    /// Where the list views stand now (the ones shown), over what was kept of the others.
+    private func currentViewMemories() -> [String: ViewMemory] {
+        var out = viewMemories
+        if let v = charactersView { out[Mode.characters.rawValue] = v.memory }
+        if let v = worldView { out[Mode.world.rawValue] = v.memory }
+        if let v = eventsView { out[Mode.events.rawValue] = v.memory }
+        if let v = researchView { out[Mode.research.rawValue] = v.memory }
+        if let v = remindersView { out[Mode.reminders.rawValue] = v.memory }
+        if let v = planController { out[Mode.plan.rawValue] = v.memory }
+        if let v = tree { out["tree"] = v.memory }
+        return out
+    }
+
+    /// A view that is about to go: where it stands is kept, to be put back when it is made again.
+    private func keepViewMemories() { viewMemories = currentViewMemories() }
+
     func remember() {
         if let c = activeArea, let id = c.currentSceneID, let tv = c.currentSheet?.textView {
             pendingCursor = (id, tv.selectedRange().location)
@@ -292,7 +308,7 @@ final class MainAreaController: NSViewController {
 
     private func tearDownViews() {
         graphView?.captureViewport()
-        if let events = eventsView { eventsMemory = events.memory }
+        keepViewMemories()
         container.subviews.forEach { $0.removeFromSuperview() }
         controllers = []
         writingSplit = nil
@@ -364,6 +380,7 @@ final class MainAreaController: NSViewController {
         list.reload(structure: session.structure, characters: { [weak self] in self?.session.document($0)?.counts.characters ?? 0 })
         if let selected = pendingTreeSelection ?? scene { list.select(selected, notify: false) }
         pendingTreeSelection = nil
+        list.restore(viewMemories["tree"])
         list.onSelectScene = { [weak self] id in self?.showScene(id) }
         list.onEnterText = { [weak self] in self?.enterText() }
         wireStructureCommands(list)
@@ -399,6 +416,7 @@ final class MainAreaController: NSViewController {
         let here = pendingTreeSelection ?? pendingCursor?.scene ?? session.structure.scenes.first?.id
         pendingTreeSelection = nil
         if let here { list.select(here, notify: false); detail.show([here]) }
+        list.restore(viewMemories["tree"])
         tree = list
         outlineDetail = detail
         let split = twoPanes(left: list, right: detail, autosave: "QuillandOutline", leftMin: 240, leftMax: 640, rightMin: 380)
@@ -441,6 +459,7 @@ final class MainAreaController: NSViewController {
         view.relationFilter.source = relationFilterSource()
         _ = view.view
         charactersView = view
+        view.restore(viewMemories[Mode.characters.rawValue])
         return Built(view: view.view, controller: nil)
     }
 
@@ -466,6 +485,7 @@ final class MainAreaController: NSViewController {
         view.relationFilter.source = relationFilterSource()
         _ = view.view
         worldView = view
+        view.restore(viewMemories[Mode.world.rawValue])
         return Built(view: view.view, controller: nil)
     }
 
@@ -490,7 +510,7 @@ final class MainAreaController: NSViewController {
         view.relationFilter.source = relationFilterSource()
         _ = view.view
         eventsView = view
-        view.restore(eventsMemory)
+        view.restore(viewMemories[Mode.events.rawValue])
         return Built(view: view.view, controller: nil)
     }
 
@@ -547,6 +567,7 @@ final class MainAreaController: NSViewController {
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         _ = view.view
         researchView = view
+        view.restore(viewMemories[Mode.research.rawValue])
         return Built(view: view.view, controller: nil)
     }
 
@@ -557,6 +578,7 @@ final class MainAreaController: NSViewController {
         view.onEscape = { [weak self] in self?.leaveFullAreaView() }
         _ = view.view
         remindersView = view
+        view.restore(viewMemories[Mode.reminders.rawValue])
         return Built(view: view.view, controller: nil)
     }
 
@@ -585,6 +607,7 @@ final class MainAreaController: NSViewController {
         plan.showFrom = planFrom.flatMap { id in plan.sectionChoices.contains { $0.id == id } ? id : nil }
         plan.onChange = { [weak self] in self?.onChange?() }
         planController = plan
+        plan.restore(viewMemories[Mode.plan.rawValue])
         return Built(view: plan.view, controller: nil)
     }
 
@@ -909,6 +932,6 @@ final class MainAreaController: NSViewController {
         remember()
         graphView?.captureViewport()
         _ = writtenToday
-        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit, graph: graphState.memory, events: eventsView?.memory ?? eventsMemory)
+        return LocalBookState(scene: pendingCursor?.scene, position: pendingCursor?.position ?? 0, mode: mode.rawValue, rightPanel: showsRightPanel, dayDate: day.dayDate, dayBaseline: day.dayBaseline, planFrom: planFrom, split: isSplit, graph: graphState.memory, views: currentViewMemories())
     }
 }
