@@ -86,7 +86,7 @@ struct NewBookTests {
         #expect(LocalBookState.load(book: book) == LocalBookState(scene: "s1", position: 1432, mode: "book", split: true))
         var memory = GraphViewMemory()
         memory.look = "neighbourhood"; memory.kinds = ["character", "scene"]; memory.showUnlinked = false; memory.section = "ch1"; memory.focus = "anna"; memory.depth = 2
-        memory.zoom = 0.625; memory.centerX = -120; memory.centerY = 340
+        memory.zoom = 0.625; memory.centerX = -120; memory.centerY = 340; memory.direction = "horizontal"
         LocalBookState(scene: "s1", mode: "graph", graph: memory).save(book: book)
         #expect(LocalBookState.load(book: book).graph == memory, "the Graph view's settings and place are kept")
         LocalBookState(scene: "s1", mode: "graph").save(book: book)

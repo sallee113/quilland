@@ -2,7 +2,8 @@ import Foundation
 
 /// How the places change along the book, as a graph of its own: the scenes that places are linked to (a place has a line in them, or an event held at it is in them)
 /// are a spine that runs from the top left to the bottom right, and each scene is a **bush** of its own: its places, and for each place the characters who took part in an
-/// event held there in that scene. Nothing is shared between scenes (a place that comes back is a new node each time), and a scene with a single place has no node of its
+/// event held there in that scene. The bushes stand on both sides of the spine (each on the side that lets the spine be shorter), so scenes that are next to each other
+/// do not have to make room for one another. Nothing is shared between scenes (a place that comes back is a new node each time), and a scene with a single place has no node of its
 /// own: the place stands in its place on the spine. The places of the nodes are worked out.
 public enum LocationsBuilder {
     /// `only`: follow one character (the scenes where they are at a place, and only they in the bushes); nil: everyone.
@@ -74,20 +75,36 @@ public enum LocationsBuilder {
         func total(_ scene: String) -> Double { guard let b = bushes[scene] else { return unit }; return max(unit, b.roots.reduce(0.0) { $0 + width(b, scene, $1) }) }
 
         var along: [String: Double] = [:]
+        var side: [String: Double] = [:]   // +1: the lower left of the spine, -1: the upper right (a scene with its place on the spine has none)
         var cumulative = 0.0
         var previous: (scene: String, pos: Int)?
+        var lastOnSide: [Double: String] = [:]
         var gaps: [String: Int] = [:]
+        let slope = step.x * tangent.x + step.y * tangent.y
         for s in scenes {
             let pos = scenePos[s] ?? 0
-            var factor = 1.0
+            var base = previous == nil ? 0.0 : 1.0
             var gap = 0
             if let p = previous {
                 gap = pos - p.pos - 1
-                if gap > ArcBuilder.gapScenes { factor += min(1.5, Double(gap) / 6) } else { gap = 0 }
-                // (Room for the bushes of the two scenes side by side.)
-                factor = max(factor, (total(p.scene) / 2 + total(s) / 2 + 40) / (step.x * tangent.x + step.y * tangent.y))
+                if gap > ArcBuilder.gapScenes { base += min(1.5, Double(gap) / 6) } else { gap = 0 }
             }
-            if previous != nil { cumulative += factor }
+            let b = bushes[s]
+            let own = !(b.map { $0.nodes.count == 1 && $0.roots.count == 1 } ?? true)
+            if own {
+                // Room beside the last bush on the same side; the side that needs the shorter spine is the one chosen (the lower left when both do).
+                func needed(_ sideOfScene: Double) -> Double {
+                    guard let q = lastOnSide[sideOfScene], let at = along[q] else { return cumulative + base }
+                    return max(cumulative + base, at + (total(q) / 2 + total(s) / 2 + 40) / slope)
+                }
+                let lower = needed(1), upper = needed(-1)
+                let chosen: Double = upper < lower - 0.001 ? -1 : 1
+                side[s] = chosen
+                cumulative = chosen == 1 ? lower : upper
+                lastOnSide[chosen] = s
+            } else if previous != nil {
+                cumulative += base
+            }
             along[s] = cumulative
             gaps[s] = gap
             previous = (s, pos)
@@ -98,7 +115,8 @@ public enum LocationsBuilder {
         for s in scenes {
             guard let b = bushes[s] else { continue }
             let origin = spinePoint(along[s] ?? 0)
-            func at(_ offset: Double, _ depth: Double) -> GraphPoint { GraphPoint(x: origin.x + tangent.x * offset + normal.x * depth, y: origin.y + tangent.y * offset + normal.y * depth) }
+            let way = side[s] ?? 1
+            func at(_ offset: Double, _ depth: Double) -> GraphPoint { GraphPoint(x: origin.x + tangent.x * offset + normal.x * depth * way, y: origin.y + tangent.y * offset + normal.y * depth * way) }
             // A scene with one place and no parent has no node of its own: the place stands on the spine.
             let merged = b.nodes.count == 1 && b.roots.count == 1
             let spineID: String

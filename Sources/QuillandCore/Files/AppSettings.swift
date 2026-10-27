@@ -113,6 +113,8 @@ public struct GraphViewMemory: Equatable, Sendable {
     public var section: String?
     public var focus: String?
     public var depth = 1
+    /// Which way the main line of a computed view runs: `diagonal` (from the top left), `horizontal` or `vertical`.
+    public var direction = "diagonal"
     /// The zoom, and the middle of what was in view, in the layout's own coordinates; nil: fit everything.
     public var zoom: Double?
     public var centerX: Double?
@@ -132,6 +134,7 @@ public struct GraphViewMemory: Equatable, Sendable {
         section = o.string("section")
         focus = o.string("focus")
         depth = o.int("depth") ?? 1
+        direction = o.string("direction") ?? "diagonal"
         if let z = o.string("zoom"), let v = Double(z) { zoom = v }
         centerX = o.int("center_x").map(Double.init)
         centerY = o.int("center_y").map(Double.init)
@@ -145,6 +148,7 @@ public struct GraphViewMemory: Equatable, Sendable {
         o.setString("as_of", asOf)
         if colourBy != "kind" { o.setString("colour_by", colourBy) }
         o.setString("plot_line", plotLine)
+        if direction != "diagonal" { o.setString("direction", direction) }
         if let zoom { o["zoom"] = .string(String(format: "%.3f", zoom)) }
         if let centerX, let centerY { o["center_x"] = .int(Int(centerX.rounded())); o["center_y"] = .int(Int(centerY.rounded())) }
         return o

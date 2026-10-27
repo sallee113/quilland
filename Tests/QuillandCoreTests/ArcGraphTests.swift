@@ -171,4 +171,81 @@ struct PlanMapTests {
         #expect(g.nodes.allSatisfy { $0.anchored }, "the strands are the plan itself: nothing there moves")
         #expect(PlanMapBuilder.build(plan: try PlanStore(folder: try PlanTests.folder()), events: f.events).graph.nodes.isEmpty, "an empty plan is an empty map")
     }
+
+    @Test("the bushes stand on both sides of the spine, and the main line can run another way")
+    func sidesAndDirections() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let id = f.ids
+        let world = try #require(f.worlds.worlds.first?.id)
+        let hall = try f.worlds.addEntry(name: "Зал", world: world)
+        try f.events.update(id["arrival"]!) { $0.places = [id["manor"]!: "", id["port"]!: ""] }
+        try f.events.update(id["departure"]!) { $0.places = [id["port"]!: "", hall: ""] }
+        let a = LocationsTests.build(f)
+        func at(_ id: String) -> GraphPoint { a.positions[id]! }
+        // Which side of the spine a place stands on: along the normal of the spine (lower left is positive).
+        func side(_ scene: String, _ place: String) -> Double {
+            let p = at("bush:\(scene)|\(place)"), o = at(scene)
+            return (p.x - o.x) * -0.54 + (p.y - o.y) * 0.84
+        }
+        #expect(side("s1", id["manor"]!) > 0 && side("s2", id["port"]!) < 0, "the first bush hangs on the lower left, the next on the upper right")
+        // The spine is shorter than when every bush had to make room for the one before it.
+        #expect(at("s2").x - at("s1").x < 190, "neighbouring scenes on opposite sides stand close on the spine: \(at("s2").x - at("s1").x)")
+
+        // The directions: the same picture, turned.
+        let spine = ["s1", "s2"]
+        let horizontal = a.rotated(.horizontal), vertical = a.rotated(.vertical)
+        let h1 = horizontal.positions[spine[0]]!, h2 = horizontal.positions[spine[1]]!, v1 = vertical.positions[spine[0]]!, v2 = vertical.positions[spine[1]]!
+        #expect(abs(h1.y - h2.y) < 0.01 && h1.x < h2.x, "left to right: the spine is level")
+        #expect(abs(v1.x - v2.x) < 0.01 && v1.y < v2.y, "top to bottom: the spine is upright")
+        #expect(a.rotated(.diagonal).positions == a.positions, "diagonal is as it was")
+        func distance(_ g: ArcGraph, _ x: String, _ y: String) -> Double { let p = g.positions[x]!, q = g.positions[y]!; return ((p.x - q.x) * (p.x - q.x) + (p.y - q.y) * (p.y - q.y)).squareRoot() }
+        let pair = ("s1", "bush:s1|\(id["manor"]!)")
+        let before = distance(a, pair.0, pair.1), h = distance(horizontal, pair.0, pair.1), v = distance(vertical, pair.0, pair.1)
+        #expect(abs(before - h) < 0.01, "distances do not change when turned left to right")
+        #expect(abs(before - v) < 0.01, "or top to bottom")
+        #expect(horizontal.graph.nodes.count == a.graph.nodes.count && horizontal.graph.edges.count == a.graph.edges.count, "nothing is added or lost")
+    }
+
+    @Test("the plan map and the arc turn with the main line too")
+    func otherLooks() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let arc = ArcBuilder.build(character: f.ids["anna"]!, characters: f.characters, worlds: f.worlds, events: f.events, relationships: f.relationships, structure: f.structure)
+        let spine = arc.graph.nodes.filter { $0.anchored }.map(\.id)
+        #expect(spine.count >= 2)
+        let h = arc.rotated(.horizontal), v = arc.rotated(.vertical)
+        let ys = Set(spine.map { (h.positions[$0]!.y * 100).rounded() }), xs = Set(spine.map { (v.positions[$0]!.x * 100).rounded() })
+        #expect(ys.count == 1 && xs.count == 1, "the arc's spine is level, or upright")
+    }
+}
+
+@Suite("The place tree in blocks")
+struct PlaceTreeBlocksTests {
+    @Test("each world with its places is a block; two blocks stand side by side, the third begins a new row, and none overlap")
+    func blocks() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let first = try #require(f.worlds.worlds.first?.id)
+        var ids: [[String]] = [[first] + f.worlds.entries.filter { $0.world == first }.compactMap(\.id)]
+        for name in ["Второй мир", "Третий мир"] {
+            let w = try f.worlds.addWorld(name: name)
+            let one = try f.worlds.addEntry(name: name + " А", world: w), two = try f.worlds.addEntry(name: name + " Б", world: w), inner = try f.worlds.addEntry(name: name + " В", world: w, parent: one)
+            ids.append([w, one, two, inner])
+        }
+        let firstIDs = ids[0]
+        func tree() -> ArcGraph { PlaceTreeBuilder.build(characters: f.characters, worlds: f.worlds, events: f.events, relationships: f.relationships) }
+        let g = tree()
+        func box(_ ids: [String]) -> (x: ClosedRange<Double>, y: ClosedRange<Double>) {
+            let ps = ids.compactMap { g.positions[$0] }
+            return ((ps.map(\.x).min()!)...(ps.map(\.x).max()!), (ps.map(\.y).min()!)...(ps.map(\.y).max()!))
+        }
+        // (In the order of the worlds in the book.)
+        let order = f.worlds.worlds.compactMap(\.id)
+        ids.sort { (order.firstIndex(of: $0[0]) ?? 0) < (order.firstIndex(of: $1[0]) ?? 0) }
+        let boxes = ids.map(box)
+        for i in 0..<boxes.count { for j in (i + 1)..<boxes.count { #expect(!(boxes[i].x.overlaps(boxes[j].x) && boxes[i].y.overlaps(boxes[j].y)), "the worlds \(i) and \(j) do not overlap") } }
+        #expect(boxes[0].y.overlaps(boxes[1].y) && boxes[1].x.lowerBound > boxes[0].x.upperBound, "the second world stands next to the first")
+        #expect(boxes[2].y.lowerBound > boxes[0].y.upperBound, "the third begins a new row")
+        #expect(Set(g.graph.nodes.map(\.id)) == Set(ids.flatMap { $0 }), "every world and place is there once")
+        let one = PlaceTreeBuilder.build(only: first, characters: f.characters, worlds: f.worlds, events: f.events, relationships: f.relationships)
+        #expect(Set(one.graph.nodes.map(\.id)) == Set(firstIDs) && one.positions.values.map(\.x).min() == 0, "one world alone")
+    }
 }

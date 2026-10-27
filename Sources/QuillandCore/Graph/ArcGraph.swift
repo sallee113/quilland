@@ -6,6 +6,34 @@ import Foundation
 public struct ArcGraph: Sendable {
     public var graph = BookGraph()
     public var positions: [String: GraphPoint] = [:]
+
+    /// The layout with its main line in the direction asked for. The builders draw the line from the top left to the bottom right; the whole picture is turned about its
+    /// start, so its shape stays the same.
+    public func rotated(_ direction: GraphDirection) -> ArcGraph {
+        guard direction != .diagonal else { return self }
+        // The main line runs along (175, 110); a quarter turn more makes it vertical.
+        let line = atan2(GraphDirection.step.y, GraphDirection.step.x)
+        let angle = direction == .horizontal ? -line : Double.pi / 2 - line
+        let c = cos(angle), s = sin(angle)
+        let origin = GraphDirection.origin
+        var out = self
+        out.positions = positions.mapValues { p in
+            let dx = p.x - origin.x, dy = p.y - origin.y
+            return GraphPoint(x: origin.x + dx * c - dy * s, y: origin.y + dx * s + dy * c)
+        }
+        return out
+    }
+}
+
+/// Which way the main line of a computed view (the arc, the locations, the plan map) runs.
+public enum GraphDirection: String, CaseIterable, Sendable {
+    /// From the top left to the bottom right.
+    case diagonal
+    case horizontal
+    case vertical
+
+    static let origin = GraphPoint(x: 80, y: 80)
+    static let step = GraphPoint(x: 175, y: 110)
 }
 
 public enum ArcBuilder {

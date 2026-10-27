@@ -6,7 +6,7 @@ public enum PlaceTreeBuilder {
     /// `only`: one world's tree (nil: every world).
     public static func build(only world: String? = nil, characters: CharacterStore, worlds: WorldStore, events: EventStore, relationships: RelationshipStore) -> ArcGraph {
         var out = ArcGraph()
-        let columnGap = 230.0, rowGap = 62.0
+        let columnGap = 230.0, rowGap = 62.0, nodeWidth = 170.0
         var nextY = 0.0
         var seen = Set<String>()
 
@@ -43,20 +43,55 @@ public enum PlaceTreeBuilder {
             return y
         }
 
+        // Each world with its places is a block of its own, laid out from the left to the right; the blocks are then set in rows on the canvas (in the order of the worlds),
+        // a row at a time, so that the picture fills a wide window instead of making one tall column.
+        struct Block {
+            var nodes: [GraphNode] = []
+            var edges: [GraphEdge] = []
+            var points: [String: GraphPoint] = [:]
+            var width = 0.0, height = 0.0
+        }
+        var blocks: [Block] = []
         for w in worlds.worlds where world == nil || w.id == world {
             guard let wid = w.id else { continue }
+            let before = (nodes: out.graph.nodes.count, edges: out.graph.edges.count)
+            let savedPositions = out.positions
+            out.positions = [:]
+            nextY = 0
             // A place whose parent is gone, or in another world, hangs from its world.
             let ids = Set(worlds.entries.filter { $0.world == wid }.compactMap(\.id))
             let roots = worlds.entries.filter { $0.world == wid && ($0.parent == nil || !ids.contains($0.parent ?? "")) }.sorted { name($0).localizedLowercase < name($1).localizedLowercase }
-            let startY = nextY
             let rows = roots.compactMap { lay($0, parent: wid, depth: 1, world: wid) }
             let y = rows.isEmpty ? { let v = nextY; nextY += rowGap; return v }() : (rows.first! + rows.last!) / 2
-            _ = startY
             var root = GraphNode(id: wid, kind: .world, title: title(w.name))
             root.anchored = true
             out.graph.nodes.append(root)
             out.positions[wid] = GraphPoint(x: 0, y: y)
-            nextY += rowGap * 0.8   // (a little air between worlds)
+            var block = Block()
+            block.nodes = Array(out.graph.nodes[before.nodes...])
+            block.edges = Array(out.graph.edges[before.edges...])
+            block.points = out.positions
+            let xs = block.points.values.map(\.x), ys = block.points.values.map(\.y)
+            block.width = (xs.max() ?? 0) + nodeWidth
+            block.height = (ys.max() ?? 0) - (ys.min() ?? 0) + rowGap
+            blocks.append(block)
+            out.graph.nodes.removeSubrange(before.nodes...)
+            out.graph.edges.removeSubrange(before.edges...)
+            out.positions = savedPositions
+        }
+        // The blocks stand in rows of about the square root of their number (rounded up), in the order of the worlds: two worlds are side by side, three or four make two
+        // rows of two, five to nine three rows of three, so that the picture fills a wide window instead of making one tall column.
+        let airX = 70.0, airY = 50.0
+        let perRow = max(1, Int(Double(blocks.count).squareRoot().rounded(.up)))
+        var x = 0.0, top = 0.0, rowHeight = 0.0
+        for (n, block) in blocks.enumerated() {
+            if n > 0, n % perRow == 0 { top += rowHeight + airY; x = 0; rowHeight = 0 }
+            let low = block.points.values.map(\.y).min() ?? 0
+            out.graph.nodes += block.nodes
+            out.graph.edges += block.edges
+            for (id, p) in block.points { out.positions[id] = GraphPoint(x: x + p.x, y: top + p.y - low) }
+            x += block.width + airX
+            rowHeight = max(rowHeight, block.height)
         }
         return out
     }

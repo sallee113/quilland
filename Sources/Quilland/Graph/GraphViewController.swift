@@ -17,6 +17,8 @@ struct GraphViewState {
     var section: String?
     var focus: String?
     var depth = 1
+    /// Which way the main line of the arc, the locations and the plan map runs.
+    var direction = GraphDirection.diagonal
     /// Where the view was looking: the zoom and the middle of what was in view, in the layout's own coordinates (nil: fit everything).
     var zoom: Double?
     var center: GraphPoint?
@@ -31,6 +33,7 @@ struct GraphViewState {
         showEnded = m.showEnded; changesOnly = m.changesOnly; asOf = m.asOf
         colourByLine = m.colourBy == "plot_line"; plotLine = m.plotLine
         section = m.section; focus = m.focus; depth = max(1, min(3, m.depth))
+        direction = GraphDirection(rawValue: m.direction) ?? .diagonal
         zoom = m.zoom
         if let x = m.centerX, let y = m.centerY { center = GraphPoint(x: x, y: y) }
     }
@@ -43,6 +46,7 @@ struct GraphViewState {
         m.showEnded = showEnded; m.changesOnly = changesOnly; m.asOf = asOf
         m.colourBy = colourByLine ? "plot_line" : "kind"; m.plotLine = plotLine
         m.section = section; m.focus = focus; m.depth = depth
+        m.direction = direction.rawValue
         m.zoom = zoom; m.centerX = center?.x; m.centerY = center?.y
         return m
     }
@@ -82,7 +86,8 @@ final class GraphViewController: NSViewController {
     private let showButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let settingsFlow = FlowView()
     private var kindsGroup = RowView([]), sectionGroup = RowView([]), colourGroup = RowView([]), showGroup = RowView([]), asOfGroup = RowView([])
-    private var focusGroup = RowView([]), stepsGroup = RowView([])
+    private var focusGroup = RowView([]), stepsGroup = RowView([]), directionGroup = RowView([])
+    private let directionPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let focusLabel = NSTextField(labelWithString: "")
     private let hintLabel = NSTextField(labelWithString: "")
     private let colourPopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -157,6 +162,11 @@ final class GraphViewController: NSViewController {
         kindsGroup = group(GraphKind.allCases.compactMap { kindBoxes[$0] })
         sectionGroup = group([caption(L("Section")), sectionPopup])
         colourGroup = group([caption(L("Colour by")), colourPopup, caption(L("Plot line")), linePopup])
+        directionPopup.addItems(withTitles: [L("Diagonal"), L("Left to right"), L("Top to bottom")])
+        directionPopup.target = self; directionPopup.action = #selector(directionChanged); directionPopup.controlSize = .small
+        directionPopup.setAccessibilityLabel(L("Main line"))
+        directionPopup.toolTip = L("Which way the main line runs: from the top left to the bottom right, from the left to the right, or from the top to the bottom")
+        directionGroup = group([caption(L("Main line")), directionPopup])
         showGroup = group([showButton])
         asOfGroup = group([caption(L("As of")), asOfBack, asOfSlider, asOfForward, asOfLabel], caps: [asOfSlider: 130, asOfLabel: 200])
         focusLabel.font = .systemFont(ofSize: 11); focusLabel.textColor = .secondaryLabelColor
@@ -164,7 +174,7 @@ final class GraphViewController: NSViewController {
         stepsGroup = group([caption(L("Steps")), depthControl])
         hintLabel.font = .systemFont(ofSize: 11); hintLabel.textColor = .secondaryLabelColor
         hintLabel.stringValue = L("Each plot line is a strand; a hollow card has not been realised by an event yet")
-        settingsFlow.set([focusGroup, stepsGroup, kindsGroup, sectionGroup, colourGroup, showGroup, asOfGroup, legendRow, hintLabel])
+        settingsFlow.set([focusGroup, stepsGroup, directionGroup, kindsGroup, sectionGroup, colourGroup, showGroup, asOfGroup, legendRow, hintLabel])
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         spacer.setContentCompressionResistancePriority(.init(1), for: .horizontal)
@@ -255,6 +265,8 @@ final class GraphViewController: NSViewController {
         // The plan map: a strand for each plot line, with its cards and events, and the cards joined to the events that realised them.
         let planMap: ArcGraph? = state.look == .plan ? planStore.map { PlanMapBuilder.build(plan: $0, events: events) } : nil
         let isArc = state.look == .arc || state.look == .places || state.look == .locations || state.look == .plan
+        let direction = state.direction
+        let turned = { (g: ArcGraph?) in g?.rotated(direction) }   // (the main line runs the way the setting says)
         graph = isArc ? (arc?.graph ?? tree?.graph ?? locations?.graph ?? planMap?.graph ?? BookGraph()) : GraphBuilder.build(characters: characters, worlds: worlds, events: events, relationships: relationships, structure: structure(), options: options, plan: planStore)
         canvas.allowsDragging = true
         canvas.lineStyles = Dictionary((planStore?.lines ?? []).compactMap { l in l.id.map { ($0, (name: l.name ?? "", color: l.color)) } }, uniquingKeysWith: { a, _ in a })
@@ -269,7 +281,7 @@ final class GraphViewController: NSViewController {
         // (As of a point only flags change, not the nodes and lines: the layout is not made again, so that the picture stays still while the point moves.)
         let key = graph.nodes.map(\.id).joined(separator: ",") + "|" + graph.edges.map { "\($0.a)-\($0.b)-\($0.kind.rawValue)-\($0.weight)" }.joined(separator: ",") + "|" + pinned.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.x),\($0.value.y)" }.joined(separator: ";")
         let placed: [String: GraphPoint]
-        if isArc { placed = (arc?.positions ?? tree?.positions ?? locations?.positions ?? planMap?.positions ?? [:]).merging(movedHere) { _, moved in moved } } else if key == lastLayoutKey, let kept = lastPlaced { placed = kept } else { placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned); lastLayoutKey = key; lastPlaced = placed }
+        if isArc { placed = (turned(arc)?.positions ?? tree?.positions ?? turned(locations)?.positions ?? turned(planMap)?.positions ?? [:]).merging(movedHere) { _, moved in moved } } else if key == lastLayoutKey, let kept = lastPlaced { placed = kept } else { placed = GraphLayout.layout(nodes: graph.nodes, edges: graph.edges, pinned: pinned); lastLayoutKey = key; lastPlaced = placed }
         let xs = placed.values.map(\.x), ys = placed.values.map(\.y)
         let minX = xs.min() ?? 0, minY = ys.min() ?? 0, maxX = xs.max() ?? 0, maxY = ys.max() ?? 0
         offset = CGPoint(x: Self.margin - minX, y: Self.margin - minY)
@@ -346,13 +358,15 @@ final class GraphViewController: NSViewController {
     /// The views that are worked out (not the book's graph) keep where nodes were moved under their own keys: the view and its subject, then the node.
     private var scope: String? {
         switch state.look {
-        case .arc: return "arc|" + (state.focus ?? "")
+        // (A moved node is kept for the direction of the main line it was moved in: the picture is turned with it.)
+        case .arc: return "arc|" + (state.focus ?? "") + directionKey
         case .places: return "places|" + (state.focus ?? "")
-        case .locations: return "locations|" + (state.focus ?? "")
-        case .plan: return "plan|"
+        case .locations: return "locations|" + (state.focus ?? "") + directionKey
+        case .plan: return "plan|" + directionKey
         default: return nil
         }
     }
+    private var directionKey: String { state.direction == .diagonal ? "" : "@" + state.direction.rawValue }
     private func key(_ id: String) -> String { (scope.map { $0 + "#" } ?? "") + id }
     /// Where the author has put nodes in the view shown (the book's graph, or the view and subject).
     private var pinKeys: [String] {
@@ -419,6 +433,8 @@ final class GraphViewController: NSViewController {
         focusGroup.isHidden = !(hood || [.arc, .places, .locations].contains(state.look))
         focusLabel.stringValue = hood ? L("Look at") : (state.look == .places ? L("World") : L("Character"))
         stepsGroup.isHidden = !hood
+        directionGroup.isHidden = ![.arc, .locations, .plan].contains(state.look)
+        directionPopup.selectItem(at: GraphDirection.allCases.firstIndex(of: state.direction) ?? 0)
         kindsGroup.isHidden = !(state.look == .whole || hood)
         sectionGroup.isHidden = !book
         colourGroup.isHidden = !book
@@ -531,6 +547,16 @@ final class GraphViewController: NSViewController {
     }
 
     private(set) var legendTitles: [String] = []
+
+    @objc private func directionChanged() {
+        state.direction = GraphDirection.allCases.indices.contains(directionPopup.indexOfSelectedItem) ? GraphDirection.allCases[directionPopup.indexOfSelectedItem] : .diagonal
+        resetViewport(); reload()
+    }
+
+    /// For the checks: sets the direction of the main line.
+    func setDirection(_ d: GraphDirection) { state.direction = d; resetViewport(); reload() }
+    var direction: GraphDirection { state.direction }
+    var directionControlShown: Bool { !directionGroup.isHidden }
 
     @objc private func colourChanged() { state.colourByLine = colourPopup.indexOfSelectedItem == 1; reload() }
 
