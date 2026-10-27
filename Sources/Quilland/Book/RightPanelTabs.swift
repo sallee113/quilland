@@ -1,16 +1,19 @@
 import AppKit
 import QuillandCore
 
-/// A list with a card under it, the shape of the World and Events tabs of the right panel: the things found in the scene (or all of them), and the chosen one.
+/// A list with a card under it, the shape of the World, Events and Research tabs of the right panel: the things found in the scene (or all of them), and the chosen one. The top row
+/// has *All …* and a button that makes a new one, linked to the scene; a double-click on a row opens it in its own view; the field under the card is its description.
 class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextViewDelegate, NSTextFieldDelegate {
     let allBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     let table = Hover.rows(NSTableView())
-    let openButton = NSButton(title: "", target: nil, action: nil)
+    let newButton = NSButton(title: "", target: nil, action: nil)
     let sceneLinkButton = NSButton(title: "", target: nil, action: nil)
     private var sceneLinkRun: (() -> Void)?
-    let heading = NSTextField(labelWithString: "")
+    /// The name of the chosen one, which can be changed here.
+    let heading = NSTextField()
     let detail = NSTextField(wrappingLabelWithString: "")
-    let notes = NSTextView()
+    /// The description of the chosen one (its own text).
+    let descriptionView = NSTextView()
     var onChange: (() -> Void)?
     var onOpen: ((String) -> Void)?
     /// The column of the tab; a subclass can put one more row at its top.
@@ -21,19 +24,21 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
     private var saveTimer: Timer?
     private var notesDirty = false
 
-    init(allTitle: String, openTitle: String) {
+    init(allTitle: String, newTitle: String) {
         super.init(frame: .zero)
         allBox.title = allTitle
         allBox.controlSize = .small
         allBox.target = self; allBox.action = #selector(allChanged)
-        openButton.title = openTitle
-        openButton.bezelStyle = .rounded; openButton.controlSize = .small
-        openButton.target = self; openButton.action = #selector(openPressed)
+        newButton.title = newTitle
+        newButton.bezelStyle = .rounded; newButton.controlSize = .small
+        newButton.target = self; newButton.action = #selector(newPressed)
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("row"))
         table.addTableColumn(column)
         table.headerView = nil
         table.dataSource = self; table.delegate = self
         table.rowHeight = 22
+        table.target = self; table.doubleAction = #selector(openClicked)
+        table.toolTip = L("Double-click opens it in its own view")
         let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
@@ -42,17 +47,22 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         scroll.heightAnchor.constraint(equalToConstant: 150).isActive = true
         heading.font = .systemFont(ofSize: 14, weight: .semibold)
         heading.lineBreakMode = .byTruncatingTail
+        heading.isBordered = false; heading.drawsBackground = false
+        heading.placeholderString = L("Name")
+        heading.setAccessibilityLabel(L("Name"))
+        heading.delegate = self
         detail.font = .systemFont(ofSize: 12)
         detail.textColor = .secondaryLabelColor
         detail.preferredMaxLayoutWidth = 240
-        notes.isRichText = false; notes.allowsUndo = true
-        notes.font = .systemFont(ofSize: 13)
-        notes.textContainerInset = NSSize(width: 4, height: 4)
-        notes.isVerticallyResizable = true
-        notes.autoresizingMask = [.width]
-        notes.delegate = self
+        descriptionView.isRichText = false; descriptionView.allowsUndo = true
+        descriptionView.font = .systemFont(ofSize: 13)
+        descriptionView.textContainerInset = NSSize(width: 4, height: 4)
+        descriptionView.isVerticallyResizable = true
+        descriptionView.autoresizingMask = [.width]
+        descriptionView.delegate = self
+        descriptionView.setAccessibilityLabel(L("Description"))
         let notesScroll = NSScrollView()
-        notesScroll.documentView = notes
+        notesScroll.documentView = descriptionView
         notesScroll.hasVerticalScroller = true
         notesScroll.borderType = .bezelBorder
         notesScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -60,9 +70,9 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         sceneLinkButton.bezelStyle = .rounded; sceneLinkButton.controlSize = .small
         sceneLinkButton.target = self; sceneLinkButton.action = #selector(sceneLinkPressed)
         sceneLinkButton.isHidden = true
-        let row = NSStackView(views: [allBox, openButton])
+        let row = NSStackView(views: [allBox, newButton])
         row.distribution = .equalSpacing
-        let caption = NSTextField(labelWithString: L("Notes"))
+        let caption = NSTextField(labelWithString: L("Description"))
         caption.font = .systemFont(ofSize: 11, weight: .semibold)
         caption.textColor = .secondaryLabelColor
         stack.setViews([row, scroll, sceneLinkButton, heading, detail, caption, notesScroll], in: .leading)
@@ -83,8 +93,11 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
 
     // To override.
     func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] { [] }
-    func card(for id: String) -> (title: String, detail: String, notes: String)? { nil }
-    func saveNotes(_ text: String, for id: String) {}
+    func card(for id: String) -> (title: String, detail: String, description: String)? { nil }
+    func saveDescription(_ text: String, for id: String) {}
+    func saveTitle(_ title: String, for id: String) {}
+    /// Makes a new one, linked to the scene shown (when there is one); its id.
+    func makeNew(scene: String?) -> String? { nil }
     /// For a subclass: a button that links the chosen row to the scene, or takes the link away (nil: none for this row).
     func sceneLink(for id: String, scene: String) -> (title: String, run: () -> Void)? { nil }
 
@@ -103,7 +116,40 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
     private var titles: [String] = []
 
     @objc private func allChanged() { commitEdits(); refresh(scene: shownScene) }
-    @objc private func openPressed() { if let id = selectedID { onOpen?(id) } }
+    /// A double-click on a row opens that one in its own view.
+    @objc private func openClicked() {
+        let row = table.clickedRow
+        guard rowIDs.indices.contains(row) else { return }
+        onOpen?(rowIDs[row])
+    }
+
+    /// For the checks: opens the chosen one, as a double-click does.
+    func openSelected() { if let id = selectedID { onOpen?(id) } }
+
+    @objc private func newPressed() { addNew() }
+
+    /// Makes a new one, linked to the scene shown, and chosen with its name ready to be typed. With no scene shown the list is of everything, so it is in it.
+    @discardableResult
+    func addNew() -> String? {
+        commitEdits()
+        guard let id = makeNew(scene: shownScene) else { return nil }
+        if shownScene == nil { allBox.state = .on }
+        selectedID = id
+        refresh(scene: shownScene)
+        onChange?()
+        window?.makeFirstResponder(heading)
+        heading.currentEditor()?.selectAll(nil)
+        return id
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard (obj.object as? NSTextField) === heading, let id = selectedID else { return }
+        let name = heading.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, card(for: id)?.title != name else { heading.stringValue = card(for: id)?.title ?? ""; return }
+        saveTitle(name, for: id)
+        refresh(scene: shownScene)
+        onChange?()
+    }
 
     func numberOfRows(in tableView: NSTableView) -> Int { titles.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
@@ -124,11 +170,11 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         let card = selectedID.flatMap { self.card(for: $0) }
         heading.stringValue = card?.title ?? ""
         detail.stringValue = card?.detail ?? ""
-        notes.isEditable = card != nil
-        openButton.isEnabled = card != nil
-        let text = card?.notes ?? ""
-        if notes.string != text { notes.string = text }
-        notes.undoManager?.removeAllActions()
+        heading.isEditable = card != nil
+        descriptionView.isEditable = card != nil
+        let text = card?.description ?? ""
+        if descriptionView.string != text { descriptionView.string = text }
+        descriptionView.undoManager?.removeAllActions()
         updateSceneLink()
         cardShown()
     }
@@ -168,7 +214,7 @@ class PanelListTab: NSView, NSTableViewDataSource, NSTableViewDelegate, NSTextVi
         saveTimer?.invalidate(); saveTimer = nil
         guard notesDirty, let id = selectedID else { notesDirty = false; return }
         notesDirty = false
-        saveNotes(notes.string, for: id)
+        saveDescription(descriptionView.string, for: id)
         onChange?()
     }
 }
@@ -178,7 +224,10 @@ final class WorldTab: PanelListTab {
     var store: WorldStore!
     var sceneText: (String) -> String = { _ in "" }
 
-    init() { super.init(allTitle: L("All places and things"), openTitle: L("Open in World")) }
+    /// Which world a new place goes to when no place is chosen to say so.
+    var chooseWorld: () -> String? = { nil }
+
+    init() { super.init(allTitle: L("All places and things"), newTitle: L("New Place")) }
     required init?(coder: NSCoder) { fatalError() }
 
     override func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] {
@@ -199,19 +248,23 @@ final class WorldTab: PanelListTab {
         return (L("Add to This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; if l[scene] == nil { l[scene] = "" }; $0.links = l } })
     }
 
-    override func card(for id: String) -> (title: String, detail: String, notes: String)? {
+    override func card(for id: String) -> (title: String, detail: String, description: String)? {
         guard let e = store.entry(id) else { return nil }
         let path = store.path(of: id).joined(separator: " › ")
         let world = e.world.flatMap { store.world($0)?.name } ?? ""
-        let text = store.text(id).trimmingCharacters(in: .whitespacesAndNewlines)
-        let excerpt = text.isEmpty ? "" : String(text.prefix(300))
         let head = [world, path].filter { !$0.isEmpty }.joined(separator: " · ")
-        return (e.name ?? "", [head, excerpt].filter { !$0.isEmpty }.joined(separator: "\n\n"), e.notes.joined(separator: "\n"))
+        return (e.name ?? "", head, store.text(id))
     }
 
-    override func saveNotes(_ text: String, for id: String) {
-        let notes = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
-        try? store.updateEntry(id) { $0.notes = notes }
+    override func saveDescription(_ text: String, for id: String) { try? store.setText(id, text) }
+
+    override func saveTitle(_ title: String, for id: String) { try? store.updateEntry(id) { $0.name = title } }
+
+    override func makeNew(scene: String?) -> String? {
+        guard let world = selectedID.flatMap({ store.entry($0)?.world }) ?? chooseWorld(),
+              let id = try? store.addEntry(name: L("New place"), world: world, parent: nil, type: "place") else { return nil }
+        if let scene { try? store.updateEntry(id) { var l = $0.links; l[scene] = ""; $0.links = l } }
+        return id
     }
 }
 
@@ -221,7 +274,7 @@ final class EventsTab: PanelListTab {
     var worlds: WorldStore!
     var sceneOrder: () -> [String] = { [] }
 
-    init() { super.init(allTitle: L("All events"), openTitle: L("Open in Events")) }
+    init() { super.init(allTitle: L("All events"), newTitle: L("New Event")) }
     required init?(coder: NSCoder) { fatalError() }
 
     override func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] {
@@ -230,16 +283,21 @@ final class EventsTab: PanelListTab {
         return shown.compactMap { e in e.id.flatMap { id in e.title.map { (id, $0) } } }
     }
 
-    override func card(for id: String) -> (title: String, detail: String, notes: String)? {
+    override func card(for id: String) -> (title: String, detail: String, description: String)? {
         guard let e = store.event(id) else { return nil }
         let places = e.places.keys.compactMap { worlds.entry($0)?.name }.sorted().joined(separator: ", ")
         let lines = [e.date.isEmpty ? "" : e.date, places.isEmpty ? "" : L("Places: {places}", ["places": places])].filter { !$0.isEmpty }
-        return (e.title ?? "", lines.joined(separator: "\n"), e.notes.joined(separator: "\n"))
+        return (e.title ?? "", lines.joined(separator: "\n"), store.text(id))
     }
 
-    override func saveNotes(_ text: String, for id: String) {
-        let notes = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
-        try? store.update(id) { $0.notes = notes }
+    override func saveDescription(_ text: String, for id: String) { try? store.setText(id, text) }
+
+    override func saveTitle(_ title: String, for id: String) { try? store.update(id) { $0.title = title } }
+
+    override func makeNew(scene: String?) -> String? {
+        guard let id = try? store.add(title: L("New event")) else { return nil }
+        if let scene { try? store.update(id) { var l = $0.links; l[scene] = ""; $0.links = l } }
+        return id
     }
 }
 
@@ -247,7 +305,7 @@ final class EventsTab: PanelListTab {
 final class ResearchTab: PanelListTab {
     var store: ResearchStore!
 
-    init() { super.init(allTitle: L("All research"), openTitle: L("Open in Research")); buildAddRow(); buildFileLink() }
+    init() { super.init(allTitle: L("All research"), newTitle: L("New Document")); buildAddRow(); buildFileLink() }
     required init?(coder: NSCoder) { fatalError() }
 
     override func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] {
@@ -255,7 +313,7 @@ final class ResearchTab: PanelListTab {
         return shown.compactMap { r in r.id.flatMap { id in r.title.map { (id, $0) } } }
     }
 
-    override func card(for id: String) -> (title: String, detail: String, notes: String)? {
+    override func card(for id: String) -> (title: String, detail: String, description: String)? {
         guard let r = store.document(id) else { return nil }
         var lines: [String] = []
         if !r.source.isEmpty { lines.append(r.source) }
@@ -263,25 +321,25 @@ final class ResearchTab: PanelListTab {
         return (r.title ?? "", lines.joined(separator: "\n"), store.text(id))
     }
 
-    override func saveNotes(_ text: String, for id: String) { try? store.setText(id, text) }
+    override func saveDescription(_ text: String, for id: String) { try? store.setText(id, text) }
 
-    // MARK: The short way to add
+    override func saveTitle(_ title: String, for id: String) { try? store.update(id) { $0.title = title } }
 
-    /// Type a title and press Return: a document, linked to the scene shown, is made and its text is ready to type in.
-    let addField = NSTextField()
+    override func makeNew(scene: String?) -> String? {
+        guard let id = try? store.add(title: L("New document")) else { return nil }
+        if let scene { try? store.update(id) { $0.links[scene] = "" } }
+        return id
+    }
+
+    // MARK: Making one from a file
+
     private let fileButton = NSButton(title: L("From a File…"), target: nil, action: nil)
 
     private func buildAddRow() {
-        addField.placeholderString = L("Add a note — type a title, press Return")
-        addField.setAccessibilityLabel(L("Add a note"))
-        addField.target = self; addField.action = #selector(addPressed)
         fileButton.target = self; fileButton.action = #selector(fromFilePressed)
         fileButton.bezelStyle = .rounded; fileButton.controlSize = .small
         fileButton.toolTip = L("Makes a document from a file: it is copied into the book, or linked if it is over 20 MB")
-        let line = NSStackView(views: [addField, fileButton])
-        line.spacing = 6
-        stack.insertArrangedSubview(line, at: 0)
-        line.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        stack.insertArrangedSubview(fileButton, at: 1)
     }
 
     // MARK: The file as a link
@@ -323,8 +381,6 @@ final class ResearchTab: PanelListTab {
         openURL(url)
     }
 
-    @objc private func addPressed() { addDocument(titled: addField.stringValue) }
-
     /// Makes the document and links it to the scene shown; returns its id.
     @discardableResult
     func addDocument(titled raw: String, file: URL? = nil) -> String? {
@@ -332,12 +388,11 @@ final class ResearchTab: PanelListTab {
         guard !title.isEmpty, let id = try? store.add(title: title) else { return nil }
         if let scene = shownScene { try? store.update(id) { $0.links[scene] = "" } }
         if let file { try? store.attach(id, file: file, embed: ((try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int ?? 0) <= ResearchStore.embedWarningBytes) }
-        addField.stringValue = ""
         selectedID = id
         if shownScene == nil { allBox.state = .on }
         refresh(scene: shownScene)
         onChange?()
-        if file == nil { window?.makeFirstResponder(notes) }
+        if file == nil { window?.makeFirstResponder(descriptionView) }
         return id
     }
 

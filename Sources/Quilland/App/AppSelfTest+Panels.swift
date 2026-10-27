@@ -338,10 +338,10 @@ extension AppSelfTest {
         panel.showTab(.world); panel.refresh()
         check(panel.worldTab.rowIDs == [tabPlace], "the World tab lists the places found in the scene", "\(panel.worldTab.rowIDs)")
         check(panel.worldTab.heading.stringValue == "Выдумград", "and shows the card of the first one")
-        panel.worldTab.notes.string = "Город на холме."
-        panel.worldTab.textDidChange(Notification(name: NSText.didChangeNotification, object: panel.worldTab.notes))
+        panel.worldTab.descriptionView.string = "Город на холме."
+        panel.worldTab.textDidChange(Notification(name: NSText.didChangeNotification, object: panel.worldTab.descriptionView))
         panel.worldTab.commitEdits()
-        check(main.worlds.entry(tabPlace)?.notes == ["Город на холме."], "notes typed there are saved in the place's file")
+        check(main.worlds.text(tabPlace) == "Город на холме.", "the description typed there is saved as the place's text")
         let tabEvent = try! main.eventStore.add(title: "Приезд в Выдумград")
         try! main.eventStore.update(tabEvent) { $0.date = "весна"; $0.links = [here: "приезжает"] }
         panel.showTab(.events); panel.refresh()

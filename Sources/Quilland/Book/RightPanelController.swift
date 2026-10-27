@@ -28,6 +28,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     /// The scenes in the order of the book, for ordering the events.
     var sceneOrder: () -> [String] = { [] }
     var onOpenPlace: ((String) -> Void)?
+    var onOpenCharacter: ((String) -> Void)?
     var onOpenResearch: ((String) -> Void)?
     var chatSession: ChatSession?
     var chatMentions: (() -> NSMenu)?
@@ -76,7 +77,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private let nameField = NSTextField()
     private let aliasField = NSTextField()
     private let mainBox = NSButton(checkboxWithTitle: L("Main character"), target: nil, action: nil)
-    let characterNotes = NSTextView()
+    let characterDescription = NSTextView()
     private var listed: [CharacterRecord] = []
     private var selectedCharacter: String?
     /// The characters found in the scene shown.
@@ -84,6 +85,9 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     /// For the checks: the characters the Characters tab lists, and the "In scene" line of the Section tab.
     var listedCharacterIDs: [String] { listed.compactMap(\.id) }
     var inSceneText: String { inSceneLabel.stringValue }
+    /// For the checks: is *All characters* ticked, and ticks or unticks it.
+    var showsAllCharacters: Bool { allBox.state == .on }
+    func setShowsAllCharacters(_ on: Bool) { allBox.state = on ? .on : .off; reloadCharacters() }
 
     // MARK: View
 
@@ -109,6 +113,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         ])
         worldTab.store = worldStore; worldTab.sceneText = { [weak self] in self?.sceneText($0) ?? "" }
         worldTab.onOpen = { [weak self] in self?.onOpenPlace?($0) }
+        worldTab.chooseWorld = { [weak self] in self.flatMap { WorldChoice.pick(in: $0.worldStore) } }
         worldTab.onChange = { [weak self] in self?.onChange?() }
         eventsTab.store = eventStore; eventsTab.worlds = worldStore; eventsTab.sceneOrder = { [weak self] in self?.sceneOrder() ?? [] }
         eventsTab.onOpen = { [weak self] in self?.onOpenEvent?($0) }
@@ -218,13 +223,16 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         aliasField.placeholderString = L("Other names, separated by commas")
         for f in [nameField, aliasField] { f.delegate = self; f.target = self }
         mainBox.target = self; mainBox.action = #selector(mainChanged)
-        characterNotes.setAccessibilityLabel(L("Notes"))
+        characterDescription.setAccessibilityLabel(L("Description"))
+        characterDescription.delegate = self
+        table.target = self; table.doubleAction = #selector(openCharacterClicked)
+        table.toolTip = L("Double-click opens it in its own view")
         sceneLinkButton.target = self; sceneLinkButton.action = #selector(sceneLinkPressed)
         sceneLinkButton.controlSize = .small; sceneLinkButton.bezelStyle = .rounded
         let row = NSStackView(views: [allBox, addButton])
         row.orientation = .horizontal
         row.distribution = .equalSpacing
-        stack([row, scroll, sceneLinkButton, label(L("Name")), nameField, label(L("Also called")), aliasField, mainBox, label(L("Notes")), boxed(characterNotes, height: 120)], in: charactersView)
+        stack([row, scroll, sceneLinkButton, label(L("Name")), nameField, label(L("Also called")), aliasField, mainBox, label(L("Description")), boxed(characterDescription, height: 120)], in: charactersView)
         row.translatesAutoresizingMaskIntoConstraints = false
         row.widthAnchor.constraint(equalTo: charactersView.widthAnchor, constant: -20).isActive = true
     }
@@ -365,7 +373,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     func textDidChange(_ notification: Notification) {
         guard let tv = notification.object as? NSTextView else { return }
-        if tv === characterNotes { dirty.insert("character"); scheduleSave(); return }
+        if tv === characterDescription { dirty.insert("character"); scheduleSave(); return }
         guard tv === synopsis || tv === note else { return }
         dirty.insert(tv === synopsis ? "synopsis" : "note")
         scheduleSave()
@@ -429,11 +437,11 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         let on = record != nil
         for f in [nameField, aliasField] { f.isEnabled = on }
         mainBox.isEnabled = on
-        characterNotes.isEditable = on
+        characterDescription.isEditable = on
         nameField.stringValue = record?.name ?? ""
         aliasField.stringValue = record?.aliases.joined(separator: ", ") ?? ""
         mainBox.state = record?.main == true ? .on : .off
-        setText(characterNotes, record?.notes.joined(separator: "\n") ?? "")
+        setText(characterDescription, selectedCharacter.map { characterStore.profile($0) } ?? "")
         updateSceneLinkButton()
     }
 
@@ -489,11 +497,26 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     @objc private func allChanged() { reloadCharacters() }
 
+    /// A double-click on a row opens that character in the Characters view.
+    @objc private func openCharacterClicked() {
+        let row = table.clickedRow
+        guard listed.indices.contains(row), let id = listed[row].id else { return }
+        onOpenCharacter?(id)
+    }
+
+    /// For the checks: opens the chosen character, as a double-click does.
+    func openSelectedCharacter() { if let id = selectedCharacter { onOpenCharacter?(id) } }
+
+    /// For the checks: presses New Character.
+    func addNewCharacter() { addCharacter() }
+
+    /// A new character is linked to the scene shown, so it is in the scene's list (with no scene shown, the list is of everyone); its name is ready to be typed.
     @objc private func addCharacter() {
+        commitEdits()
         guard let id = try? characterStore.add(name: L("New character")) else { return }
+        if let scene = shownScene { try? characterStore.update(id) { var l = $0.links; l[scene] = ""; $0.links = l } } else { allBox.state = .on }
         selectedCharacter = id
-        allBox.state = .on
-        reloadCharacters()
+        refresh()
         view.window?.makeFirstResponder(nameField)
         nameField.currentEditor()?.selectAll(nil)
         onChange?()
@@ -508,13 +531,12 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         guard let id = selectedCharacter, characterStore.character(id) != nil else { return }
         let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let aliases = aliasField.stringValue.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        let notes = characterNotes.string.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
         try? characterStore.update(id) {
             if !name.isEmpty { $0.name = name }
             $0.aliases = aliases
             $0.main = mainBox.state == .on
-            $0.notes = notes
         }
+        try? characterStore.setProfile(id, characterDescription.string)
         let keep = selectedCharacter
         refreshAfterCharacterEdit()
         selectedCharacter = keep

@@ -73,8 +73,8 @@ extension AppSelfTest {
         panel.setVisibleTabs([.section, .characters, .research]); panel.showTab(.research)
         panel.researchTab.refresh(scene: scene.id)
         check(panel.researchTab.rowIDs == [id] && panel.researchTab.detail.stringValue.contains("урок пения"), "the Research tab lists the documents linked to the scene, with the remark", "\(panel.researchTab.rowIDs) \(panel.researchTab.detail.stringValue)")
-        panel.researchTab.notes.string = "Дополнено на вкладке."
-        panel.researchTab.textDidChange(Notification(name: NSText.didChangeNotification, object: panel.researchTab.notes))
+        panel.researchTab.descriptionView.string = "Дополнено на вкладке."
+        panel.researchTab.textDidChange(Notification(name: NSText.didChangeNotification, object: panel.researchTab.descriptionView))
         panel.researchTab.commitEdits()
         check(ResearchStore(book: folder).text(id) == "Дополнено на вкладке.", "and the text is changed there")
         panel.researchTab.selectedID = id

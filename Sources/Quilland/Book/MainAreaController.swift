@@ -726,6 +726,7 @@ final class MainAreaController: NSViewController {
         panel.researchStore = researchStore
         panel.sceneOrder = { [weak self] in self?.session.structure.scenes.map(\.id) ?? [] }
         panel.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
+        panel.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
         panel.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         panel.onOpenResearch = { [weak self] id in self?.setMode(.research); self?.researchView?.select(id) }
         panel.cursorScene = { [weak self] in self?.currentSceneID }
