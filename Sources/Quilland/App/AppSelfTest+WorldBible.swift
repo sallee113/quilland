@@ -12,11 +12,9 @@ extension AppSelfTest {
         check(parent != nil && parent?.keyEquivalent == "" && view?.items.contains { $0.title == "Characters" || $0.title == "World" } == false, "the View menu has one World Bible item with no shortcut, and no Characters or World item of its own", "\(view?.items.map(\.title) ?? [])")
         check(kids.map(\.title) == ["Characters", "World"], "its submenu has just Characters and World", "\(kids.map(\.title))")
         check(kids.first?.keyEquivalent == "1" && kids.first?.keyEquivalentModifierMask == [.command, .control] && kids.last?.keyEquivalent == "2" && kids.last?.keyEquivalentModifierMask == [.command, .control], "Characters is ⌃⌘1 and World is ⌃⌘2")
-        let taken = (NSApp.mainMenu?.items ?? []).flatMap { top -> [NSMenuItem] in
-            func all(_ m: NSMenu?) -> [NSMenuItem] { (m?.items ?? []).flatMap { [$0] + all($0.submenu) } }
-            return all(top.submenu)
-        }.filter { ["6", "7"].contains($0.keyEquivalent) && $0.keyEquivalentModifierMask == [.command] }
-        check(taken.map(\.title) == [], "⌘6 and ⌘7 are free", "\(taken.map(\.title))")
+        // The views, in the order of the digits (⌘8 and ⌘9 are free; Reminders keeps ⌘0).
+        let keyed = (view?.items ?? []).filter { $0.keyEquivalentModifierMask == [.command] && "0123456789".contains($0.keyEquivalent) && !$0.keyEquivalent.isEmpty }
+        check(keyed.map { $0.keyEquivalent + $0.title } == ["1Panels", "2Book", "3Outline", "4Plan", "5Events", "6Graph", "7Research", "0Reminders"], "the views are on ⌘1 to ⌘7 in the order of the digits, Reminders on ⌘0, and ⌘8 and ⌘9 are free", "\(keyed.map { $0.keyEquivalent + $0.title })")
 
         // The strip, in both kinds.
         app.modeCharacters(); spin(0.4)

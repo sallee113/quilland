@@ -1,7 +1,7 @@
 import AppKit
 import QuillandCore
 
-/// The Graph view (⌘3): what it shows, its filters, moving nodes, opening a card.
+/// The Graph view (⌘6): what it shows, its filters, moving nodes, opening a card.
 extension AppSelfTest {
     func graphView() -> Int32? {
         let main = self.main!
