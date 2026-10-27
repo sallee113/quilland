@@ -467,8 +467,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         add(view, L("Outline"), #selector(modeOutline), "4", target: self)
         add(view, L("Graph"), #selector(modeGraph), "3", target: self)
         add(view, L("Plan"), #selector(modePlan), "5", target: self)
-        add(view, L("Characters"), #selector(modeCharacters), "6", target: self)
-        add(view, L("World"), #selector(modeWorld), "7", target: self)
+        // The World Bible: one item, with no shortcut, and the kinds under it.
+        let bibleItem = NSMenuItem(title: L("World Bible"), action: nil, keyEquivalent: "")
+        let bible = NSMenu(title: L("World Bible"))
+        bibleItem.submenu = bible
+        view.addItem(bibleItem)
+        add(bible, L("Characters"), #selector(modeCharacters), "1", [.command, .control], target: self)
+        add(bible, L("World"), #selector(modeWorld), "2", [.command, .control], target: self)
         add(view, L("Events"), #selector(modeEvents), "8", target: self)
         add(view, L("Research"), #selector(modeResearch), "9", target: self)
         add(view, L("Reminders"), #selector(modeReminders), "0", target: self)

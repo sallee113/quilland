@@ -91,6 +91,7 @@ final class MainAreaController: NSViewController {
     var pendingCursor: (scene: String, position: Int)?
     /// Where the Events view was left (kept for the book, and while another view is shown).
     private var viewMemories: [String: ViewMemory] = [:]
+    var inBible: Bool { mode == .characters || mode == .world }
 
     init(folder: URL, state: LocalBookState) throws {
         self.folder = folder
@@ -272,6 +273,38 @@ final class MainAreaController: NSViewController {
     /// A view that is about to go: where it stands is kept, to be put back when it is made again.
     private func keepViewMemories() { viewMemories = currentViewMemories() }
 
+    /// The strip over the Characters and World views: the kinds of the World Bible, to go from one to the other.
+    private(set) var bibleStrip: NSSegmentedControl?
+
+    /// A kind of the World Bible in its frame: the strip with the kinds above it.
+    private func inBibleFrame(_ built: Built) -> Built {
+        let kinds: [Mode] = [.characters, .world]
+        let strip = NSSegmentedControl(labels: kinds.map { Self.title(of: $0) }, trackingMode: .selectOne, target: self, action: #selector(bibleKindChosen(_:)))
+        strip.controlSize = .small
+        strip.selectedSegment = kinds.firstIndex(of: mode) ?? 0
+        strip.setAccessibilityLabel(L("World Bible"))
+        bibleStrip = strip
+        let title = NSTextField(labelWithString: L("World Bible"))
+        title.font = .systemFont(ofSize: 11, weight: .semibold)
+        title.textColor = .secondaryLabelColor
+        let frame = NSView()
+        let content = built.view
+        for v in [title, strip, content] { v.translatesAutoresizingMaskIntoConstraints = false; frame.addSubview(v) }
+        NSLayoutConstraint.activate([
+            title.leadingAnchor.constraint(equalTo: frame.leadingAnchor, constant: 12), title.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            strip.topAnchor.constraint(equalTo: frame.topAnchor, constant: 8), strip.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 10),
+            content.topAnchor.constraint(equalTo: strip.bottomAnchor, constant: 8), content.bottomAnchor.constraint(equalTo: frame.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: frame.leadingAnchor), content.trailingAnchor.constraint(equalTo: frame.trailingAnchor),
+        ])
+        return Built(view: frame, controller: built.controller)
+    }
+
+    @objc private func bibleKindChosen(_ sender: NSSegmentedControl) {
+        let kinds: [Mode] = [.characters, .world]
+        guard kinds.indices.contains(sender.selectedSegment) else { return }
+        setMode(kinds[sender.selectedSegment])
+    }
+
     func remember() {
         if let c = activeArea, let id = c.currentSceneID, let tv = c.currentSheet?.textView {
             pendingCursor = (id, tv.selectedRange().location)
@@ -329,8 +362,8 @@ final class MainAreaController: NSViewController {
         switch mode {
         case .panels: return buildPanels()
         case .outline: return buildOutline()
-        case .characters: return buildCharacters()
-        case .world: return buildWorld()
+        case .characters: return inBibleFrame(buildCharacters())
+        case .world: return inBibleFrame(buildWorld())
         case .events: return buildEvents()
         case .research: return buildResearch()
         case .reminders: return buildReminders()

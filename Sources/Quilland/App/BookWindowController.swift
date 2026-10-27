@@ -51,7 +51,10 @@ final class BookWindowController: NSObject, NSWindowDelegate {
     private static let titleSeparator = " — "
 
     /// The window is titled with the book and the view it shows: `Растительный мир — Characters`.
-    func updateTitle() { window.title = bookTitle + Self.titleSeparator + MainAreaController.title(of: main.mode) }
+    func updateTitle() {
+        let view = main.inBible ? L("World Bible") + " ▸ " + MainAreaController.title(of: main.mode) : MainAreaController.title(of: main.mode)
+        window.title = bookTitle + Self.titleSeparator + view
+    }
 
     /// The book's language code (`ru`, `en`…).
     var language: String {

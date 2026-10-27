@@ -91,7 +91,7 @@ extension AppSelfTest {
 
         // The window's title carries the view's name.
         main.setMode(.characters); spin(0.3)
-        check(again.window.title.hasSuffix(" — Characters"), "the window title names the view", again.window.title)
+        check(again.window.title.hasSuffix(" — World Bible ▸ Characters"), "the window title names the view (a kind of the World Bible, with the Bible)", again.window.title)
         main.setMode(.plan); spin(0.3)
         check(again.window.title.hasSuffix(" — Plan"), "and follows it to another view", again.window.title)
 
