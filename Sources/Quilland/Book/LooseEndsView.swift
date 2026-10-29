@@ -197,7 +197,7 @@ final class LooseEndsView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let alert = NSAlert()
         alert.messageText = L("Point the link of “{owner}” to…", ["owner": end.owner])
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26), pullsDown: false)
-        for c in choices { popup.addItem(withTitle: c.title); popup.lastItem?.representedObject = c.id }
+        popup.addChoices(choices.map { (title: $0.title, value: $0.id) })
         alert.accessoryView = popup
         alert.addButton(withTitle: L("Point"))
         alert.addButton(withTitle: L("Cancel"))

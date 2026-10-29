@@ -321,10 +321,7 @@ final class PlanCanvasController: NSViewController, PlanItemViewDelegate {
     private func fillFromPopup() {
         fromPopup.removeAllItems()
         fromPopup.addItem(withTitle: L("Whole book")); fromPopup.lastItem?.representedObject = ""
-        for c in sectionChoices {
-            fromPopup.addItem(withTitle: String(repeating: "   ", count: c.depth) + c.title)
-            fromPopup.lastItem?.representedObject = c.id
-        }
+        fromPopup.addChoices(sectionChoices.map { (title: String(repeating: "   ", count: $0.depth) + $0.title, value: $0.id) })
         fromPopupSync()
     }
 

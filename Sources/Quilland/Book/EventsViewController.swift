@@ -905,18 +905,18 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         alert.messageText = Lp("{n} relationship starts in this event", "{n} relationships start in this event", count)
         alert.informativeText = L("They can be deleted with the event, or start in another event instead.")
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26), pullsDown: false)
-        popup.addItem(withTitle: L("Delete them with the event"))
-        var targets: [String?] = [nil]
-        if let start = events.startEvent, let sid = start.id, sid != id { popup.addItem(withTitle: L("Start them at “{title}”", ["title": start.title ?? ""])); targets.append(sid) }
+        var entries: [(title: String, value: Any?)] = [(L("Delete them with the event"), "")]
+        if let start = events.startEvent, let sid = start.id, sid != id { entries.append((L("Start them at “{title}”", ["title": start.title ?? ""]), sid)) }
         for e in events.ordered(sceneOrder: sceneOrder) where e.id != id {
             guard let eid = e.id else { continue }
-            popup.addItem(withTitle: L("Start them at “{title}”", ["title": e.title ?? ""])); targets.append(eid)
+            entries.append((L("Start them at “{title}”", ["title": e.title ?? ""]), eid))
         }
+        popup.addChoices(entries)   // (events can have one title: each entry stands for its own event)
         alert.accessoryView = popup
         alert.addButton(withTitle: L("Delete the Event"))
         alert.addButton(withTitle: L("Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn, targets.indices.contains(popup.indexOfSelectedItem) else { return nil }
-        return targets[popup.indexOfSelectedItem].map { .moveStart(to: $0) } ?? .deleteThem
+        guard alert.runModal() == .alertFirstButtonReturn, let chosen = popup.chosenValue as? String else { return nil }
+        return chosen.isEmpty ? .deleteThem : .moveStart(to: chosen)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -1013,7 +1013,7 @@ extension EventsViewController {
         guard people.count >= 2 else { warn(L("Two characters are needed"), L("Make the characters first.")); return }
         if !hasPlace(eid) { warn(L("This event cannot start a relationship"), describe(.noScene)); return }
         let a = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 150, height: 26), pullsDown: false), b = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 150, height: 26), pullsDown: false)
-        for (_, name) in people { a.addItem(withTitle: name); b.addItem(withTitle: name) }
+        for popup in [a, b] { popup.addChoices(people.map { (title: $0.1, value: $0.0) }) }
         b.selectItem(at: 1)
         let kind = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
         kind.placeholderString = L("What they are to each other: “sisters”, “rivals”")
@@ -1028,7 +1028,8 @@ extension EventsViewController {
         alert.addButton(withTitle: L("Cancel"))
         alert.window.initialFirstResponder = kind
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        createRelationship(between: people[a.indexOfSelectedItem].0, and: people[b.indexOfSelectedItem].0, kind: kind.stringValue)
+        guard let first = a.chosenValue as? String, let second = b.chosenValue as? String else { return }
+        createRelationship(between: first, and: second, kind: kind.stringValue)
     }
 
     /// Makes a relationship that starts in the chosen event. Returns its id (nil when it cannot be made).

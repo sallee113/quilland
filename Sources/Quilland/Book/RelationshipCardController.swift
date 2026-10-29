@@ -141,11 +141,11 @@ final class RelationshipCardController: NSViewController, NSTableViewDataSource,
     private func fillAddPopup() {
         addPopup.removeAllItems()
         addPopup.addItem(withTitle: L("Add a character"))
-        for c in characters.characters where !members.contains(c.id ?? "") {
-            addPopup.addItem(withTitle: c.name ?? "")
-            addPopup.lastItem?.representedObject = c.id
-            addPopup.lastItem?.target = self
-            addPopup.lastItem?.action = #selector(addMember(_:))
+        let others = characters.characters.filter { !members.contains($0.id ?? "") }
+        for (title, c) in zip(PopupTitles.distinct(others.map { $0.name ?? "" }), others) {
+            let item = addPopup.addChoice(title, value: c.id)
+            item.target = self
+            item.action = #selector(addMember(_:))
         }
     }
 

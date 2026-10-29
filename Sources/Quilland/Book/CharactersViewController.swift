@@ -713,7 +713,7 @@ final class CharactersViewController: NSViewController, NSTableViewDataSource, N
         }
         commitEdits()
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 280, height: 26), pullsDown: false)
-        for other in others { popup.addItem(withTitle: other.name ?? ""); popup.lastItem?.representedObject = other.id }
+        popup.addChoices(others.map { (title: $0.name ?? "", value: $0.id) })
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = L("Merge “{name}” into…", ["name": record.name ?? ""])

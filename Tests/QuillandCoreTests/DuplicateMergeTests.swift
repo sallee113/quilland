@@ -113,4 +113,15 @@ struct DuplicateMergeTests {
         let mixed = try #require(find().first { $0.kind == .events && Set($0.members.map(\.id)) == [a, b, c] })
         #expect(mixed.existing.id == a && mixed.members.map(\.id) == [a, b, c], "the cards with no time are older, the one with a time comes last (the newest)")
     }
+
+    @Test("the cards are put oldest first: those with no time noted keep the order given, then the others by their time")
+    func oldestFirst() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let book = f.structure.folder
+        let a = "legacy-a", b = "legacy-b", early = "early", late = "late"
+        CardAges.stamp(late, book: book, at: Date(timeIntervalSince1970: 2_000))
+        CardAges.stamp(early, book: book, at: Date(timeIntervalSince1970: 1_000))
+        #expect(CardAges.oldestFirst([late, b, early, a], book: book) == [b, a, early, late], "unrecorded cards first in the order given, then by time")
+        #expect(CardAges.oldestFirst([], book: book).isEmpty)
+    }
 }

@@ -13,6 +13,19 @@ struct CardAddition: Equatable {
 }
 
 extension CollectSession {
+    /// Which card a name (or another name) stands for: the character and the place by the name's normal form. When two cards have the same name, the one made first owns it
+    /// (the same card the Duplicates tab calls the existing one), so a finding is linked to it, whatever the order of the lists.
+    func nameTables() -> (characters: [String: String], places: [String: String]) {
+        guard let main else { return ([:], [:]) }
+        var people: [String: String] = [:], places: [String: String] = [:]
+        // (Written from the newest to the oldest, so that the oldest is the one left.)
+        let characterIDs = CardAges.oldestFirst(main.characters.characters.compactMap(\.id), book: main.folder).reversed()
+        for id in characterIDs { if let c = main.characters.character(id) { for n in [c.name ?? ""] + c.aliases { people[Names.normalize(n)] = id } } }
+        let placeIDs = CardAges.oldestFirst(main.worlds.entries.compactMap(\.id), book: main.folder).reversed()
+        for id in placeIDs { if let e = main.worlds.entry(id) { for n in [e.name ?? ""] + e.aliases { places[Names.normalize(n)] = id } } }
+        return (people, places)
+    }
+
     /// The findings that need no change in the book: they repeat a card that already has everything they would add. They are not listed.
     var visibleItems: [CollectedItem] { collected.items.filter { additions[$0.id]?.isEmpty != true } }
     var alreadyInBookCount: Int { collected.items.filter { additions[$0.id]?.isEmpty == true }.count }
@@ -25,10 +38,7 @@ extension CollectSession {
             var seen = Set<String>()
             return item.evidence.map(\.scene).filter { links[$0] == nil && seen.insert($0).inserted }
         }
-        var characterIDs: [String: String] = [:]
-        for c in main.characters.characters { for n in [c.name ?? ""] + c.aliases { if let id = c.id { characterIDs[Names.normalize(n)] = id } } }
-        var entryIDs: [String: String] = [:]
-        for e in main.worlds.entries { for n in [e.name ?? ""] + e.aliases { if let id = e.id { entryIDs[Names.normalize(n)] = id } } }
+        let (characterIDs, entryIDs) = nameTables()
         var out: [UUID: CardAddition] = [:]
         // The characters first: an event may name someone whose card is made in the same accepting.
         var pending = Set<String>()

@@ -128,14 +128,14 @@ extension MainAreaController {
         let targets = moveTargets(for: ids)
         guard !targets.isEmpty else { banner.show(L("Choose scenes, or chapters, to move them into another chapter or part."), undoable: false); return }
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26), pullsDown: false)
-        for t in targets { popup.addItem(withTitle: t.title) }
+        popup.addChoices(targets.enumerated().map { (title: $1.title, value: $0) })   // (sections can share a title: the entry knows its place in the list)
         let alert = NSAlert()
         alert.messageText = ids.count == 1 ? L("Move “{title}” to:", ["title": findNode(ids[0])?.title ?? ""]) : Lp("Move {n} section to:", "Move {n} sections to:", ids.count)
         alert.accessoryView = popup
         alert.addButton(withTitle: L("Move"))
         alert.addButton(withTitle: L("Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn, targets.indices.contains(popup.indexOfSelectedItem) else { return }
-        moveSections(ids, parent: targets[popup.indexOfSelectedItem].id, index: nil)
+        guard alert.runModal() == .alertFirstButtonReturn, let at = popup.chosenValue as? Int, targets.indices.contains(at) else { return }
+        moveSections(ids, parent: targets[at].id, index: nil)
     }
 
     /// Takes the chosen sections out of the book after one question (a snapshot and the trash folder keep them).

@@ -405,9 +405,7 @@ final class GraphViewController: NSViewController {
             focusPopup.menu?.addItem(.separator())
             let header = NSMenuItem(title: title, action: nil, keyEquivalent: ""); header.isEnabled = false
             focusPopup.menu?.addItem(header)
-            for (id, name) in items.sorted(by: { $0.1.localizedLowercase < $1.1.localizedLowercase }) {
-                focusPopup.addItem(withTitle: name); focusPopup.lastItem?.representedObject = id
-            }
+            focusPopup.addChoices(items.sorted(by: { $0.1.localizedLowercase < $1.1.localizedLowercase }).map { (title: $0.1, value: $0.0) })
         }
         let current = state.focus ?? ""
         if let item = focusPopup.itemArray.first(where: { ($0.representedObject as? String) == current && !current.isEmpty }) { focusPopup.select(item) } else { focusPopup.selectItem(at: 0) }
@@ -417,10 +415,7 @@ final class GraphViewController: NSViewController {
         sectionPopup.removeAllItems()
         sectionPopup.addItem(withTitle: L("Whole book"))
         sectionPopup.lastItem?.representedObject = ""
-        for s in sections() {
-            sectionPopup.addItem(withTitle: String(repeating: "   ", count: s.depth) + s.title)
-            sectionPopup.lastItem?.representedObject = s.id
-        }
+        sectionPopup.addChoices(sections().map { (title: String(repeating: "   ", count: $0.depth) + $0.title, value: $0.id) })
         if let id = state.section, let item = sectionPopup.itemArray.first(where: { ($0.representedObject as? String) == id }) { sectionPopup.select(item) } else { sectionPopup.selectItem(at: 0) }
     }
 
@@ -524,7 +519,7 @@ final class GraphViewController: NSViewController {
     private func fillLinePopup(_ lines: [TimelineFile.Lane]) {
         linePopup.removeAllItems()
         linePopup.addItem(withTitle: L("Whole book")); linePopup.lastItem?.representedObject = ""
-        for l in lines { linePopup.addItem(withTitle: l.name ?? ""); linePopup.lastItem?.representedObject = l.id; linePopup.lastItem?.image = PlanColors.swatch(l.color) }
+        for (title, l) in zip(PopupTitles.distinct(lines.map { $0.name ?? "" }), lines) { linePopup.addChoice(title, value: l.id).image = PlanColors.swatch(l.color) }
         if let id = state.plotLine, let item = linePopup.itemArray.first(where: { ($0.representedObject as? String) == id }) { linePopup.select(item) } else { linePopup.selectItem(at: 0) }
         linePopup.isEnabled = !lines.isEmpty
         colourPopup.selectItem(at: state.colourByLine ? 1 : 0)

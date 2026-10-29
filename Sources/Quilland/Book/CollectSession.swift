@@ -298,10 +298,7 @@ final class CollectSession {
         }
 
         // Who is who, by name and other name: the cards there are now and the ones made here.
-        var characterIDs: [String: String] = [:]
-        for c in main.characters.characters { for n in [c.name ?? ""] + c.aliases { if let id = c.id { characterIDs[Names.normalize(n)] = id } } }
-        var entryIDs: [String: String] = [:]
-        for e in main.worlds.entries { for n in [e.name ?? ""] + e.aliases { if let id = e.id { entryIDs[Names.normalize(n)] = id } } }
+        var (characterIDs, entryIDs) = nameTables()
 
         let story = StoryAccept(main: main, characterIDs: characterIDs, entryIDs: entryIDs, story: chosen)
         for item in chosen where item.kind == .characters {

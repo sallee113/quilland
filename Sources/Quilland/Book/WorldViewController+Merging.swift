@@ -9,7 +9,7 @@ extension WorldViewController {
     /// A dialog with a list to choose from (Cancel is the default); the id of the chosen one, or nil.
     private func choose(message: String, info: String, button: String, options: [(title: String, id: String)]) -> String? {
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 340, height: 26), pullsDown: false)
-        for o in options { popup.addItem(withTitle: o.title); popup.lastItem?.representedObject = o.id }
+        popup.addChoices(options.map { (title: $0.title, value: $0.id) })
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = message

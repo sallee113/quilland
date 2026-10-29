@@ -56,12 +56,13 @@ extension MainAreaController {
         alert.messageText = L("Save the answer as a note")
         alert.informativeText = L("It is added after what the note already says.")
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26), pullsDown: false)
-        for t in targets { popup.addItem(withTitle: t.title) }
+        popup.addChoices(targets.enumerated().map { (title: $1.title, value: $0) })   // (two targets can share a title: the entry knows its place in the list)
         alert.accessoryView = popup
         alert.addButton(withTitle: L("Save"))
         alert.addButton(withTitle: L("Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let t = targets[max(0, popup.indexOfSelectedItem)]
+        guard let at = popup.chosenValue as? Int, targets.indices.contains(at) else { return }
+        let t = targets[at]
         if chatSession.saveAnswer(answer, kind: t.kind, id: t.id) { onAIStatus?(L("Saved.")) } else { NSSound.beep() }
     }
 

@@ -11,7 +11,7 @@ enum WorldChoice {
         let alert = NSAlert()
         alert.messageText = L("Which world are the places in?")
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 26), pullsDown: false)
-        for w in worlds { popup.addItem(withTitle: w.name ?? ""); popup.lastItem?.representedObject = w.id }
+        popup.addChoices(worlds.map { (title: $0.name ?? "", value: $0.id) })
         alert.accessoryView = popup
         alert.addButton(withTitle: L("Use This World"))
         alert.addButton(withTitle: L("Cancel"))
