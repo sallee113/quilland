@@ -253,6 +253,39 @@ final class CollectSession {
         while running, Date() < end { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
     }
 
+    // MARK: Correcting names
+
+    /// Puts a card's name where the model made a name up («Герой» for the narrator), in one finding or in all of them; the findings that are then the same join, and what
+    /// could not be accepted for want of a card is tried again. Returns how many findings changed.
+    @discardableResult
+    func replaceName(_ from: String, role: NameRole, with card: String, only id: UUID? = nil) -> Int {
+        let before = Dictionary(collected.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var set = collected
+        let changed = set.replaceName(from, role: role, with: card, only: id)
+        guard changed > 0 else { return 0 }
+        collected = set
+        let now = Set(collected.items.map(\.id))
+        checked.formIntersection(now)
+        for item in collected.items where before[item.id] != item { skipReasons.removeValue(forKey: item.id) }
+        refreshLookAlikes()
+        message = Lp("Replaced “{from}” with “{to}” in {n} suggestion", "Replaced “{from}” with “{to}” in {n} suggestions", changed, ["from": from, "to": card])
+        onChange?()
+        return changed
+    }
+
+    /// Which card a name (or another name) stands for: the character and the place by the name's normal form. When two cards have the same name, the one made first owns it
+    /// (the same card the Duplicates tab calls the existing one), so a finding is linked to it, whatever the order of the lists.
+    func nameTables() -> (characters: [String: String], places: [String: String]) {
+        guard let main else { return ([:], [:]) }
+        var people: [String: String] = [:], places: [String: String] = [:]
+        // (Written from the newest to the oldest, so that the oldest is the one left.)
+        let characterIDs = CardAges.oldestFirst(main.characters.characters.compactMap(\.id), book: main.folder).reversed()
+        for id in characterIDs { if let c = main.characters.character(id) { for n in [c.name ?? ""] + c.aliases { people[Names.normalize(n)] = id } } }
+        let placeIDs = CardAges.oldestFirst(main.worlds.entries.compactMap(\.id), book: main.folder).reversed()
+        for id in placeIDs { if let e = main.worlds.entry(id) { for n in [e.name ?? ""] + e.aliases { places[Names.normalize(n)] = id } } }
+        return (people, places)
+    }
+
     // MARK: Accepting
 
     /// Whether the finding is for something that already has a card (it then only adds the scenes it was found in).

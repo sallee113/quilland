@@ -142,6 +142,7 @@ final class AppSelfTest {
         if let code = panelNewItems() { return code }
         if let code = whatsNew() { return code }
         if let code = sameNames() { return code }
+        if let code = replaceNames() { return code }
         if let code = planRealised() { return code }
         if let code = deleting() { return code }
         if let code = eventMigration() { return code }

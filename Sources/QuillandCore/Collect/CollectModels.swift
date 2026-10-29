@@ -152,3 +152,74 @@ extension CollectedItem {
         return !single(mine).isDisjoint(with: words(theirs)) || !single(theirs).isDisjoint(with: words(mine))
     }
 }
+
+// MARK: Names in the findings
+
+/// What a name in a finding can stand for.
+public enum NameRole: Sendable {
+    case character, place
+    /// A change or a fact is about a character or a place: the name does not say which.
+    case either
+}
+
+/// A name in a finding that stands for a card.
+public struct NameSlot: Equatable, Sendable {
+    public var role: NameRole
+    public var name: String
+    public init(role: NameRole, name: String) { self.role = role; self.name = name }
+}
+
+extension CollectedItem {
+    /// The names in the finding that stand for cards, with what each can be (an event's title, a quote or a relationship's kind is not one).
+    public var nameSlots: [NameSlot] {
+        func slots(_ names: [String], _ role: NameRole) -> [NameSlot] { names.filter { !$0.isEmpty }.map { NameSlot(role: role, name: $0) } }
+        switch kind {
+        case .characters: return slots([name], .character)
+        case .places: return slots([name, parent], .place)
+        case .events: return slots(members, .character) + slots(places, .place)
+        case .relationships: return slots(members, .character)
+        case .changes: return slots([name], .either)
+        case .observations: return slots([about], .either)
+        }
+    }
+
+    /// Puts another name where this one is, in the slots of a kind it can be. Returns whether anything changed.
+    @discardableResult
+    public mutating func replace(name from: String, role: NameRole, with new: String) -> Bool {
+        let wanted = Names.normalize(from)
+        func fits(_ r: NameRole) -> Bool { r == role || r == .either || role == .either }
+        func swap(_ n: String) -> String { Names.normalize(n) == wanted ? new : n }
+        func swapAll(_ list: [String]) -> [String] {
+            var out: [String] = []
+            for n in list.map(swap) where !out.contains(where: { Names.normalize($0) == Names.normalize(n) }) { out.append(n) }
+            return out
+        }
+        let before = self
+        switch kind {
+        case .characters: if fits(.character) { name = swap(name); aliases.removeAll { Names.normalize($0) == Names.normalize(name) } }
+        case .places:
+            if fits(.place) { name = swap(name); parent = swap(parent); aliases.removeAll { Names.normalize($0) == Names.normalize(name) } }
+        case .events:
+            if fits(.character) { members = swapAll(members) }
+            if fits(.place) { places = swapAll(places) }
+        case .relationships: if fits(.character) { members = members.map(swap) }
+        case .changes: self.name = swap(name)
+        case .observations: about = swap(about)
+        }
+        return self != before
+    }
+}
+
+extension CollectedSet {
+    /// Replaces a name in the findings (in one finding, or in all of them) and joins the findings that are then the same thing. Returns how many findings changed.
+    @discardableResult
+    public mutating func replaceName(_ from: String, role: NameRole, with new: String, only id: UUID? = nil) -> Int {
+        var updated = items
+        var changed = 0
+        for i in updated.indices where id == nil || updated[i].id == id { if updated[i].replace(name: from, role: role, with: new) { changed += 1 } }
+        guard changed > 0 else { return 0 }
+        items = []
+        merge(updated)
+        return changed
+    }
+}

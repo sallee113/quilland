@@ -2,7 +2,7 @@ import AppKit
 import QuillandCore
 
 /// The Suggestions tab of the bottom panel: what the model found, grouped by kind, each with the quote it comes from; ticked ones are accepted.
-final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate {
+final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     weak var main: MainAreaController? { didSet { attach() } }
     /// Told when a run starts or ends, so that the tab can show it is busy even when another tab is open.
     var onBusyChanged: ((Bool) -> Void)?
@@ -17,6 +17,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     private let dismissButton = NSButton(title: L("Dismiss Checked"), target: nil, action: nil)
     private let checkAllButton = NSButton(title: L("Check All"), target: nil, action: nil)
     private let openCardButton = NSButton(title: L("Open the Card"), target: nil, action: nil)
+    private let replaceButton = NSButton(title: L("Replace a Name…"), target: nil, action: nil)
     private let report = NSTextField(wrappingLabelWithString: "")
 
     override init(frame: NSRect) {
@@ -39,14 +40,17 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.borderType = .noBorder
-        for b in [collectButton, stopButton, acceptButton, dismissButton, checkAllButton, openCardButton] { b.bezelStyle = .rounded; b.controlSize = .small; b.target = self; b.keyEquivalent = "" }
+        for b in [collectButton, stopButton, acceptButton, dismissButton, checkAllButton, openCardButton, replaceButton] { b.bezelStyle = .rounded; b.controlSize = .small; b.target = self; b.keyEquivalent = "" }
         collectButton.action = #selector(collectPressed); stopButton.action = #selector(stopPressed)
+        replaceButton.action = #selector(replacePressed)
+        replaceButton.toolTip = L("A name the model made up («Hero» for the narrator) is replaced by the card it really is, in this suggestion or in all of them")
+        let rowMenu = NSMenu(); rowMenu.delegate = self; table.menu = rowMenu
         openCardButton.action = #selector(openCardPressed); acceptButton.action = #selector(acceptPressed); dismissButton.action = #selector(dismissPressed); checkAllButton.action = #selector(checkAllPressed)
         report.font = .systemFont(ofSize: 11)
         report.textColor = .secondaryLabelColor
         let top = NSStackView(views: [collectButton, bar, status, stopButton])
         top.spacing = 10
-        let bottom = NSStackView(views: [acceptButton, dismissButton, checkAllButton, openCardButton])
+        let bottom = NSStackView(views: [acceptButton, dismissButton, checkAllButton, replaceButton, openCardButton])
         bottom.spacing = 8
         let stack = NSStackView(views: [top, scroll, bottom])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
@@ -131,6 +135,7 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
         dismissButton.isEnabled = n > 0
         checkAllButton.isEnabled = total > 0
         checkAllButton.title = n == total && n > 0 ? L("Uncheck All") : L("Check All")
+        replaceButton.isEnabled = selectedItem.map { !$0.nameSlots.isEmpty } ?? false && !session.running
         if case .finding(let f)? = selectedRow { openCardButton.isEnabled = true; openCardButton.title = f.source.kind == .scene ? L("Open the Other Scene") : L("Open the Card") } else { openCardButton.isEnabled = false; openCardButton.title = L("Open the Card") }
     }
 
@@ -228,6 +233,44 @@ final class SuggestionsView: NSView, NSTableViewDataSource, NSTableViewDelegate 
     func selectFirstFinding() {
         guard let i = rows.firstIndex(where: { if case .finding = $0 { return true }; return false }) else { return }
         table.selectRowIndexes(IndexSet(integer: i), byExtendingSelection: false)
+        updateButtons()
+    }
+
+    private var selectedItem: CollectedItem? { if case .item(let i)? = selectedRow { return i } else { return nil } }
+
+    @objc private func replacePressed() { if let item = selectedItem { askToReplaceName(in: item) } }
+
+    /// The row's menu: Replace a Name… for the suggestion under the pointer.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let row = table.clickedRow
+        guard rows.indices.contains(row), case .item(let item) = rows[row], !item.nameSlots.isEmpty, session?.running != true else { return }
+        menu.addItem(ClosureMenuItem(title: L("Replace a Name…")) { [weak self] in self?.askToReplaceName(in: item) })
+    }
+
+    /// Asks which name and which card, then replaces it.
+    private func askToReplaceName(in item: CollectedItem) {
+        guard let main else { return }
+        let characters = main.characters.characters.compactMap(\.name)
+        let places = main.worlds.entries.compactMap { $0.name }
+        guard let r = ReplaceNameDialog(slots: item.nameSlots, characters: characters, places: places).run() else { return }
+        replaceName(in: item.id, slot: r.slot, with: r.card, inAll: r.inAll)
+    }
+
+    /// Replaces a name of the suggestion with a card's name (in all suggestions, or this one alone). Returns how many suggestions changed.
+    @discardableResult
+    func replaceName(in id: UUID, slot: NameSlot, with card: String, inAll: Bool) -> Int {
+        let n = session?.replaceName(slot.name, role: slot.role, with: card, only: inAll ? nil : id) ?? 0
+        refresh()
+        return n
+    }
+
+    /// For the checks: the names of the suggestion with this id that can be replaced.
+    func nameSlots(of id: UUID) -> [NameSlot] { session?.items.first { $0.id == id }?.nameSlots ?? [] }
+    var replaceNameEnabled: Bool { replaceButton.isEnabled }
+    func selectItemRow(_ id: UUID) {
+        guard let row = rows.firstIndex(where: { if case .item(let i) = $0 { return i.id == id } else { return false } }) else { return }
+        table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         updateButtons()
     }
 

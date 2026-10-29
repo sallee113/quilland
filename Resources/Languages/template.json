@@ -49,6 +49,10 @@
       "one": "Replaced {n} place",
       "other": "Replaced {n} places"
     },
+    "Replaced “{from}” with “{to}” in {n} suggestions": {
+      "one": "Replaced “{from}” with “{to}” in {n} suggestion",
+      "other": "Replaced “{from}” with “{to}” in {n} suggestions"
+    },
     "The {n} places inside it stay and move up one level.": {
       "one": "The {n} place inside it stays and moves up one level.",
       "other": "The {n} places inside it stay and move up one level."
@@ -303,6 +307,7 @@
     "A local-first workspace for writers": "",
     "A mark (* * *)": "",
     "A name": "",
+    "A name the model made up («Hero» for the narrator) is replaced by the card it really is, in this suggestion or in all of them": "",
     "A named snapshot is kept for good; it is never thinned out.": "",
     "A place cannot be merged into a place inside it.": "",
     "A place cannot be merged into itself.": "",
@@ -458,6 +463,7 @@
     "Choose one section for this.": "",
     "Choose scenes, or chapters, to move them into another chapter or part.": "",
     "Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
+    "Choose the name that is wrong and the card it really is. The suggestions change; the cards do not.": "",
     "Choose the place to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept place, its description, notes and scenes are added to theirs, and what is inside it moves into the kept place. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
     "Choose the two characters and say what they are to each other.": "",
     "Choose the world to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept world, and all its places move to the top of the kept world. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "",
@@ -635,6 +641,7 @@
     "Import a Text…": "",
     "Import…": "",
     "In": "",
+    "In all suggestions": "",
     "Included": "",
     "Indigo": "",
     "Insert": "",
@@ -955,6 +962,8 @@
     "Reopen the last book when Quilland starts": "",
     "Replace": "",
     "Replace 0 checked": "",
+    "Replace a Name": "",
+    "Replace a Name…": "",
     "Replace by a Copy…": "",
     "Replace by a Link…": "",
     "Replace undone.": "",
@@ -1324,6 +1333,7 @@
     "cards": "",
     "changes in the story": "",
     "chapter": "",
+    "character “{name}”": "",
     "characters": "",
     "characters (leave empty for none)||text": "",
     "characters||text": "",
@@ -1373,6 +1383,7 @@
     "part": "",
     "part {piece} of {pieces}": "",
     "people: {names}": "",
+    "place “{name}”": "",
     "places": "",
     "plan": "",
     "planned by {cards}": "",
@@ -1412,6 +1423,7 @@
     "usually over {min} words": "",
     "usually up to {max} words": "",
     "usually {min}–{max} words": "",
+    "with": "",
     "with the scenes": "",
     "with {names}": "",
     "worlds": "",

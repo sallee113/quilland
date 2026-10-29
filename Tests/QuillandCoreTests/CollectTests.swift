@@ -257,4 +257,47 @@ struct CollectTests {
         let failed = await CollectJob.run(request, client: dead, progress: { _ in }, found: { _ in })
         #expect(failed.error?.contains("LM Studio") == true && failed.scenesDone == 0)
     }
+
+    @Test("a name the model made up is replaced by a card's name, in one finding or in all, by the kind the name can be; findings that become the same join")
+    func replacingNames() {
+        func ev(_ scene: String) -> [CollectedEvidence] { [CollectedEvidence(scene: scene, quote: "q", range: NSRange(location: 0, length: 1), note: "")] }
+        func rel(_ a: String, _ b: String, _ kind: String, scene: String) -> CollectedItem {
+            var r = CollectedItem(kind: .relationships, name: ""); r.members = [a, b]; r.type = kind; r.when = "stated"; r.evidence = ev(scene); return r
+        }
+        var set = CollectedSet()
+        let r1 = rel("Герой", "Элли", "дружба", scene: "s1"), r2 = rel("Герой (рассказчик)", "Элли", "дружба", scene: "s2"), r3 = rel("Герой", "Губер", "ученик", scene: "s1")
+        var event = CollectedItem(kind: .events, name: "Встреча"); event.members = ["Герой", "Лилит"]; event.places = ["Герой"]; event.evidence = ev("s1")
+        var place = CollectedItem(kind: .places, name: "Герой"); place.parent = "Дом"; place.evidence = ev("s1")
+        var fact = CollectedItem(kind: .observations, name: ""); fact.about = "Герой"; fact.detail = "Хромает."; fact.evidence = ev("s1")
+        set.merge([r1, r2, r3, event, place, fact])
+        #expect(r1.nameSlots == [NameSlot(role: .character, name: "Герой"), NameSlot(role: .character, name: "Элли")] && fact.nameSlots == [NameSlot(role: .either, name: "Герой")], "the names of a finding, with what each can be")
+        #expect(event.nameSlots.map(\.role) == [.character, .character, .place] && place.nameSlots.map(\.name) == ["Герой", "Дом"])
+
+        // One finding alone.
+        var one = set
+        #expect(one.replaceName("Герой", role: .character, with: "Вилли", only: r3.id) == 1)
+        #expect(one.items.first { $0.id == r3.id }?.members == ["Вилли", "Губер"] && one.items.first { $0.id == r1.id }?.members == ["Герой", "Элли"], "only that finding changes")
+
+        // All: by the kind the name is. The character «Герой» changes in relationships, the event's people and a fact (a name of either kind); the place called «Герой» and the
+        // event's place of that name keep it.
+        let changed = set.replaceName("Герой", role: .character, with: "Вилли")
+        #expect(changed == 4, "the relationships, the event and the fact: \(changed)")
+        let items = set.items
+        #expect(items.first { $0.kind == .events }?.members == ["Вилли", "Лилит"] && items.first { $0.kind == .events }?.places == ["Герой"], "an event's people change, its places (another kind) do not")
+        #expect(items.first { $0.kind == .places }?.name == "Герой", "a place with the same text is not touched")
+        #expect(items.first { $0.kind == .observations }?.about == "Вилли", "a name that can be either kind follows")
+        // (Another way the model wrote the same name is a name of its own: it is replaced in its turn, and then the two findings are one.)
+        #expect(set.replaceName("Герой (рассказчик)", role: .character, with: "Вилли") == 1)
+        let friends = set.items.filter { $0.kind == .relationships && Set($0.members) == ["Вилли", "Элли"] }
+        #expect(friends.count == 1 && friends[0].evidence.count == 2, "two findings that are now the same relationship are one, with the quotes of both")
+
+        // A place name; the replaced name does not become another name of the card.
+        var more = CollectedSet(); var c = CollectedItem(kind: .characters, name: "Герой"); c.aliases = ["Вилли"]; c.evidence = ev("s1"); more.merge([c])
+        more.replaceName("Герой", role: .character, with: "Вилли")
+        #expect(more.items[0].name == "Вилли" && more.items[0].aliases.isEmpty, "the new name is the name, and is not also an alias")
+        var parents = CollectedSet(); parents.merge([place])
+        parents.replaceName("Дом", role: .place, with: "Усадьба")
+        #expect(parents.items[0].parent == "Усадьба", "a place's parent is a place name")
+        #expect(parents.replaceName("Нет такого", role: .place, with: "X") == 0, "nothing to replace changes nothing")
+    }
 }

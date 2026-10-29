@@ -52,6 +52,10 @@
       "one": "{n} lieu remplacé",
       "other": "{n} lieux remplacés"
     },
+    "Replaced “{from}” with “{to}” in {n} suggestions": {
+      "one": "« {from} » remplacé par « {to} » dans {n} suggestion",
+      "other": "« {from} » remplacé par « {to} » dans {n} suggestions"
+    },
     "The {n} places inside it stay and move up one level.": {
       "one": "Le {n} lieu qu’il contient reste et monte d’un niveau.",
       "other": "Les {n} lieux qu’il contient restent et montent d’un niveau."
@@ -306,6 +310,7 @@
     "A local-first workspace for writers": "Un espace de travail local pour les écrivains",
     "A mark (* * *)": "Une marque (* * *)",
     "A name": "Un nom",
+    "A name the model made up («Hero» for the narrator) is replaced by the card it really is, in this suggestion or in all of them": "Un nom inventé par le modèle (« Héros » pour le narrateur) est remplacé par la fiche qu’il désigne, dans cette suggestion ou dans toutes",
     "A named snapshot is kept for good; it is never thinned out.": "Un instantané nommé est conservé définitivement ; il n’est jamais éliminé.",
     "A place cannot be merged into a place inside it.": "Un lieu ne peut pas être fusionné avec un lieu qui est à l’intérieur.",
     "A place cannot be merged into itself.": "Un lieu ne peut pas être fusionné avec lui-même.",
@@ -461,6 +466,7 @@
     "Choose one section for this.": "Choisissez une seule section pour cela.",
     "Choose scenes, or chapters, to move them into another chapter or part.": "Choisissez des scènes ou des chapitres pour les déplacer dans un autre chapitre ou une autre partie.",
     "Choose the character to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept character, and its profile, notes, scenes and relationships are added to theirs. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le personnage à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du personnage gardé, et son profil, ses notes, ses scènes et ses relations s’ajoutent aux siens. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
+    "Choose the name that is wrong and the card it really is. The suggestions change; the cards do not.": "Choisissez le nom erroné et la fiche qu’il désigne. Les suggestions changent ; les fiches ne changent pas.",
     "Choose the place to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept place, its description, notes and scenes are added to theirs, and what is inside it moves into the kept place. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le lieu à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du lieu gardé, sa description, ses notes et ses scènes s’ajoutent aux siennes, et ce qu’il contient passe dans le lieu gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
     "Choose the two characters and say what they are to each other.": "Choisissez les deux personnages et dites ce qu’ils sont l’un pour l’autre.",
     "Choose the world to keep. “{name}” is taken out of the book: its name and aliases become aliases of the kept world, and all its places move to the top of the kept world. The card goes to the book's trash folder (.quilland/trash). You can undo this.": "Choisissez le monde à garder. « {name} » est retiré du livre : son nom et ses alias deviennent des alias du monde gardé, et tous ses lieux passent au premier niveau du monde gardé. La fiche va dans le dossier corbeille du livre (.quilland/trash). Vous pouvez l’annuler.",
@@ -638,6 +644,7 @@
     "Import a Text…": "Importer un texte…",
     "Import…": "Importer…",
     "In": "Dans",
+    "In all suggestions": "Dans toutes les suggestions",
     "Included": "Inclus",
     "Indigo": "Indigo",
     "Insert": "Insérer",
@@ -958,6 +965,8 @@
     "Reopen the last book when Quilland starts": "Rouvrir le dernier livre au démarrage de Quilland",
     "Replace": "Remplacer",
     "Replace 0 checked": "Remplacer 0 coché",
+    "Replace a Name": "Remplacer un nom",
+    "Replace a Name…": "Remplacer un nom…",
     "Replace by a Copy…": "Remplacer par une copie…",
     "Replace by a Link…": "Remplacer par un lien…",
     "Replace undone.": "Remplacement annulé.",
@@ -1327,6 +1336,7 @@
     "cards": "cartes",
     "changes in the story": "change dans l’histoire",
     "chapter": "chapitre",
+    "character “{name}”": "personnage « {name} »",
     "characters": "personnages",
     "characters (leave empty for none)||text": "personnages (laisser vide pour aucun)",
     "characters||text": "personnages",
@@ -1376,6 +1386,7 @@
     "part": "partie",
     "part {piece} of {pieces}": "partie {piece} sur {pieces}",
     "people: {names}": "participants : {names}",
+    "place “{name}”": "lieu « {name} »",
     "places": "lieux",
     "plan": "plan",
     "planned by {cards}": "prévu par {cards}",
@@ -1415,6 +1426,7 @@
     "usually over {min} words": "généralement plus de {min} mots",
     "usually up to {max} words": "généralement jusqu’à {max} mots",
     "usually {min}–{max} words": "généralement {min}–{max} mots",
+    "with": "par",
     "with the scenes": "avec les scènes",
     "with {names}": "avec {names}",
     "worlds": "mondes",
