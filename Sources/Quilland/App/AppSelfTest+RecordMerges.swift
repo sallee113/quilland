@@ -46,9 +46,18 @@ extension AppSelfTest {
         check(wv.movePlace(frankfurt, into: defaultWorld) && main.worlds.entry(frankfurt)?.parent == nil, "dropping on a world makes it a top-level place there")
         setText(sc[0].id, "Он приехал во Франкфурт из Германии.")
         wv.select(frankfurt)
-        check(wv.rows.count == 1 && wv.rows[0].mentions == 1, "the card lists the scenes where the name is", "\(wv.rows)")
+        check(wv.rows.isEmpty, "a scene that only names the place is not a link: the card's list has none of them by default", "\(wv.rows)")
+        wv.setShowsMentions(true)
+        check(wv.rows.count == 1 && wv.rows[0].mentions == 1 && wv.mentionOnlyFlags == [true], "Also scenes that name it lists the scene where the name is, dimmed", "\(wv.rows)")
+        wv.selectSceneRow(0)
+        check(!wv.removeLinkEnabled && wv.removeLinkTip.contains("names the place"), "such a row cannot be taken away, and the tooltip says why", wv.removeLinkTip)
+        wv.removeSceneLink(row: 0)
+        check(wv.rows.count == 1, "and Remove Link does nothing to it")
+        check(wv.memory.flags == ["mentions"], "the switch is kept with the view's state")
         wv.setSceneLine(row: 0, "Первая ночь Анны.")
-        check(main.worlds.entry(frankfurt)?.links[sc[0].id] == "Первая ночь Анны.", "and what happens there is saved")
+        check(main.worlds.entry(frankfurt)?.links[sc[0].id] == "Первая ночь Анны.", "a line typed for it makes it a link, and what happens there is saved")
+        wv.setShowsMentions(false)
+        check(wv.rows.count == 1 && wv.mentionOnlyFlags == [false], "and it stays in the list when the switch is off, as a link")
         // A scene can be linked by hand, where the name is not written, and unlinked again.
         let other = sc[1].id
         let otherTitle = main.session.structure.sceneChoices.first { $0.id == other }!.title

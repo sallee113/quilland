@@ -10,6 +10,8 @@ struct CharacterSceneRow {
     var text: String
     /// The row is an event the character takes part in (the id is the event's), not a scene.
     var isEvent = false
+    /// The scene only names the place (no line is stored for it): the World card shows such rows dimmed when asked, and they cannot be taken away.
+    var mentionOnly = false
 }
 
 /// The Characters view: the list of characters on the left, the card of the chosen one on the right (the two-part layout).

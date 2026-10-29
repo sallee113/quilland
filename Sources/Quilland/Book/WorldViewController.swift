@@ -67,6 +67,9 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     private let addSceneButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let removeSceneButton = NSButton(title: L("Remove Link"), target: nil, action: nil)
     private let sceneButtons = NSStackView()
+    private let mentionsBox = NSButton(checkboxWithTitle: L("Also scenes that name it"), target: nil, action: nil)
+    /// Does the list also have the scenes that only name the place? (Off: it has what is linked: the lines on the card and the events held here.)
+    private(set) var showsMentions = false
     private let mergeButton = NSButton(title: L("Merge Into…"), target: nil, action: nil)
     private let convertButton = NSButton(title: L("Turn Into a World…"), target: nil, action: nil)
     private var dirty: Set<String> = []
@@ -174,7 +177,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         aliasField.placeholderString = L("Other names, separated by commas"); aliasField.delegate = self
         aliasField.setAccessibilityLabel(L("Also called"))
         descriptionView.setAccessibilityLabel(L("Description")); notesView.setAccessibilityLabel(L("Notes"))
-        scenesCaption.stringValue = L("Scenes and events (◆): where the name is, and what happens here (double-click opens it)")
+        scenesCaption.stringValue = L("Scenes and events (◆) linked to it, and what happens here (double-click opens it)")
         scenesCaption.font = .systemFont(ofSize: 11, weight: .semibold)
         scenesCaption.textColor = .secondaryLabelColor
         for (id, title, width) in [("scene", L("Scene"), 240), ("mentions", L("Named"), 54), ("text", L("What happens here"), 280), ("changes", L("Changes"), 100)] as [(String, String, CGFloat)] {
@@ -204,8 +207,11 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         addSceneButton.controlSize = .small
         removeSceneButton.target = self; removeSceneButton.action = #selector(removeSceneLinkPressed)
         removeSceneButton.controlSize = .small; removeSceneButton.bezelStyle = .rounded
-        removeSceneButton.toolTip = L("Takes away the line of the chosen scene, or the place from the chosen event. A scene whose text names the place stays in the list.")
-        sceneButtons.setViews([addSceneButton, removeSceneButton], in: .leading)
+        removeSceneButton.toolTip = removeTip
+        mentionsBox.controlSize = .small
+        mentionsBox.target = self; mentionsBox.action = #selector(mentionsChanged)
+        mentionsBox.toolTip = L("Shows the scenes that name the place in their text, dimmed: they are not links, and cannot be taken away here")
+        sceneButtons.setViews([addSceneButton, removeSceneButton, mentionsBox], in: .leading)
         sceneButtons.spacing = 8
 
         let descBox = box(descriptionView, height: 150), notesBox = box(notesView, height: 80)
@@ -298,7 +304,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     /// The chosen place, the place in the tree, what is open, and the filters.
     var memory: ViewMemory {
         ViewMemory(selected: selected, scroll: Double(outline.scrolledBy), filter: filterField.stringValue, anchors: relationFilter.memory,
-                   closed: byID.values.filter { !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted())
+                   closed: byID.values.filter { !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted(), flags: showsMentions ? ["mentions"] : [])
     }
 
     /// Puts the view back as it was left.
@@ -306,6 +312,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         guard let m else { return }
         filterField.stringValue = m.filter
         relationFilter.restore(m.anchors)
+        showsMentions = m.flags.contains("mentions"); mentionsBox.state = showsMentions ? .on : .off
         if let id = m.selected, store.entry(id) != nil || store.world(id) != nil { selected = id }
         reload()
         // (A tree is opened wholly the first time; here what was left shut is shut again, and the chosen place is shown. A filter opens everything, as it does.)
@@ -553,7 +560,9 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
             let n = named[s.id] ?? 0
             let line = links[s.id]
             guard n > 0 || line != nil else { return nil }
-            return CharacterSceneRow(sceneID: s.id, title: s.title, mentions: n, pov: false, text: line ?? "")
+            // (A scene that only names the place is not a link: it is listed only when asked.)
+            guard line != nil || showsMentions else { return nil }
+            return CharacterSceneRow(sceneID: s.id, title: s.title, mentions: n, pov: false, text: line ?? "", mentionOnly: line == nil)
         }
         // The events held here: the link is kept in the event's file.
         for ev in events() {
@@ -564,7 +573,25 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
     }
 
     /// "Remove Link" works on the chosen row, so with none chosen it is off (and does not light under the pointer).
-    private func syncRemoveButton() { removeSceneButton.isEnabled = rows.indices.contains(sceneTable.selectedRow) }
+    private func syncRemoveButton() {
+        let row = sceneTable.selectedRow
+        let chosen = rows.indices.contains(row)
+        removeSceneButton.isEnabled = chosen && !rows[row].mentionOnly
+        removeSceneButton.toolTip = chosen && rows[row].mentionOnly ? L("The text of this scene names the place. Change the text or the place's names to take it out.") : removeTip
+    }
+
+    private var removeTip: String { L("Takes away the line of the chosen scene, or the place from the chosen event.") }
+
+    @objc private func mentionsChanged() {
+        showsMentions = mentionsBox.state == .on
+        if let id = selected, let e = store.entry(id) { rebuildRows(for: e) }
+    }
+
+    /// For the checks: the switch for the scenes that only name the place, and which rows are such.
+    func setShowsMentions(_ on: Bool) { mentionsBox.state = on ? .on : .off; mentionsChanged() }
+    var mentionOnlyFlags: [Bool] { rows.map(\.mentionOnly) }
+    var removeLinkTip: String { removeSceneButton.toolTip ?? "" }
+    func selectSceneRow(_ row: Int) { sceneTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
     var removeLinkEnabled: Bool { removeSceneButton.isEnabled }
     var addLinkEnabled: Bool { addSceneButton.isEnabled }
     /// For the checks: chooses a row of the list of scenes and events.
@@ -629,7 +656,7 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
 
     /// Takes away the line of the scene of this row, or the place from the event of this row.
     func removeSceneLink(row: Int) {
-        guard rows.indices.contains(row) else { return }
+        guard rows.indices.contains(row), !rows[row].mentionOnly else { return }
         let scene = rows[row].sceneID
         if rows[row].isEvent, let place = selected {
             try? eventStore.update(scene) { var p = $0.places; p.removeValue(forKey: place); $0.places = p }
@@ -655,7 +682,10 @@ final class WorldViewController: NSViewController, NSOutlineViewDataSource, NSOu
         guard rows.indices.contains(row), let id = tableColumn?.identifier.rawValue else { return nil }
         let r = rows[row]
         switch id {
-        case "scene": return NSTextField(labelWithString: r.isEvent ? "◆ " + r.title : r.title)
+        case "scene":
+            let l = NSTextField(labelWithString: r.isEvent ? "◆ " + r.title : r.title)
+            if r.mentionOnly { l.textColor = .secondaryLabelColor }
+            return l
         case "mentions":
             let l = NSTextField(labelWithString: r.mentions > 0 ? String(r.mentions) : "")
             l.alignment = .right; l.textColor = .secondaryLabelColor

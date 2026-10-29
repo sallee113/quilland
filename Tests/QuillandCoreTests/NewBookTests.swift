@@ -91,7 +91,7 @@ struct NewBookTests {
         #expect(LocalBookState.load(book: book).graph == memory, "the Graph view's settings and place are kept")
         LocalBookState(scene: "s1", mode: "graph").save(book: book)
         #expect(LocalBookState.load(book: book).graph == nil, "and left out when there are none")
-        let kept = ["events": ViewMemory(selected: "e7", scroll: 412, filter: "ссор", anchors: ["character:anna"]), "world": ViewMemory(selected: "w1", closed: ["a", "b"]), "research": ViewMemory()]
+        let kept = ["events": ViewMemory(selected: "e7", scroll: 412, filter: "ссор", anchors: ["character:anna"]), "world": ViewMemory(selected: "w1", closed: ["a", "b"], flags: ["mentions"]), "research": ViewMemory()]
         LocalBookState(scene: "s1", mode: "events", views: kept).save(book: book)
         #expect(LocalBookState.load(book: book).views == ["events": kept["events"]!, "world": kept["world"]!], "each list view's chosen item, place, filters and open places are kept (an empty one is not)")
         LocalBookState(scene: "s1", mode: "events").save(book: book)

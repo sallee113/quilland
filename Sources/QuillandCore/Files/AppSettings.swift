@@ -165,14 +165,16 @@ public struct ViewMemory: Equatable, Sendable {
     public var anchors: [String]
     /// The ids of what is closed in a tree (what has children and was left shut).
     public var closed: [String]
+    /// Switches of the view that are on (`mentions`: the World card also lists the scenes that only name the place).
+    public var flags: [String]
     /// A canvas (the Plan): how far it is scrolled across, and the zoom (0: not kept).
     public var scrollX: Double
     public var zoom: Double
-    public init(selected: String? = nil, scroll: Double = 0, filter: String = "", anchors: [String] = [], closed: [String] = [], scrollX: Double = 0, zoom: Double = 0) {
-        self.selected = selected; self.scroll = scroll; self.filter = filter; self.anchors = anchors; self.closed = closed; self.scrollX = scrollX; self.zoom = zoom
+    public init(selected: String? = nil, scroll: Double = 0, filter: String = "", anchors: [String] = [], closed: [String] = [], flags: [String] = [], scrollX: Double = 0, zoom: Double = 0) {
+        self.selected = selected; self.scroll = scroll; self.filter = filter; self.anchors = anchors; self.closed = closed; self.flags = flags; self.scrollX = scrollX; self.zoom = zoom
     }
     init?(object o: JSONObject) {
-        let m = ViewMemory(selected: o.string("selected"), scroll: Double(o.int("scroll") ?? 0), filter: o.string("filter") ?? "", anchors: o.strings("anchors") ?? [], closed: o.strings("closed") ?? [], scrollX: Double(o.int("scroll_x") ?? 0), zoom: Double(o.int("zoom_permille") ?? 0) / 1000)
+        let m = ViewMemory(selected: o.string("selected"), scroll: Double(o.int("scroll") ?? 0), filter: o.string("filter") ?? "", anchors: o.strings("anchors") ?? [], closed: o.strings("closed") ?? [], flags: o.strings("flags") ?? [], scrollX: Double(o.int("scroll_x") ?? 0), zoom: Double(o.int("zoom_permille") ?? 0) / 1000)
         guard m != ViewMemory() else { return nil }
         self = m
     }
@@ -182,6 +184,7 @@ public struct ViewMemory: Equatable, Sendable {
         if !filter.isEmpty { o["filter"] = .string(filter) }
         if !anchors.isEmpty { o.setStrings("anchors", anchors) }
         if !closed.isEmpty { o.setStrings("closed", closed) }
+        if !flags.isEmpty { o.setStrings("flags", flags) }
         if scrollX != 0 { o["scroll_x"] = .int(Int(scrollX.rounded())) }
         if zoom > 0 { o["zoom_permille"] = .int(Int((zoom * 1000).rounded())) }
         return o
