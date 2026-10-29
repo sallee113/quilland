@@ -33,6 +33,9 @@ final class CollectSheet: NSObject {
     /// Where a run reads unless the author says otherwise: the scene they are in, or the whole book when there is none.
     static func defaultScope(hasCurrentScene: Bool) -> SearchScope { hasCurrentScene ? .scene : .book }
 
+    /// For the checks: the titles of the choices of where to read.
+    var scopeTitles: [String] { scope.itemTitles }
+
     /// What the window is set to now (for the checks).
     var currentChoice: Choice { Choice(kinds: chosenKinds, scope: chosenScope) }
 
@@ -45,7 +48,7 @@ final class CollectSheet: NSObject {
             boxes[kind] = b
             views.append(b)
         }
-        for s in Self.scopes { scope.addItem(withTitle: s == .book ? L("The whole book") : L("The current {part}", ["part": s.title.lowercased()])) }
+        for s in Self.scopes { scope.addItem(withTitle: main?.scopeLabel(s) ?? s.title) }
         scope.selectItem(at: Self.scopes.firstIndex(of: Self.defaultScope(hasCurrentScene: main?.currentSceneID != nil)) ?? 0)
         scope.target = self; scope.action = #selector(changed)
         size.font = .systemFont(ofSize: 11); size.textColor = .secondaryLabelColor
@@ -74,6 +77,22 @@ final class CollectSheet: NSObject {
 }
 
 extension MainAreaController {
+    /// What a choice of where to read means now, in words: the book, or the part, chapter or scene of the scene the cursor is in, with how many scenes it reads.
+    func scopeLabel(_ scope: SearchScope) -> String {
+        let count = Lp("{n} scene", "{n} scenes", searchTargets(scope).scenes.count)
+        if scope == .book { return L("The whole book ({scenes})", ["scenes": count]) }
+        let part = scope.title.lowercased()
+        guard let id = currentSceneID, let entry = session.structure.scenes.first(where: { $0.id == id }) else { return L("The current {part}: no scene is open", ["part": part]) }
+        func joined(_ names: [String]) -> String { names.filter { !$0.isEmpty }.joined(separator: " › ") }
+        let name: String
+        switch scope {
+        case .scene: name = entry.fullPath
+        case .chapter: name = joined([entry.partTitle ?? "", entry.chapterTitle ?? ""])
+        default: name = entry.partID != nil ? (entry.partTitle ?? "") : joined([entry.chapterTitle ?? ""])   // (a book with no parts: the chapter is what is read)
+        }
+        return L("The current {part}: {name} ({scenes})", ["part": part, "name": name, "scenes": count])
+    }
+
     /// AI ▸ Collect from the Book…: asks what and where, then reads in the background; the findings appear in the Suggestions tab.
     func showCollectSheet() {
         guard AIService.shared.isReady else {

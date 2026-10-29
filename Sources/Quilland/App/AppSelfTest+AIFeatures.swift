@@ -160,6 +160,13 @@ extension AppSelfTest {
             let sheet = CollectSheet(main: main)
             _ = sheet.prepare()
             check(main.currentSceneID != nil && sheet.currentChoice.scope == .scene, "the Collect window starts on the current scene", "\(sheet.currentChoice.scope) \(main.mode)")
+            // Each choice says what it means now: the part, chapter and scene of the open scene, with how many scenes it reads.
+            let entry = main.session.structure.scenes.first { $0.id == main.currentSceneID }
+            let titles = sheet.scopeTitles
+            let total = main.session.structure.scenes.count
+            check(titles.count == 4 && titles[0] == "The whole book (\(total) scene\(total == 1 ? "" : "s"))", "the Collect window says how many scenes the whole book is", "\(titles)")
+            check(titles[3].hasPrefix("The current scene: ") && titles[3].contains(entry?.fullPath ?? "?") && titles[3].hasSuffix("(1 scene)"), "the current scene is named by its path", "\(titles)")
+            check(titles[2].hasPrefix("The current chapter: ") && titles[2].contains(entry?.chapterTitle ?? "?") && titles[1].hasPrefix("The current part: "), "so are the chapter and the part, with their scene counts", "\(titles)")
             if main.mode != modeBefore { main.setMode(modeBefore); spin(0.3) }
             check(CollectSheet.defaultScope(hasCurrentScene: false) == .book, "and on the whole book when there is no current scene")
             main.collect.inject([c, again, town, square, event, rel, lonely, obs, orphan])
