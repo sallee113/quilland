@@ -103,6 +103,8 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 
 A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure. The arrow beside the "+" under the tree closes every part and chapter, or opens them all again.
 
+**The settings of a scene** (the Outline's detail pane, and the *Section* tab of the right panel) have a **Status**, a **Target length** (how long you want the scene to be, in characters: a bar fills as it grows, and the size line reads *4 746 of 5 000 characters (95%)*) and a **Narrator**: tick the characters whose point of view the scene is. It is the same as the point of view on the character's card. In the first person the text says "I"; *Collect from the Book* tells the model who that is, so it writes the narrator's name and not "the hero".
+
 The **Section** menu does the work. It offers only what can be done now: for example, *Move Up* is greyed for the first scene of the book, or the first chapter, *Merge with Next Scene* for the last scene, and *Status* when a chapter is chosen.
 
 

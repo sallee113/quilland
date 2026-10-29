@@ -87,7 +87,7 @@ public struct CollectKnown {
 
 extension CollectPrompt {
 
-    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", knownEvents: [String] = [], kinds: Set<CollectKind>, language: String = "") -> String {
+    public static func user(chunk: String, sceneTitle: String, knownCharacters: [String], knownPlaces: [String], known: String = "", knownEvents: [String] = [], narrators: [String] = [], kinds: Set<CollectKind>, language: String = "") -> String {
         // The passage first: both passes begin with the same words, so that the model's server need not read it twice.
         var s = "Passage from the scene “\(sceneTitle)”:\n\"\"\"\n\(chunk)\n\"\"\"\n"
         if !knownCharacters.isEmpty { s += "Characters already on cards (use exactly these names when the same person is meant): " + knownCharacters.joined(separator: ", ") + "\n" }
@@ -95,6 +95,8 @@ extension CollectPrompt {
         if !known.isEmpty { s += "Known cards (what is written on them now):\n" + known }
         // So that the same event is not proposed twice under two titles (the book's own events of this scene, and those found earlier in the run).
         if !knownEvents.isEmpty { s += "Events already known for this scene or found earlier (if the passage shows one of them, use exactly its title for it, never a new one):\n" + knownEvents.map { "- " + $0 }.joined(separator: "\n") + "\n" }
+        // The narrator: where the text says "I", it is this character, and the model is to use the name (not "the hero" or "the narrator").
+        if !narrators.isEmpty { s += "Narrator of this scene (the \"I\" of the text): " + narrators.joined(separator: ", ") + ". Where the text says \"I\" (or \"we\"), that is " + (narrators.count == 1 ? "this character: use exactly this name for them, never \"the hero\" or \"the narrator\"." : "one of these characters: use their name, never \"the hero\" or \"the narrator\".") + "\n" }
         s += task(kinds: kinds, language: language)
         return s
     }

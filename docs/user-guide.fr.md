@@ -105,6 +105,8 @@ Il n’y a pas de barre d’outils de mise en forme. Utilisez le clavier ou le m
 
 Un livre se compose de **parties** (facultatives), de **chapitres** et de **scènes**. La scène est l’unité dans laquelle on écrit : chaque scène est son propre fichier. L’arborescence à gauche (vue Panneaux) ou le Plan détaillé montre la structure. La flèche à côté du « + » sous l’arborescence replie toutes les parties et tous les chapitres, ou les déplie à nouveau.
 
+**Les réglages d’une scène** (le volet de détail du Plan détaillé, et l’onglet *Section* du panneau de droite) comprennent un **Statut**, une **Longueur visée** (la longueur que vous voulez pour la scène, en caractères : une barre se remplit à mesure qu’elle grandit, et la ligne de taille indique *4 746 sur 5 000 caractères (95 %)*) et un **Narrateur** : cochez les personnages dont la scène est le point de vue. C’est la même donnée que le point de vue sur la fiche du personnage. À la première personne le texte dit « je » ; *Recueillir depuis le livre* dit au modèle qui c’est, pour qu’il écrive le nom du narrateur et non « le héros ».
+
 Le menu **Section** fait le travail. Il ne propose que ce qui est possible à ce moment : par exemple, *Monter* est grisé pour la première scène du livre ou le premier chapitre, *Fusionner avec la scène suivante* pour la dernière scène, et *Statut* quand un chapitre est choisi.
 
 

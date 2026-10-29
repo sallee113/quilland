@@ -29,8 +29,14 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
     var onTarget: ((String, Int?) -> Void)?
     var onText: ((String, String, String) -> Void)?
     var onOpen: ((String) -> Void)?
+    let narratorButton = NarratorButton()
+    private let narratorRow = NSStackView()
 
     private(set) var shown: [String] = []
+    /// For the checks: the size line, the target field's text, and whether the narrator row is shown.
+    var countsText: String { countsLabel.stringValue }
+    var narratorRowShown: Bool { !narratorRow.isHidden }
+    var targetPlaceholder: String { targetField.placeholderString ?? "" }
     private let kindLabel = NSTextField(labelWithString: "")
     let titleField = NSTextField()
     private let pathLabel = NSTextField(labelWithString: "")
@@ -72,7 +78,8 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         pathLabel.lineBreakMode = .byTruncatingTail
         for st in SceneRecord.knownStatuses { statusPopup.addItem(withTitle: L(st).capitalized); statusPopup.lastItem?.representedObject = st }
         statusPopup.target = self; statusPopup.action = #selector(statusChanged)
-        targetField.placeholderString = L("characters||text")
+        targetField.placeholderString = L("for example 5000")
+        targetField.toolTip = L("How long you want this scene to be, in characters. A bar shows how close it is.")
         targetField.alignment = .right
         targetField.delegate = self
         targetField.setAccessibilityLabel(L("Target size"))
@@ -95,8 +102,10 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
 
         statusRow.setViews([caption(L("Status")), statusPopup], in: .leading)
         statusRow.orientation = .horizontal; statusRow.spacing = 8
-        targetRow.setViews([caption(L("Target")), targetField, progress], in: .leading)
+        targetRow.setViews([caption(L("Target length")), targetField, progress], in: .leading)
         targetRow.orientation = .horizontal; targetRow.spacing = 8
+        narratorRow.setViews([caption(L("Narrator")), narratorButton], in: .leading)
+        narratorRow.orientation = .horizontal; narratorRow.spacing = 8
         targetField.widthAnchor.constraint(equalToConstant: 90).isActive = true
         progress.widthAnchor.constraint(equalToConstant: 160).isActive = true
 
@@ -117,7 +126,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         for v in [synopsisBox, noteBox] { v.widthAnchor.constraint(equalTo: textBlocks.widthAnchor).isActive = true }
         foundLabel.widthAnchor.constraint(equalTo: textBlocks.widthAnchor).isActive = true
 
-        let column = NSStackView(views: [kindLabel, titleField, pathLabel, statusRow, targetRow, countsLabel, textBlocks, openButton])
+        let column = NSStackView(views: [kindLabel, titleField, pathLabel, statusRow, targetRow, narratorRow, countsLabel, textBlocks, openButton])
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = 10
@@ -161,7 +170,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
             titleField.isEditable = false
             pathLabel.stringValue = ""
             countsLabel.stringValue = L("{size} in all", ["size": Lp("{n} character||text", "{n} characters||text", totalCharacters(shown))])
-            [statusRow, targetRow, textBlocks, openButton].forEach { $0.isHidden = true }
+            [statusRow, targetRow, narratorRow, textBlocks, openButton].forEach { $0.isHidden = true }
             return
         }
         guard let id = shown.first, let section = info(id) else {
@@ -169,7 +178,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
             titleField.stringValue = L("Choose a section")
             titleField.isEditable = false
             pathLabel.stringValue = ""; countsLabel.stringValue = ""
-            [statusRow, targetRow, textBlocks, openButton].forEach { $0.isHidden = true }
+            [statusRow, targetRow, narratorRow, textBlocks, openButton].forEach { $0.isHidden = true }
             return
         }
         updateWriteButton()
@@ -180,6 +189,8 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         pathLabel.stringValue = section.path
         statusRow.isHidden = !isScene
         targetRow.isHidden = !isScene
+        narratorRow.isHidden = !isScene
+        if isScene { narratorButton.show(scene: id) }
         textBlocks.isHidden = false
         openButton.isHidden = false
         if isScene {
@@ -190,6 +201,7 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         }
         let number = { (n: Int) in NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal) }
         var counts = Lp("{n} character||text", "{n} characters||text", section.characters)
+        if isScene, let target = section.target, target > 0 { counts = L("{size} of {target} characters ({percent}%)", ["size": number(section.characters), "target": number(target), "percent": section.characters * 100 / target]) }
         if !isScene {
             let list = section.sceneStatuses.filter { $0.count > 0 }.map { "\($0.count) \(L($0.status))" }.joined(separator: " · ")
             counts += "  ·  " + Lp("{n} scene", "{n} scenes", section.sceneCount) + (list.isEmpty ? "" : " (\(list))")

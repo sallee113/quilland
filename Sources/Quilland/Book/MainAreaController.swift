@@ -434,6 +434,7 @@ final class MainAreaController: NSViewController {
         let detail = OutlineDetailController()
         _ = detail.view
         detail.info = { [weak self] in self?.sectionInfo($0) }
+        detail.narratorButton.connect(to: characters) { [weak self] in NotificationCenter.default.post(name: .bookDataChanged, object: nil); self?.onChange?() }
         detail.totalCharacters = { [weak self] ids in ids.reduce(0) { $0 + (self?.sectionCharacters($1) ?? 0) } }
         detail.onRename = { [weak self] id, title in self?.rename(id, to: title) }
         detail.onStatus = { [weak self] id, status in self?.setStatus(id, to: status) }

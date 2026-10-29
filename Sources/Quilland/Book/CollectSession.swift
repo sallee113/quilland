@@ -92,6 +92,7 @@ final class CollectSession {
         request.language = main.bookLanguage
         request.knownCharacters = main.characters.characters.compactMap(\.name)
         request.knownPlaces = main.worlds.entries.compactMap(\.name)
+        request.narrators = main.characters.narratorNames()
         request.cards = main.collectCards()
         // The events the book has, by scene: the model is told them, so that it uses a title again and does not name the same event twice.
         for e in main.eventStore.events { if let title = e.title { for s in e.links.keys { request.knownEvents[s, default: []].append(title) } } }

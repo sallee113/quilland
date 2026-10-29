@@ -34,6 +34,25 @@ public final class CharacterStore {
 
     public func character(_ id: String) -> CharacterRecord? { characters.first { $0.id == id } }
 
+    /// The characters whose point of view the scene is (its narrators: in the first person, the "I" of the text).
+    public func narrators(of scene: String) -> [CharacterRecord] { characters.filter { $0.povScenes.contains(scene) } }
+
+    /// Makes a character a narrator of a scene, or not (the same data as the point of view on the character's card).
+    public func setNarrator(_ on: Bool, of scene: String, character id: String) throws {
+        try update(id) { r in
+            var list = r.povScenes
+            if on { if !list.contains(scene) { list.append(scene) } } else { list.removeAll { $0 == scene } }
+            r.povScenes = list
+        }
+    }
+
+    /// The names of the narrators of each scene, for telling the model who "I" is.
+    public func narratorNames() -> [String: [String]] {
+        var out: [String: [String]] = [:]
+        for c in characters { if let name = c.name, !name.isEmpty { for s in c.povScenes { out[s, default: []].append(name) } } }
+        return out
+    }
+
     /// More names for a character, from outside its card (the new names events give it: `EventStore.addedAliases`); the application sets it.
     public var extraAliases: (String) -> [String] = { _ in [] }
 

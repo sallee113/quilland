@@ -85,6 +85,16 @@ struct CollectTests {
         #expect(set.items.count == 3, "two changes of one thing are not merged as names are")
     }
 
+    @Test("the narrator of a scene is named in the request, so that \"I\" is not turned into \"the hero\"")
+    func narrator() {
+        let with = CollectPrompt.user(chunk: "Т", sceneTitle: "С", knownCharacters: [], knownPlaces: [], narrators: ["Вилли"], kinds: [.characters])
+        #expect(with.contains("Narrator of this scene") && with.contains("Вилли") && with.contains("never \"the hero\""), "one narrator: use exactly that name")
+        let two = CollectPrompt.user(chunk: "Т", sceneTitle: "С", knownCharacters: [], knownPlaces: [], narrators: ["Вилли", "Лилит"], kinds: [.characters])
+        #expect(two.contains("Вилли, Лилит") && two.contains("one of these characters"), "several narrators: one of them")
+        #expect(!CollectPrompt.user(chunk: "Т", sceneTitle: "С", knownCharacters: [], knownPlaces: [], kinds: [.characters]).contains("Narrator"), "no narrator, no line")
+        #expect(with.hasPrefix("Passage from the scene") && with.range(of: "Narrator")!.lowerBound > with.range(of: "\"\"\"\n")!.lowerBound, "the line comes after the passage, so that both passes still begin with it")
+    }
+
     @Test("the kind of a relationship is asked for in the book's language, with no English example to copy")
     func relationshipKindLanguage() {
         let ru = CollectPrompt.task(kinds: [.relationships], language: "ru"), none = CollectPrompt.task(kinds: [.relationships])

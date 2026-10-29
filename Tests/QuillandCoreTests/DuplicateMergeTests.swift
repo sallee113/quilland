@@ -124,4 +124,18 @@ struct DuplicateMergeTests {
         #expect(CardAges.oldestFirst([late, b, early, a], book: book) == [b, a, early, late], "unrecorded cards first in the order given, then by time")
         #expect(CardAges.oldestFirst([], book: book).isEmpty)
     }
+
+    @Test("narrators are the point of view of a scene: set from either side, and listed by name for Collect")
+    func narrators() throws {
+        let f = try BookGraphTests.fixture(); defer { try? FileManager.default.removeItem(at: f.parent) }
+        let anna = f.ids["anna"]!, lev = f.ids["lev"]!
+        try f.characters.setNarrator(true, of: "s1", character: anna)
+        try f.characters.setNarrator(true, of: "s1", character: anna)
+        #expect(f.characters.character(anna)?.povScenes.filter { $0 == "s1" }.count == 1, "ticking twice is one")
+        try f.characters.setNarrator(true, of: "s1", character: lev)
+        #expect(Set(f.characters.narrators(of: "s1").compactMap(\.id)) == [anna, lev])
+        #expect(f.characters.narratorNames()["s1"]?.sorted() == ["Анна", "Лев"])
+        try f.characters.setNarrator(false, of: "s1", character: anna)
+        #expect(f.characters.narrators(of: "s1").compactMap(\.id) == [lev] && f.characters.narratorNames()["s2"] == ["Лев"], "(the fixture already has Лев as the point of view of the second scene)")
+    }
 }

@@ -66,6 +66,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     var onWriteSynopsis: (() -> Void)?
     private let writeButton = NSButton(title: L("Write with AI"), target: nil, action: nil)
     let note = NSTextView()
+    let narratorButton = NarratorButton()
     private var dirty: Set<String> = []
     private var saveTimer: Timer?
 
@@ -198,7 +199,8 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         writeButton.target = self; writeButton.action = #selector(writePressed)
         let synopsisRow = NSStackView(views: [label(L("Synopsis")), writeButton])
         synopsisRow.spacing = 10
-        stack([titleLabel, pathLabel, infoLabel, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places in this scene")), placesLabel], in: sectionView)
+        let narratorRow = NSStackView(views: [label(L("Narrator")), narratorButton]); narratorRow.spacing = 8
+        stack([titleLabel, pathLabel, infoLabel, narratorRow, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places in this scene")), placesLabel], in: sectionView)
     }
 
     @objc private func writePressed() { onWriteSynopsis?() }
@@ -340,6 +342,8 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             setText(note, record?.string("note") ?? "")
             synopsis.isEditable = true; note.isEditable = true
             found = SceneMembers.characters(inScene: id, text: sceneText(id), store: characterStore)
+            narratorButton.connect(to: characterStore) { [weak self] in NotificationCenter.default.post(name: .bookDataChanged, object: nil); self?.onChange?() }
+            narratorButton.show(scene: id)
             let names = characterStore.characters.filter { found.contains($0.id ?? "") }.compactMap(\.name)
             inSceneLabel.stringValue = names.isEmpty ? L("None found") : names.joined(separator: ", ")
             placesLabel.stringValue = placesFound(in: id)
@@ -348,6 +352,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             pathLabel.stringValue = ""; infoLabel.stringValue = ""; inSceneLabel.stringValue = ""; placesLabel.stringValue = ""
             setText(synopsis, ""); setText(note, "")
             synopsis.isEditable = false; note.isEditable = false
+            narratorButton.show(scene: nil)
         }
         reloadCharacters()
         if shownTab == .world { worldTab.refresh(scene: shownScene) }

@@ -30,6 +30,8 @@ public struct CollectRequest: Sendable {
     public var cards: [CollectCard] = []
     /// The titles of the events the book already has, by the scene each is linked to (the model is told them, so that it uses a title again, not a new one).
     public var knownEvents: [String: [String]] = [:]
+    /// The names of the narrators of each scene (the characters whose point of view it is): in first person the text says "I", and the model is told who that is.
+    public var narrators: [String: [String]] = [:]
     /// Tokens the model reads at once: the pieces sent are cut to fit.
     public var context = LMStudioClient.defaultContext
     /// Fingerprints of the scenes already analysed (scene id to fingerprint); those that have not changed are skipped unless `reanalyse`.
@@ -126,7 +128,7 @@ public enum CollectJob {
                         for t in here + elsewhere where !events.contains(where: { Names.normalize($0) == Names.normalize(t) }) { events.append(t) }
                         events = Array(events.prefix(30))
                     }
-                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, kinds: kinds, language: request.language))]
+                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, narrators: request.narrators[scene.id] ?? [], kinds: kinds, language: request.language))]
                     do {
                         let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
                         let result = CollectParser.parse(reply, kinds: kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)
