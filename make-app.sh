@@ -15,7 +15,12 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 python3 make-languages.py >/dev/null
 mkdir -p "$APP/Contents/Resources/Languages"
 cp Resources/Languages/*.json "$APP/Contents/Resources/Languages/"
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+# The version is in VERSION; the build number is the number of commits.
+VERSION=$(tr -d ' \n' < VERSION)
+BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
+cp CHANGELOG.md "$APP/Contents/Resources/CHANGELOG.md"
+cp VERSION "$APP/Contents/Resources/VERSION"
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -28,8 +33,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>Quilland</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$BUILD</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSHighResolutionCapable</key><true/>

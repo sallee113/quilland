@@ -215,6 +215,8 @@ Not built yet: importing a whole folder of Markdown files, and importing into th
 
 ## 11. Settings
 
+**Version and what's new.** *Help ▸ What's New in Quilland* opens the changelog: what each release added or changed, newest first. The version is in the *Quilland ▸ About Quilland* window and in the title of the changelog window.
+
 *Quilland ▸ Settings…* (⌘,) has these sections: General, Appearance, Writing, Panels, AI, AI Prompts and Shortcuts. The search field at the top finds a setting by its name.
 
 - **General:** interface language (English, Russian and French; English is the default), the folder for books, the recent list, what opens at start, the snapshot interval.

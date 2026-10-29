@@ -565,6 +565,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         aiMenu.addItem(.separator())
         add(aiMenu, L("AI Settings…"), #selector(showAISettings), "", target: self)
 
+        let help = submenu(L("Help"))
+        add(help, L("What's New in Quilland"), #selector(showWhatsNew), "", target: self)
+        NSApp.helpMenu = help
+
         let window = submenu(L("Window"))
         add(window, L("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m")
         NSApp.windowsMenu = window
@@ -592,6 +596,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     }
 
     @objc private func chooseBookAction() { chooseBook() }
+
+    private(set) var whatsNew: WhatsNewWindowController?
+    @objc func showWhatsNew() {
+        if whatsNew == nil { whatsNew = WhatsNewWindowController() }
+        whatsNew?.present()
+    }
     @objc func jumpToScene() { keyBook?.main.openJump() }
     @objc func toggleRightPanel() { if let m = keyBook?.main { m.setRightPanel(!m.showsRightPanel) } }
     @objc func findAction() { keyBook?.main.showSearch(.search) }

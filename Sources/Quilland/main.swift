@@ -1,6 +1,11 @@
 import AppKit
 import QuillandCore
 
+// `Quilland --version` prints the version and leaves.
+if CommandLine.arguments.contains("--version") {
+    print(AppVersion.text)
+    exit(0)
+}
 if CommandLine.arguments.contains("--snapshot-ui") {
     setenv("QUILLAND_SETTINGS_DIR", NSTemporaryDirectory() + "quilland-snapshot-settings-\(UUID().uuidString)", 1)
 }

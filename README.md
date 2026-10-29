@@ -18,6 +18,10 @@ swift test               # the unit tests
 
 The application has no third-party dependencies, only Apple's frameworks.
 
+## Versions
+
+The version is in the [`VERSION`](VERSION) file, and what changed in each release is in the [changelog](CHANGELOG.md); `Quilland --version` prints the version, and *Help ▸ What's New in Quilland* shows the changelog. A release is a git tag `vX.Y.Z`, made by `./release.sh X.Y.Z` after the changelog has its section (`python3 make-changelog.py` prints a draft from the git log).
+
 ## Documentation
 
 See the [user guide](docs/user-guide.md) ([en français](docs/user-guide.fr.md)).

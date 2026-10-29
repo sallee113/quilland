@@ -217,6 +217,8 @@ Pas encore disponible : importer tout un dossier de fichiers Markdown, et import
 
 ## 11. Réglages
 
+**Version et nouveautés.** *Aide ▸ Nouveautés de Quilland* ouvre le journal des modifications : ce que chaque version a ajouté ou changé, la plus récente en premier. La version est dans la fenêtre *Quilland ▸ À propos de Quilland* et dans le titre de la fenêtre du journal.
+
 *Quilland ▸ Réglages…* (⌘,) comporte ces sections : Général, Apparence, Écriture, Panneaux, IA, Prompts de l’IA et Raccourcis. Le champ de recherche en haut trouve un réglage par son nom.
 
 - **Général :** langue de l’interface (anglais, russe et français ; l’anglais est la langue par défaut), dossier des livres, liste des livres récents, ce qui s’ouvre au démarrage, intervalle des instantanés.
