@@ -242,8 +242,8 @@ final class WorldTab: PanelListTab {
 
     override func sceneLink(for id: String, scene: String) -> (title: String, run: () -> Void)? {
         guard let e = store.entry(id), !SceneMembers.named(entries: store.nameEntries, in: sceneText(scene)).contains(id) else { return nil }
-        if e.links[scene] != nil {
-            return (L("Remove from This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; l.removeValue(forKey: scene); $0.links = l } })
+        if SceneLinks.has(e.links, scene: scene) {
+            return (L("Remove from This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; l = l.filter { SceneLinks.scene(of: $0.key) != scene }; $0.links = l } })
         }
         return (L("Add to This Scene"), { [store] in try? store?.updateEntry(id) { var l = $0.links; if l[scene] == nil { l[scene] = "" }; $0.links = l } })
     }
@@ -279,7 +279,7 @@ final class EventsTab: PanelListTab {
 
     override func rows(for scene: String?, all: Bool) -> [(id: String, title: String)] {
         let ordered = store.ordered(sceneOrder: sceneOrder())
-        let shown = all ? ordered : ordered.filter { e in scene.map { e.links.keys.contains($0) } ?? false }
+        let shown = all ? ordered : ordered.filter { e in scene.map { SceneLinks.has(e.links, scene: $0) } ?? false }
         return shown.compactMap { e in e.id.flatMap { id in e.title.map { (id, $0) } } }
     }
 

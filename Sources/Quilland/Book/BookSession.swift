@@ -18,6 +18,9 @@ final class BookSession {
         }
     }
 
+    /// The structure read again from the files (a title typed for a subsection, say), with the open documents kept as they are.
+    func replaceStructure(_ new: BookStructure) { structure = new }
+
     /// A section was renamed or got a new status: the structure and the open document are updated, nothing is reloaded.
     func applyInfo(id: String, title: String? = nil, status: String? = nil) {
         structure.update(id: id, title: title, status: status)

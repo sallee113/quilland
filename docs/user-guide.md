@@ -103,7 +103,7 @@ There is no formatting toolbar. Use the keyboard or the **Format** menu:
 
 A book is made of **parts** (optional), **chapters** and **scenes**. A scene is the unit you write in: each scene is its own file. The tree on the left (Panels view) or in the Outline shows the structure. The arrow beside the "+" under the tree closes every part and chapter, or opens them all again.
 
-**The settings of a scene** (the Outline's detail pane, and the *Section* tab of the right panel) have a **Status**, a **Target length** (how long you want the scene to be, in characters: a bar fills as it grows, and the size line reads *4 746 of 5 000 characters (95%)*) and a **Narrator**: tick the characters whose point of view the scene is. It is the same as the point of view on the character's card. In the first person the text says "I"; *Collect from the Book* tells the model who that is, so it writes the narrator's name and not "the hero".
+**The settings of a scene** (the Outline's detail pane, and the *Section* tab of the right panel) have a **Status**, a **Target length** (how long you want the scene to be, in characters: a bar fills as it grows, and the size line reads *4 746 of 5 000 characters (95%)*) and a **Narrator**: tick the characters whose point of view the scene is (choose a ticked name again to take it away, or *None* to clear them all). It is the same as the point of view on the character's card. In the first person the text says "I"; *Collect from the Book* tells the model who that is, so it writes the narrator's name and not "the hero".
 
 The **Section** menu does the work. It offers only what can be done now: for example, *Move Up* is greyed for the first scene of the book, or the first chapter, *Merge with Next Scene* for the last scene, and *Status* when a chapter is chosen.
 
@@ -112,6 +112,7 @@ The **Section** menu does the work. It offers only what can be done now: for exa
 - *New Scene* (⌘N), *New Scene Before*, *New Chapter* (⇧⌘N), *New Part* (⌥⇧⌘N)
 - *Rename*, and *Status* (for example draft, done); the coloured dot in the tree shows the status
 - *Move Up / Move Down* (⌥⌘↑, ⌥⌘↓), or drag in the tree; a scene at the edge of its chapter moves into the neighbouring chapter (to the end of the previous one, or the start of the next)
+- **Subsections.** A long scene can be divided into **subsections**: *Divide into Subsections* (⌥⌘⇧↩) starts a new subsection at the paragraph the cursor is in (the first time, the scene becomes two). A subsection is a part of the scene's own text, not a file: it shows in the structure tree and in the Outline under its scene, with its size, and the text carries a thin divider where it begins. Its title is what you type (select it and press Return in the tree, or use the Outline's detail pane or the *Section* tab of the right panel while the cursor is in it); until you type one, its first words stand for it, or the heading it begins with. It has a **Narrator** (the characters whose point of view it is; a subsection with none uses its scene's) and no synopsis. Characters, places and events can be linked to a subsection like to a scene (their *Add a Scene…* menus list the subsections under each scene), and a link to a subsection also counts for the scene. *Collect from the Book* reads each subsection with its own narrator. *Join with the Previous Subsection* takes a boundary away: the text joins, and what was linked to the subsection is linked to the one it joined. Export reads the subsections one after another, as one scene.
 - *Split Scene Here* (⌥⌘↩) splits at the cursor; *Merge with Next / Previous Scene*; *Merge Chosen Scenes* joins the scenes you selected (merging always asks first, and works within one chapter: move a scene into the other chapter first if you need to)
 - *Group into a New Part…* and *Ungroup Part…*
 - *Delete…* always asks first
@@ -285,6 +286,7 @@ These are the defaults. Every one can be changed in *Settings ▸ Shortcuts*.
 | ⌃⌘N | Footnote |
 | ⌘N, ⇧⌘N, ⌥⇧⌘N | New scene (with a book open), chapter, part |
 | ⌥⌘↩ | Split scene here |
+| ⌥⌘⇧↩ | Divide the scene into subsections at the cursor |
 | ⌥⌘↑, ⌥⌘↓ | Move section up, down |
 
 **AI**

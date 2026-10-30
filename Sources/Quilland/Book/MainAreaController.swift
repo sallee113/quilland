@@ -205,7 +205,13 @@ final class MainAreaController: NSViewController {
     }
 
     /// Goes to a place in a scene's text and selects it (in the writing mode, which it returns to from the Outline or the Plan).
-    func reveal(scene: String, range: NSRange?) {
+    func reveal(scene requested: String, range requestedRange: NSRange?) {
+        // (A subsection stands for its scene; the cursor goes to where it begins.)
+        var scene = requested, range = requestedRange
+        if SceneLinks.isSubsection(requested) {
+            scene = SceneLinks.scene(of: requested)
+            if range == nil, let at = markerLocation(of: requested, in: scene) { range = NSRange(location: at + 2, length: 0) }
+        }
         guard session.document(scene) != nil else { return }
         if ![.panels, .book].contains(mode) {
             // The writing view is made again and puts the cursor back where it was: it is told to put it here.
@@ -410,11 +416,13 @@ final class MainAreaController: NSViewController {
         controllers = [c]
         let list = StructureTreeController()
         _ = list.view
+        wireSubsections(list)
         list.reload(structure: session.structure, characters: { [weak self] in self?.session.document($0)?.counts.characters ?? 0 })
         if let selected = pendingTreeSelection ?? scene { list.select(selected, notify: false) }
         pendingTreeSelection = nil
         list.restore(viewMemories["tree"])
         list.onSelectScene = { [weak self] id in self?.showScene(id) }
+        list.onSelectSubsection = { [weak self] scene, id in self?.showSubsection(scene, id) }
         list.onEnterText = { [weak self] in self?.enterText() }
         wireStructureCommands(list)
         tree = list
@@ -427,6 +435,7 @@ final class MainAreaController: NSViewController {
         let list = StructureTreeController()
         list.isOutline = true
         _ = list.view
+        wireSubsections(list)
         loadSectionTexts()
         list.synopsisOf = { [weak self] in self?.sectionTexts[$0]?.synopsis }
         list.hasNote = { [weak self] in !(self?.sectionTexts[$0]?.note ?? "").isEmpty }
@@ -441,6 +450,7 @@ final class MainAreaController: NSViewController {
         detail.onTarget = { [weak self] id, target in self?.setTarget(id, target) }
         detail.onText = { [weak self] id, key, text in self?.setSectionText(id, key: key, text) }
         detail.onOpen = { [weak self] id in self?.openInEditor(id) }
+        detail.onRenameSubsection = { [weak self] scene, id, title in self?.renameSubsection(scene: scene, id: id, to: title) }
         detail.onWriteSynopsis = { [weak self] in self?.writeSynopsis() }
         list.onSelectNode = { [weak detail] ids in detail?.show(ids) }
         list.onEnterText = { [weak self] in if let id = self?.tree?.selectedID { self?.openInEditor(id) } }
@@ -465,7 +475,7 @@ final class MainAreaController: NSViewController {
         let view = CharactersViewController()
         view.store = characters
         view.relationships = relationships
-        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.scenes = { [weak self] in self?.session.structure.linkChoices ?? [] }
         view.mentions = { [weak self] id in self?.mentions(ofCharacter: id) ?? [:] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
         view.events = { [weak self] in self?.eventChoices() ?? [] }
@@ -500,7 +510,7 @@ final class MainAreaController: NSViewController {
     private func buildWorld() -> Built {
         let view = WorldViewController()
         view.store = worlds
-        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.scenes = { [weak self] in self?.session.structure.linkChoices ?? [] }
         view.mentions = { [weak self] entry in self?.mentions(of: entry) ?? [:] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
         view.eventStore = eventStore
@@ -529,7 +539,7 @@ final class MainAreaController: NSViewController {
         view.characters = characters
         view.worlds = worlds
         view.planStore = { [folder] in try? PlanStore(folder: folder) }
-        view.scenes = { [weak self] in self?.session.structure.sceneChoices ?? [] }
+        view.scenes = { [weak self] in self?.session.structure.linkChoices ?? [] }
         view.onOpenScene = { [weak self] id in self?.reveal(scene: id, range: nil) }
         view.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
         view.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
@@ -727,6 +737,8 @@ final class MainAreaController: NSViewController {
         panel.researchStore = researchStore
         panel.sceneOrder = { [weak self] in self?.session.structure.scenes.map(\.id) ?? [] }
         panel.onOpenPlace = { [weak self] id in self?.setMode(.world); self?.worldView?.select(id) }
+        panel.currentSubsection = { [weak self] in self?.subsectionAtCursor() }
+        panel.onRenameSubsection = { [weak self] scene, id, title in self?.renameSubsection(scene: scene, id: id, to: title) }
         panel.onOpenCharacter = { [weak self] id in self?.setMode(.characters); self?.charactersView?.select(id) }
         panel.onOpenEvent = { [weak self] id in self?.setMode(.events); self?.eventsView?.select(id) }
         panel.onOpenResearch = { [weak self] id in self?.setMode(.research); self?.researchView?.select(id) }
@@ -832,7 +844,7 @@ final class MainAreaController: NSViewController {
             self?.onCursorMoved?(doc.id, position)
             self?.onChange?()
             self?.scheduleCountsRefresh()
-            if self?.showsRightPanel == true { self?.rightPanel.cursorMoved(to: doc.id) }
+            if self?.showsRightPanel == true { self?.rightPanel.cursorMoved(to: doc.id); self?.rightPanel.updateSubsectionRow() }
         }
         return c
     }
@@ -848,6 +860,16 @@ final class MainAreaController: NSViewController {
     }
 
     // MARK: Panels: the tree and one scene
+
+    /// A subsection was chosen in the tree: its scene is shown, with the cursor at the start of the subsection.
+    func showSubsection(_ scene: String, _ id: String) {
+        showScene(scene)
+        guard let tv = controllers.first?.currentSheet?.textView else { return }
+        let at = markerLocation(of: id, in: scene).map { $0 + 2 } ?? 0   // (after the marker's line: an object character and a line break)
+        let place = NSRange(location: min(at, tv.string.utf16.count), length: 0)
+        tv.setSelectedRange(place)
+        tv.scrollRangeToVisible(place)
+    }
 
     private func showScene(_ id: String) {
         guard mode == .panels, let c = controllers.first, session.document(id) != nil else { return }

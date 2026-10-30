@@ -1,10 +1,22 @@
 import Foundation
 
+/// A part of a scene that has its own narrator: a subsection, from where it begins to where the next one does (offsets in UTF-16 units of the scene's text).
+public struct CollectPart: Equatable, Sendable {
+    public var start: Int
+    public var end: Int
+    public var narrators: [String]
+    public init(start: Int, end: Int, narrators: [String]) { self.start = start; self.end = end; self.narrators = narrators }
+}
+
 public struct CollectScene: Sendable {
     public var id: String
     public var title: String
     public var text: String
-    public init(id: String, title: String, text: String) { self.id = id; self.title = title; self.text = text }
+    /// The narrators of the scene (the characters whose point of view it is): the "I" of the text.
+    public var narrators: [String] = []
+    /// The subsections, when the scene is divided: each is read apart, with its own narrators (those of the scene where it has none).
+    public var parts: [CollectPart] = []
+    public init(id: String, title: String, text: String, narrators: [String] = [], parts: [CollectPart] = []) { self.id = id; self.title = title; self.text = text; self.narrators = narrators; self.parts = parts }
 }
 
 /// A card of the book as the model is told it (what is known now), for the second pass: a character or a place with the text on its card and its relationships.
@@ -30,8 +42,6 @@ public struct CollectRequest: Sendable {
     public var cards: [CollectCard] = []
     /// The titles of the events the book already has, by the scene each is linked to (the model is told them, so that it uses a title again, not a new one).
     public var knownEvents: [String: [String]] = [:]
-    /// The names of the narrators of each scene (the characters whose point of view it is): in first person the text says "I", and the model is told who that is.
-    public var narrators: [String: [String]] = [:]
     /// Tokens the model reads at once: the pieces sent are cut to fit.
     public var context = LMStudioClient.defaultContext
     /// Fingerprints of the scenes already analysed (scene id to fingerprint); those that have not changed are skipped unless `reanalyse`.
@@ -75,6 +85,20 @@ public enum CollectJob {
         return String(hash, radix: 16)
     }
 
+    /// What a scene is read in: pieces that never cross the boundary of a subsection, each with the narrators of its part. The boundary markers (an object character in the
+    /// text) are blanked, not taken out, so that the places of the pieces in the scene stay what they are.
+    public static func pieces(of scene: CollectScene, maxCharacters size: Int) -> [(offset: Int, text: String, narrators: [String])] {
+        let text = scene.text.replacingOccurrences(of: "\u{FFFC}", with: " ")
+        guard !scene.parts.isEmpty else { return CollectChunker.chunks(text, maxCharacters: size).map { ($0.offset, $0.text, scene.narrators) } }
+        let ns = text as NSString
+        var out: [(offset: Int, text: String, narrators: [String])] = []
+        for part in scene.parts {
+            let start = max(0, min(part.start, ns.length)), end = max(start, min(part.end, ns.length))
+            for c in CollectChunker.chunks(ns.substring(with: NSRange(location: start, length: end - start)), maxCharacters: size) { out.append((start + c.offset, c.text, part.narrators)) }
+        }
+        return out
+    }
+
     /// How many characters of the passage may go in one request: the context less the instructions and the answer, at about two characters a token.
     public static func pieceSize(context: Int) -> Int { min(8000, max(1500, (context - 3500) * 2)) }
 
@@ -94,7 +118,7 @@ public enum CollectJob {
         for scene in request.scenes {
             if !request.reanalyse, request.analysed[scene.id] == fingerprint(scene.text, kinds: request.kinds) { continue }
             if scene.text.trimmingCharacters(in: .whitespacesAndNewlines).count < minimumCharacters { continue }
-            totalSteps += CollectChunker.chunks(scene.text, maxCharacters: size).filter { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumCharacters / 2 }.count * max(1, passes.count)
+            totalSteps += pieces(of: scene, maxCharacters: size).filter { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumCharacters / 2 }.count * max(1, passes.count)
         }
         var stepsDone = 0
         // What the run has found so far, told to the model on the way: a person or place named once keeps its name, an event its title.
@@ -107,7 +131,7 @@ public enum CollectJob {
             if prose.count < minimumCharacters { summary.scenesTooShort += 1; continue }
             progress(CollectProgress(scene: index + 1, of: request.scenes.count, title: scene.title, found: total, piece: stepsDone, pieces: totalSteps))
             var sceneFailed = false
-            for piece in CollectChunker.chunks(scene.text, maxCharacters: size) {
+            for piece in pieces(of: scene, maxCharacters: size) {
                 if Task.isCancelled { summary.stopped = true; break }
                 if piece.text.trimmingCharacters(in: .whitespacesAndNewlines).count < minimumCharacters / 2 { continue }
                 var cast = false
@@ -128,7 +152,7 @@ public enum CollectJob {
                         for t in here + elsewhere where !events.contains(where: { Names.normalize($0) == Names.normalize(t) }) { events.append(t) }
                         events = Array(events.prefix(30))
                     }
-                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, narrators: request.narrators[scene.id] ?? [], kinds: kinds, language: request.language))]
+                    let messages = [ChatMessage("system", system), ChatMessage("user", CollectPrompt.user(chunk: piece.text, sceneTitle: scene.title, knownCharacters: names, knownPlaces: places, known: known, knownEvents: events, narrators: piece.narrators, kinds: kinds, language: request.language))]
                     do {
                         let reply = try await client.chat(messages, think: false, temperature: AIPrompts.temperature("collect", default: 0.2), maxTokens: 2000)
                         let result = CollectParser.parse(reply, kinds: kinds, scene: scene.id, chunk: piece.text, chunkOffset: piece.offset)

@@ -30,7 +30,7 @@ public struct RelationshipTimeline {
             guard let id = e.id else { continue }
             titles[id] = e.title ?? ""
             // (An event linked to no scene of the book has no place in it.)
-            if e.links.keys.contains(where: scenes.contains) { position[id] = i }
+            if e.links.keys.contains(where: { scenes.contains(SceneLinks.scene(of: $0)) }) { position[id] = i }
         }
         self.position = position
         self.titles = titles

@@ -179,20 +179,20 @@ public enum ChatMentions {
     /// The characters named in the scene or linked to it.
     public static func characters(of sceneID: String, in book: Book) -> ChatAttachment? {
         let named = found(in: sceneID, book).characters
-        let list = book.characters.characters.filter { named.contains($0.id ?? "") || $0.links.keys.contains(sceneID) }
+        let list = book.characters.characters.filter { named.contains($0.id ?? "") || SceneLinks.has($0.links, scene: sceneID) }
         guard !list.isEmpty else { return nil }
         return ChatAttachment(label: L("Characters of the scene"), text: list.map { "\($0.name ?? ""): " + characterText($0, book.characters) }.joined(separator: "\n\n"), mention: "characters")
     }
 
     public static func places(of sceneID: String, in book: Book) -> ChatAttachment? {
         let named = found(in: sceneID, book).places
-        let list = book.worlds.entries.filter { named.contains($0.id ?? "") || $0.links.keys.contains(sceneID) }
+        let list = book.worlds.entries.filter { named.contains($0.id ?? "") || SceneLinks.has($0.links, scene: sceneID) }
         guard !list.isEmpty else { return nil }
         return ChatAttachment(label: L("Places of the scene"), text: list.map { "\($0.name ?? ""): " + placeText($0, book.worlds) }.joined(separator: "\n\n"), mention: "places")
     }
 
     public static func events(of sceneID: String, in book: Book) -> ChatAttachment? {
-        let list = book.events.events.filter { $0.links.keys.contains(sceneID) }
+        let list = book.events.events.filter { SceneLinks.has($0.links, scene: sceneID) }
         guard !list.isEmpty else { return nil }
         return ChatAttachment(label: L("Events of the scene"), text: list.map { "\($0.title ?? ""): " + eventText($0, book.events) }.joined(separator: "\n\n"), mention: "events")
     }

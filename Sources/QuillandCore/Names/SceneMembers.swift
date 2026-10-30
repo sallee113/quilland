@@ -22,14 +22,14 @@ public enum SceneMembers {
     /// Only by what is stored: a line for the scene, or the point of view.
     public static func linkedCharacters(inScene scene: String, store: CharacterStore) -> Set<String> {
         Set(store.characters.compactMap { c in
-            guard let id = c.id, c.links[scene] != nil || c.povScenes.contains(scene) else { return nil }
+            guard let id = c.id, SceneLinks.has(c.links, scene: scene) || c.povScenes.contains(where: { SceneLinks.scene(of: $0) == scene }) else { return nil }
             return id
         })
     }
 
     public static func linkedPlaces(inScene scene: String, store: WorldStore) -> Set<String> {
         Set(store.entries.compactMap { e in
-            guard let id = e.id, e.links[scene] != nil else { return nil }
+            guard let id = e.id, SceneLinks.has(e.links, scene: scene) else { return nil }
             return id
         })
     }

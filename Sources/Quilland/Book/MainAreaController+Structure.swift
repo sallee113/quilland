@@ -60,6 +60,11 @@ extension MainAreaController {
 
     /// Opens the section's first scene in the writing mode.
     func openInEditor(_ id: String) {
+        if let sub = subsection(id) {
+            pendingCursor = (sub.scene, markerLocation(of: id, in: sub.scene).map { $0 + 2 } ?? 0)
+            if mode == .outline { setMode(writingMode) }
+            return
+        }
         guard let scene = firstScene(of: id, in: session.structure) else { return }
         pendingCursor = (scene, 0)
         if mode == .outline { setMode(writingMode) }
@@ -113,7 +118,7 @@ extension MainAreaController {
             return out
         case .chapter:
             return [MoveTarget(id: nil, title: L("The top level of the book"))] + roots.filter { $0.kind == .part }.map { MoveTarget(id: $0.id, title: $0.title) }
-        case .part: return []
+        case .part, .subsection: return []
         }
     }
 
@@ -210,6 +215,7 @@ extension MainAreaController {
             case .scene: alert.messageText = L("Delete the scene “{title}”?", ["title": node.title])
             case .chapter: alert.messageText = L("Delete the chapter “{title}”?", ["title": node.title])
             case .part: alert.messageText = L("Delete the part “{title}”?", ["title": node.title])
+            case .subsection: return   // (a subsection is not deleted as a section)
             }
             let number = { (n: Int) in NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal) }
             alert.informativeText = node.kind == .scene
@@ -323,6 +329,8 @@ extension MainAreaController {
         let movedMarkdown = MarkdownWriter.write(AttributedBridge.document(from: moved))
         let title = entry.node.title + " 2"
         let status = doc.status ?? "idea"
+        var movedFragments: [String] = []
+        moved.enumerateAttribute(.quillandFragment, in: NSRange(location: 0, length: moved.length)) { value, _, _ in if let v = value as? String { movedFragments.append(v) } }
         restructure(focusText: true, undoName: L("Split scene")) { [folder] editor in
             // The old scene is cut and saved before any renumbering, while its file still has its name.
             doc.storage.deleteCharacters(in: NSRange(location: cut, length: text.length - cut))
@@ -334,6 +342,9 @@ extension MainAreaController {
             try BookEditor(structure: fresh).setStatus(newID, to: status)
             guard let made = fresh.scenes.first(where: { $0.id == newID }) else { throw BookEditor.Failure(description: L("The new scene was not found.")) }
             try AtomicFile.write(Data(movedMarkdown.utf8), to: fresh.markdownURL(for: made.node))
+            // The subsections that went with the text take their typed titles along (their links and narrators are by id, and follow the text by themselves).
+            let oldTitles = SceneRecord(object: BookEditor(structure: fresh).record(id) ?? [:]).fragmentTitles
+            for moved in movedFragments { if let t = oldTitles[moved] { try BookEditor(structure: fresh).setSubsectionTitle(moved, of: newID, to: t); try BookEditor(structure: fresh).setSubsectionTitle(moved, of: id, to: "") } }
             return newID
         }
         if divided { banner.show(L("Scene split. A fragment was divided: its links stay with the first half."), undoable: true) }

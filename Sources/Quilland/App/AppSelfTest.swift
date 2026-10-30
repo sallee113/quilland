@@ -144,6 +144,7 @@ final class AppSelfTest {
         if let code = sameNames() { return code }
         if let code = replaceNames() { return code }
         if let code = narratorField() { return code }
+        if let code = subsections() { return code }
         if let code = planRealised() { return code }
         if let code = deleting() { return code }
         if let code = eventMigration() { return code }

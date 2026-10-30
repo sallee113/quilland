@@ -18,6 +18,9 @@ struct SectionInfo {
     var sceneCount: Int
     /// Names of the characters found in the section.
     var characterNames: [String]
+    /// A subsection: the scene it is in, and what stands for its title when none was typed.
+    var scene: String? = nil
+    var derivedTitle = ""
 }
 
 /// The Outline's right-hand part: the selected section's properties, synopsis and note (editable), its size and what is found in it.
@@ -29,6 +32,8 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
     var onTarget: ((String, Int?) -> Void)?
     var onText: ((String, String, String) -> Void)?
     var onOpen: ((String) -> Void)?
+    /// A subsection was given a title: its scene, its id, the title (empty: none).
+    var onRenameSubsection: ((String, String, String) -> Void)?
     let narratorButton = NarratorButton()
     private let narratorRow = NSStackView()
 
@@ -181,6 +186,21 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
             [statusRow, targetRow, narratorRow, textBlocks, openButton].forEach { $0.isHidden = true }
             return
         }
+        if section.kind == .subsection {
+            // A subsection: a title (the first words stand for it when none is typed), a narrator, and its size. No status, target, synopsis or note.
+            kindLabel.stringValue = L("SUBSECTION")
+            titleField.stringValue = section.title
+            titleField.placeholderString = section.derivedTitle
+            titleField.isEditable = true
+            pathLabel.stringValue = section.path
+            [statusRow, targetRow, textBlocks].forEach { $0.isHidden = true }
+            narratorRow.isHidden = false
+            narratorButton.show(scene: id)
+            openButton.isHidden = false
+            countsLabel.stringValue = Lp("{n} character||text", "{n} characters||text", section.characters)
+            return
+        }
+        titleField.placeholderString = L("Title")
         updateWriteButton()
         let isScene = section.kind == .scene
         kindLabel.stringValue = L(section.kind.rawValue).uppercased()
@@ -228,7 +248,9 @@ final class OutlineDetailController: NSViewController, NSTextViewDelegate, NSTex
         guard let id = shown.first, shown.count == 1, let field = obj.object as? NSTextField else { return }
         if field === titleField {
             let text = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.isEmpty { refresh() } else if text != info(id)?.title { onRename?(id, text) }
+            if let section = info(id), section.kind == .subsection, let scene = section.scene {
+                if text != section.title { onRenameSubsection?(scene, id, text) }
+            } else if text.isEmpty { refresh() } else if text != info(id)?.title { onRename?(id, text) }
         } else if field === targetField {
             let value = Int(targetField.stringValue.filter(\.isNumber))
             if value != info(id)?.target { onTarget?(id, value == 0 ? nil : value) }

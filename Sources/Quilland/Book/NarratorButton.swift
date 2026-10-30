@@ -38,6 +38,16 @@ final class NarratorButton: NSPopUpButton {
         let chosen = scene.map(narrators) ?? []
         let names = people.filter { chosen.contains($0.id) }.map(\.name)
         addItem(withTitle: names.isEmpty ? L("None") : names.joined(separator: ", "))
+        // "None" takes every narrator away at once (ticked when there is none).
+        let none = ClosureMenuItem(title: L("None")) { [weak self] in
+            guard let self, let scene = self.scene else { return }
+            for id in (self.narrators(scene)) { self.onToggle?(scene, id, false) }
+            self.rebuild()
+        }
+        none.state = chosen.isEmpty ? .on : .off
+        none.representedObject = "none"
+        menu?.addItem(none)
+        menu?.addItem(.separator())
         for (title, person) in zip(PopupTitles.distinct(people.map(\.name)), people) {
             let on = chosen.contains(person.id)
             let item = ClosureMenuItem(title: title) { [weak self] in
@@ -46,11 +56,16 @@ final class NarratorButton: NSPopUpButton {
                 self.rebuild()
             }
             item.state = on ? .on : .off
+            item.representedObject = "person"
             menu?.addItem(item)
         }
         isEnabled = scene != nil && !people.isEmpty
     }
 
     /// For the checks: the names ticked, and the title shown.
-    var tickedTitles: [String] { (menu?.items.dropFirst() ?? []).filter { $0.state == .on }.map(\.title) }
+    var tickedTitles: [String] { (menu?.items ?? []).filter { $0.state == .on && ($0.representedObject as? String) == "person" }.map(\.title) }
+
+    /// For the checks: the entry of a character in the menu (not the title of the button, which can read the same).
+    func personItem(_ name: String) -> NSMenuItem? { (menu?.items ?? []).first { ($0.representedObject as? String) == "person" && $0.title == name } }
+    var noneItem: NSMenuItem? { (menu?.items ?? []).first { ($0.representedObject as? String) == "none" } }
 }

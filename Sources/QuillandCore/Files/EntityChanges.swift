@@ -23,7 +23,7 @@ public extension EventStore {
         var placed: [EntityChange] = [], loose: [EntityChange] = []
         for e in ordered(sceneOrder: sceneOrder) {
             guard let id = e.id, !e.effect(of: target).isEmpty else { continue }
-            let scene = sceneOrder.first { e.links.keys.contains($0) }
+            let scene = sceneOrder.first { SceneLinks.has(e.links, scene: $0) }
             let change = EntityChange(event: id, eventTitle: e.title ?? "", scene: scene, effect: e.effect(of: target))
             if scene != nil, position[scene!] != nil { placed.append(change) } else { loose.append(change) }
         }

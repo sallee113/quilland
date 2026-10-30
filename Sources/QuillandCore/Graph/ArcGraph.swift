@@ -50,7 +50,7 @@ public enum ArcBuilder {
         let scenePos = Dictionary(sceneOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
         let timeline = RelationshipTimeline(events: events, sceneOrder: sceneOrder)
         let startID = events.startEvent?.id
-        func scene(_ e: EventRecord) -> Int? { e.links.keys.compactMap { scenePos[$0] }.min() }
+        func scene(_ e: EventRecord) -> Int? { e.links.keys.compactMap { scenePos[SceneLinks.scene(of: $0)] }.min() }
 
         // The events that concern the character: they take part, the event changes them, or it starts, changes or ends one of their relationships.
         let mine = relationships.relationships(of: id)

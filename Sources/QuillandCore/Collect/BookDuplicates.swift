@@ -36,13 +36,13 @@ public enum BookDuplicates {
         }
         var out: [CollectKind: [(DupeFacet, String, Int)]] = [:]
         out[.characters] = characters.characters.compactMap { c in
-            c.id.map { (DupeFacet(kind: .characters, id: $0, names: [c.name ?? ""] + c.aliases, scenes: Set(c.links.keys).union(c.povScenes)), c.name ?? "", c.links.count + c.povScenes.count + c.notes.count + (c.aliases.count)) }
+            c.id.map { (DupeFacet(kind: .characters, id: $0, names: [c.name ?? ""] + c.aliases, scenes: SceneLinks.scenes(of: c.links).union(c.povScenes.map { SceneLinks.scene(of: $0) })), c.name ?? "", c.links.count + c.povScenes.count + c.notes.count + (c.aliases.count)) }
         }
         out[.places] = worlds.entries.compactMap { p in
-            p.id.map { (DupeFacet(kind: .places, id: $0, names: [p.name ?? ""] + p.aliases, scenes: Set(p.links.keys), group: (p.world ?? "") + "/" + (p.parent ?? "")), p.name ?? "", p.links.count + p.notes.count + p.aliases.count) }
+            p.id.map { (DupeFacet(kind: .places, id: $0, names: [p.name ?? ""] + p.aliases, scenes: SceneLinks.scenes(of: p.links), group: (p.world ?? "") + "/" + (p.parent ?? "")), p.name ?? "", p.links.count + p.notes.count + p.aliases.count) }
         }
         out[.events] = events.events.compactMap { e in
-            e.id.map { (DupeFacet(kind: .events, id: $0, names: [e.title ?? ""], scenes: Set(e.links.keys), people: e.characters.keys.compactMap(person), places: e.places.keys.compactMap(place)), e.title ?? "",
+            e.id.map { (DupeFacet(kind: .events, id: $0, names: [e.title ?? ""], scenes: SceneLinks.scenes(of: e.links), people: e.characters.keys.compactMap(person), places: e.places.keys.compactMap(place)), e.title ?? "",
                         e.links.count + e.characters.count + e.places.count + e.effects.count + e.relationships.count) }
         }
         out[.relationships] = relationships.relationships.compactMap { r in

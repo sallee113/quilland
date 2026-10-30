@@ -49,6 +49,11 @@ public struct SceneRecord: Equatable, Sendable {
     public var note: String? { get { object.string("note") } set { object.setString("note", newValue) } }
     public var tags: [String] { get { object.strings("tags") ?? [] } set { object.setStrings("tags", newValue) } }
     public var targetCharacters: Int? { get { object.int("target_characters") } set { object.setInt("target_characters", newValue) } }
+    /// The titles the author typed for the subsections of the scene (fragment id to title). The subsections themselves are the markers in the scene's text.
+    public var fragmentTitles: [String: String] {
+        get { object.stringMap("fragment_titles") ?? [:] }
+        set { if newValue.isEmpty { object.removeValue(forKey: "fragment_titles") } else { object.setStringMap("fragment_titles", newValue) } }
+    }
 
     public var problems: [String] {
         var out = checkFields(object, required: ["id", "title"], kinds: [

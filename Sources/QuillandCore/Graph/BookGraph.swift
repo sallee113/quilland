@@ -187,7 +187,7 @@ public enum GraphBuilder {
         let sceneOrder = structure.scenes.map(\.id)
         let scenePos = Dictionary(sceneOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
         let point: Int? = options.asOf.flatMap { scenePos[$0] }
-        func eventPos(_ e: EventRecord) -> Int? { e.start ? -1 : e.links.keys.compactMap { scenePos[$0] }.min() }
+        func eventPos(_ e: EventRecord) -> Int? { e.start ? -1 : e.links.keys.compactMap { scenePos[SceneLinks.scene(of: $0)] }.min() }
         func applies(_ e: EventRecord) -> Bool { guard let p = point else { return true }; return eventPos(e).map { $0 <= p } ?? false }
         func appliesEvent(_ id: String?) -> Bool { id.flatMap { events.event($0) }.map(applies) ?? false }
         let timeline = RelationshipTimeline(events: events, sceneOrder: sceneOrder)
@@ -212,8 +212,10 @@ public enum GraphBuilder {
         var eventsOf: [String: Set<String>] = [:]
         for c in characters.characters {
             guard let id = c.id else { continue }
-            for key in c.links.keys.sorted() where all[key]?.kind == .scene { link(id, key, .inScene) }
-            for scene in c.povScenes where c.links[scene] == nil { link(id, scene, .inScene) }
+            // (A link to a subsection is a link to its scene.)
+            let linked = SceneLinks.scenes(of: c.links)
+            for key in linked.sorted() where all[key]?.kind == .scene { link(id, key, .inScene) }
+            for scene in Set(c.povScenes.map { SceneLinks.scene(of: $0) }).sorted() where !linked.contains(scene) { link(id, scene, .inScene) }
         }
         for e in events.events {
             guard let id = e.id else { continue }
@@ -221,11 +223,11 @@ public enum GraphBuilder {
                 link(cid, id, .takesPart, changes: fields(e, cid).map { [$0] } ?? []); eventsOf[cid, default: []].insert(id)
             }
             for key in e.places.keys.sorted() { link(id, key, .heldAt, changes: fields(e, key).map { [$0] } ?? []) }
-            for key in e.links.keys.sorted() { link(id, key, .inScene) }
+            for key in SceneLinks.scenes(of: e.links).sorted() { link(id, key, .inScene) }
         }
         for p in worlds.entries {
             guard let id = p.id else { continue }
-            for key in p.links.keys.sorted() { link(id, key, .inScene) }
+            for key in SceneLinks.scenes(of: p.links).sorted() { link(id, key, .inScene) }
         }
         // Relationships: one line for each pair of characters; the kinds of the relationships between the same two are put together.
         var pairs: [String: (a: String, b: String, labels: [String], periods: [GraphPeriod], started: Bool, problems: [RelationshipTimeline.Problem])] = [:]
@@ -298,7 +300,7 @@ public enum GraphBuilder {
             for e in edges { kept.insert(e.a); kept.insert(e.b) }
             if options.kinds.contains(.scene) {
                 for e in events.events where e.id.map(kept.contains) == true {
-                    for key in e.links.keys where all[key]?.kind == .scene { kept.insert(key); link(e.id!, key, .inScene) }
+                    for key in SceneLinks.scenes(of: e.links) where all[key]?.kind == .scene { kept.insert(key); link(e.id!, key, .inScene) }
                 }
             }
             keep = kept
@@ -317,8 +319,8 @@ public enum GraphBuilder {
         if let point {
             var first: [String: Int] = [:]
             func see(_ id: String?, _ pos: Int?) { guard let id, let pos else { return }; first[id] = min(first[id] ?? Int.max, pos) }
-            for c in characters.characters { for k in c.links.keys { see(c.id, scenePos[k]) }; for k in c.povScenes { see(c.id, scenePos[k]) } }
-            for p in worlds.entries { for k in p.links.keys { see(p.id, scenePos[k]) } }
+            for c in characters.characters { for k in c.links.keys { see(c.id, scenePos[SceneLinks.scene(of: k)]) }; for k in c.povScenes { see(c.id, scenePos[SceneLinks.scene(of: k)]) } }
+            for p in worlds.entries { for k in p.links.keys { see(p.id, scenePos[SceneLinks.scene(of: k)]) } }
             for e in events.events {
                 let pos = eventPos(e)
                 for cid in e.characters.keys { see(cid, pos) }

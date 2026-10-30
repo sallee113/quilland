@@ -92,7 +92,7 @@ public final class EventStore {
     }
 
     /// The scene that decides where an event stands in the book: the first of its scenes.
-    private static func firstScene(_ e: EventRecord, _ position: [String: Int]) -> Int? { e.links.keys.compactMap { position[$0] }.min() }
+    private static func firstScene(_ e: EventRecord, _ position: [String: Int]) -> Int? { e.links.keys.compactMap { position[SceneLinks.scene(of: $0)] }.min() }
 
     /// In the order of the book: by the first scene each event is linked to, and within a scene by the author's own order (then by title); the ones
     /// linked to no scene come last, in the same way.

@@ -9,7 +9,7 @@ public enum SynopsisPrompt {
 
     static func builtIn(kind: BookStructure.Kind, name: String) -> String {
         switch kind {
-        case .scene:
+        case .scene, .subsection:   // (a subsection has no synopsis; the scene's words are used if one is ever asked for)
             return """
             You write the synopsis of one scene of a novel, to be kept on its card. Two to four sentences, in the present tense, neutral and concrete: what happens, who takes part, where, and what changes.
             Write in \(name). One paragraph of plain prose: no title, no list, no quotation marks, no comment, no opinion about the writing. Use only what the text says. Retell it in your own words: never copy sentences from the text, and never quote it.

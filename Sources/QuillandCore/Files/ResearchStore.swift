@@ -98,7 +98,7 @@ public final class ResearchStore {
     }
 
     /// The documents linked to an object (a scene, a character, a place, an event, or the book's own id).
-    public func linked(to target: String) -> [ResearchRecord] { ordered.filter { $0.links[target] != nil } }
+    public func linked(to target: String) -> [ResearchRecord] { ordered.filter { SceneLinks.has($0.links, scene: target) } }
 
     @discardableResult
     public func add(title: String) throws -> String {

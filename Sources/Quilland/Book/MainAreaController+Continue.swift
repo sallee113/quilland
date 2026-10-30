@@ -36,7 +36,7 @@ extension MainAreaController {
         let record = BookEditor(structure: structure).record(target.scene)
         let sources = ConsistencySources.gather(sceneID: target.scene, passage: before.suffix(6000).description, characters: characters, worlds: worlds, events: eventStore, relationships: relationships,
                                                 structure: structure, budget: 6000)
-        let linked = Set(eventStore.events.filter { $0.links.keys.contains(target.scene) }.compactMap(\.id))
+        let linked = Set(eventStore.events.filter { SceneLinks.has($0.links, scene: target.scene) }.compactMap(\.id))
         let planCards: [(title: String, text: String)] = ((try? PlanStore(folder: folder))?.cards.values.filter { card in !linked.isDisjoint(with: Set(card.links.keys)) }
             .compactMap { c in c.title.map { ($0, c.text ?? "") } }) ?? []
         let (messages, summary) = ContinuePrompt.messages(before: before, after: after, language: bookLanguage, synopsis: record?.string("synopsis") ?? "", note: record?.string("note") ?? "",

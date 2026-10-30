@@ -21,9 +21,9 @@ public enum LocationsBuilder {
             m[place] = list
             atPlace[scene] = m
         }
-        for p in worlds.entries { guard let id = p.id else { continue }; for s in p.links.keys where scenePos[s] != nil { add(s, id, nil) } }
+        for p in worlds.entries { guard let id = p.id else { continue }; for s in SceneLinks.scenes(of: p.links) where scenePos[s] != nil { add(s, id, nil) } }
         for e in events.ordered(sceneOrder: sceneOrder) {
-            let scenes = e.links.keys.filter { scenePos[$0] != nil }
+            let scenes = SceneLinks.scenes(of: e.links).filter { scenePos[$0] != nil }
             for s in scenes {
                 for pid in e.places.keys.sorted() where worlds.entry(pid) != nil {
                     add(s, pid, nil)

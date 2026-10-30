@@ -90,7 +90,7 @@ public final class RelationIndex {
         case (.place, .character(let c)): return Set(events(ofCharacter: c).flatMap { events.event($0)?.places.keys.map { $0 } ?? [] })
         case (.event, .section(let s)):
             let inside = Set(scenes(inSection: s))
-            return Set(events.events.compactMap { e in e.links.keys.contains { inside.contains($0) } ? e.id : nil })
+            return Set(events.events.compactMap { e in e.links.keys.contains { inside.contains(SceneLinks.scene(of: $0)) } ? e.id : nil })
         case (.event, .character(let c)): return Set(events(ofCharacter: c))
         case (.event, .place(let p)): return Set(events.events.compactMap { $0.places[p] != nil ? $0.id : nil })
         default: return nil

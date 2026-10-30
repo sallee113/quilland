@@ -66,6 +66,12 @@ public struct LooseEnds {
         // A file that cannot be read still exists; the ones named by their id are not "missing" for the links that point to them.
         for out in out where out.kind == .damagedFile { ids.insert(((out.file as NSString).lastPathComponent as NSString).deletingPathExtension) }
         for lane in (parsed["plan/canvas.json"]?.objects("lanes") ?? []) { if let id = lane.string("id") { ids.insert(id) } }
+        // The subsections of a scene have their ids in the markers of its text: a link to one is not a link to nothing.
+        for name in names where name.hasSuffix("-scene.json") {
+            let url = book.appendingPathComponent(name).deletingPathExtension().appendingPathExtension("md")
+            guard let text = try? String(contentsOf: url, encoding: .utf8), text.contains("<!-- fragment: ") else { continue }
+            for line in text.split(separator: "\n", omittingEmptySubsequences: true) { if let id = MarkdownParser.fragmentID(in: String(line)) { ids.insert(id) } }
+        }
         for name in names {
             guard let object = parsed[name], !Self.rootFiles.contains(name) else { continue }
             let owner = object.string("name") ?? object.string("title") ?? (name as NSString).lastPathComponent

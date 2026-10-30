@@ -23,7 +23,7 @@ extension CollectSession {
         func normal(_ names: [String]) -> [String] { names.map(Names.normalize) }
         func newScenes(_ item: CollectedItem, _ links: [String: String]) -> [String] {
             var seen = Set<String>()
-            return item.evidence.map(\.scene).filter { links[$0] == nil && seen.insert($0).inserted }
+            return item.evidence.map(\.scene).filter { !SceneLinks.has(links, scene: $0) && seen.insert($0).inserted }
         }
         let (characterIDs, entryIDs) = nameTables()
         var out: [UUID: CardAddition] = [:]
@@ -82,7 +82,7 @@ extension CollectSession {
             switch item.when {
             case "changes": continue
             case "ends": if timeline.marks(of: id).end != nil { out[item.id] = CardAddition() }
-            default: if item.evidence.allSatisfy({ r.links[$0.scene] != nil }) { out[item.id] = CardAddition() }
+            default: if item.evidence.allSatisfy({ SceneLinks.has(r.links, scene: $0.scene) }) { out[item.id] = CardAddition() }
             }
         }
         additions = out

@@ -87,12 +87,14 @@ final class CollectSession {
         }
         beginNewRun()
         main.saveAll()
-        let scenes = main.proofreadingTargets(scope).map { CollectScene(id: $0.id, title: $0.title.isEmpty ? $0.id : $0.title, text: $0.text) }
+        let scenes = main.proofreadingTargets(scope).map { target -> CollectScene in
+            let narration = main.narration(of: target.id)
+            return CollectScene(id: target.id, title: target.title.isEmpty ? target.id : target.title, text: target.text, narrators: narration.narrators, parts: narration.parts)
+        }
         var request = CollectRequest(kinds: kinds, scenes: scenes)
         request.language = main.bookLanguage
         request.knownCharacters = main.characters.characters.compactMap(\.name)
         request.knownPlaces = main.worlds.entries.compactMap(\.name)
-        request.narrators = main.characters.narratorNames()
         request.cards = main.collectCards()
         // The events the book has, by scene: the model is told them, so that it uses a title again and does not name the same event twice.
         for e in main.eventStore.events { if let title = e.title { for s in e.links.keys { request.knownEvents[s, default: []].append(title) } } }

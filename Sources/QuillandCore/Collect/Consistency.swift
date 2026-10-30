@@ -48,10 +48,10 @@ public enum ConsistencySources {
         }
         let namedCharacters = Set(ParadigmMatcher(entries: characters.entries).matches(in: passage).map(\.entry))
         let namedPlaces = Set(ParadigmMatcher(entries: worlds.nameEntries).matches(in: passage).map(\.entry))
-        let linkedEvents = events.events.filter { $0.links.keys.contains(sceneID) }
+        let linkedEvents = events.events.filter { SceneLinks.has($0.links, scene: sceneID) }
 
         for c in characters.characters {
-            guard let id = c.id, namedCharacters.contains(id) || c.links.keys.contains(sceneID) else { continue }
+            guard let id = c.id, namedCharacters.contains(id) || SceneLinks.has(c.links, scene: sceneID) else { continue }
             var text = ""
             if !c.aliases.isEmpty { text += "Also called: " + c.aliases.joined(separator: ", ") + ". " }
             let profile = characters.profile(id).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -60,7 +60,7 @@ public enum ConsistencySources {
             add(.character, id, c.name ?? "", text, prefix: "C")
         }
         for e in worlds.entries {
-            guard let id = e.id, namedPlaces.contains(id) || e.links.keys.contains(sceneID) else { continue }
+            guard let id = e.id, namedPlaces.contains(id) || SceneLinks.has(e.links, scene: sceneID) else { continue }
             var text = worlds.text(id).trimmingCharacters(in: .whitespacesAndNewlines)
             if !e.notes.isEmpty { text += " Notes: " + e.notes.joined(separator: " ") }
             add(.place, id, e.name ?? "", text, prefix: "P")
@@ -72,7 +72,8 @@ public enum ConsistencySources {
             let body = events.text(id).trimmingCharacters(in: .whitespacesAndNewlines)
             if !body.isEmpty { text += body + " " }
             if !ev.notes.isEmpty { text += "Notes: " + ev.notes.joined(separator: " ") }
-            if let line = ev.links[sceneID], !line.isEmpty { text += " Here: " + line }
+            let lines = ev.links.filter { SceneLinks.scene(of: $0.key) == sceneID && !$0.value.isEmpty }.sorted { $0.key < $1.key }.map(\.value)
+            if !lines.isEmpty { text += " Here: " + lines.joined(separator: " ") }
             add(.event, id, ev.title ?? "", text, prefix: "E")
         }
         for r in relationships.relationships where r.characters.filter(namedCharacters.contains).count >= 2 {

@@ -79,6 +79,8 @@ public struct BookEditor {
             try AtomicFile.write(Data(), to: folder.appendingPathComponent("\(targetFolder)/\(base)/001-scene.md"))
         case .part:
             try write("\(targetFolder)/\(base)/_part.json", ["id": .string(id), "title": .string(name)])
+        case .subsection:
+            throw Failure(description: L("A subsection is made with Divide into Subsections."))
         }
         return id
     }
@@ -94,6 +96,7 @@ public struct BookEditor {
         case (.scene, _): return "New Scene"
         case (.chapter, _): return "New Chapter"
         case (.part, _): return "New Part"
+        case (.subsection, _): return ""
         }
     }
 
@@ -103,6 +106,7 @@ public struct BookEditor {
             // No anchor: at the end of the book (a scene or a chapter without a place goes into the last chapter or the book).
             switch kind {
             case .part, .chapter: return ("manuscript", structure.roots, structure.roots.count)
+            case .subsection: throw Failure(description: L("A subsection is made with Divide into Subsections."))
             case .scene:
                 guard let chapter = structure.roots.last(where: { $0.kind == .chapter }) ?? structure.roots.last?.children.last else { throw Failure(description: L("A scene needs a chapter.")) }
                 return (chapter.base, chapter.children, chapter.children.count)
@@ -144,6 +148,7 @@ public struct BookEditor {
         case .scene: return folder.appendingPathComponent(node.base + ".json")
         case .chapter: return folder.appendingPathComponent(node.base + "/_chapter.json")
         case .part: return folder.appendingPathComponent(node.base + "/_part.json")
+        case .subsection: return folder.appendingPathComponent(node.base + ".json")   // (it is part of its scene's file)
         }
     }
 
@@ -169,6 +174,17 @@ public struct BookEditor {
 
     public func rename(_ id: String, to title: String) throws { try update(id) { $0.setString("title", title) } }
     public func setStatus(_ id: String, to status: String) throws { try update(id) { $0.setString("status", status) } }
+
+    /// The title typed for a subsection of a scene (empty: none, the first words stand for it).
+    public func setSubsectionTitle(_ subsection: String, of scene: String, to title: String) throws {
+        try update(scene) { o in
+            var record = SceneRecord(object: o)
+            var titles = record.fragmentTitles
+            if title.isEmpty { titles.removeValue(forKey: subsection) } else { titles[subsection] = title }
+            record.fragmentTitles = titles
+            o = record.object
+        }
+    }
 
     // MARK: Moving and deleting
 
@@ -295,6 +311,10 @@ public struct BookEditor {
                 if !y.isEmpty { o.setString(key, x.isEmpty ? y : x + "\n\n" + y) }
             }
             join("synopsis"); join("note")
+            // (The titles typed for the subsections of the second scene go with its text.)
+            var titles = SceneRecord(object: o).fragmentTitles
+            for (id, t) in SceneRecord(object: other).fragmentTitles where titles[id] == nil { titles[id] = t }
+            if !titles.isEmpty { o.setStringMap("fragment_titles", titles) }
             var tags = o.strings("tags") ?? []
             for t in other.strings("tags") ?? [] where !tags.contains(t) { tags.append(t) }
             if !tags.isEmpty { o.setStrings("tags", tags) }

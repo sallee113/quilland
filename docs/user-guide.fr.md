@@ -105,7 +105,7 @@ Il n’y a pas de barre d’outils de mise en forme. Utilisez le clavier ou le m
 
 Un livre se compose de **parties** (facultatives), de **chapitres** et de **scènes**. La scène est l’unité dans laquelle on écrit : chaque scène est son propre fichier. L’arborescence à gauche (vue Panneaux) ou le Plan détaillé montre la structure. La flèche à côté du « + » sous l’arborescence replie toutes les parties et tous les chapitres, ou les déplie à nouveau.
 
-**Les réglages d’une scène** (le volet de détail du Plan détaillé, et l’onglet *Section* du panneau de droite) comprennent un **Statut**, une **Longueur visée** (la longueur que vous voulez pour la scène, en caractères : une barre se remplit à mesure qu’elle grandit, et la ligne de taille indique *4 746 sur 5 000 caractères (95 %)*) et un **Narrateur** : cochez les personnages dont la scène est le point de vue. C’est la même donnée que le point de vue sur la fiche du personnage. À la première personne le texte dit « je » ; *Recueillir depuis le livre* dit au modèle qui c’est, pour qu’il écrive le nom du narrateur et non « le héros ».
+**Les réglages d’une scène** (le volet de détail du Plan détaillé, et l’onglet *Section* du panneau de droite) comprennent un **Statut**, une **Longueur visée** (la longueur que vous voulez pour la scène, en caractères : une barre se remplit à mesure qu’elle grandit, et la ligne de taille indique *4 746 sur 5 000 caractères (95 %)*) et un **Narrateur** : cochez les personnages dont la scène est le point de vue (choisissez à nouveau un nom coché pour le retirer, ou *Aucun* pour tous les retirer). C’est la même donnée que le point de vue sur la fiche du personnage. À la première personne le texte dit « je » ; *Recueillir depuis le livre* dit au modèle qui c’est, pour qu’il écrive le nom du narrateur et non « le héros ».
 
 Le menu **Section** fait le travail. Il ne propose que ce qui est possible à ce moment : par exemple, *Monter* est grisé pour la première scène du livre ou le premier chapitre, *Fusionner avec la scène suivante* pour la dernière scène, et *Statut* quand un chapitre est choisi.
 
@@ -114,6 +114,7 @@ Le menu **Section** fait le travail. Il ne propose que ce qui est possible à ce
 - *Nouvelle scène* (⌘N), *Nouvelle scène avant*, *Nouveau chapitre* (⇧⌘N), *Nouvelle partie* (⌥⇧⌘N)
 - *Renommer*, et *Statut* (par exemple brouillon, terminé) ; le point coloré dans l’arborescence indique le statut
 - *Monter / Descendre* (⌥⌘↑, ⌥⌘↓), ou glisser-déposer dans l’arborescence ; une scène au bord de son chapitre passe dans le chapitre voisin (à la fin du précédent, ou au début du suivant)
+- **Sous-sections.** Une scène longue peut être divisée en **sous-sections** : *Diviser en sous-sections* (⌥⌘⇧↩) commence une nouvelle sous-section au paragraphe où se trouve le curseur (la première fois, la scène devient deux). Une sous-section est une partie du texte de la scène, pas un fichier : elle apparaît dans l’arborescence et dans le Plan détaillé sous sa scène, avec sa taille, et le texte porte un mince séparateur là où elle commence. Son titre est celui que vous saisissez (choisissez-la et appuyez sur Entrée dans l’arbre, ou utilisez le volet de détail du Plan détaillé ou l’onglet *Section* du panneau de droite quand le curseur y est) ; tant que vous n’en saisissez pas, ses premiers mots la désignent, ou le titre par lequel elle commence. Elle a un **Narrateur** (les personnages dont elle est le point de vue ; une sous-section sans narrateur utilise celui de sa scène) et pas de synopsis. Personnages, lieux et événements peuvent être liés à une sous-section comme à une scène (leurs menus *Ajouter une scène…* listent les sous-sections sous chaque scène), et un lien vers une sous-section compte aussi pour la scène. *Recueillir depuis le livre* lit chaque sous-section avec son propre narrateur. *Joindre à la sous-section précédente* retire une frontière : le texte se joint, et ce qui était lié à la sous-section l’est à celle qu’elle a rejointe. L’export lit les sous-sections l’une après l’autre, comme une seule scène.
 - *Couper la scène ici* (⌥⌘↩) coupe à l’endroit du curseur ; *Fusionner avec la scène suivante / précédente* ; *Fusionner les scènes choisies* réunit les scènes sélectionnées (la fusion demande toujours confirmation et ne se fait qu’au sein d’un chapitre : déplacez d’abord la scène dans l’autre chapitre si nécessaire)
 - *Regrouper dans une nouvelle partie…* et *Dégrouper la partie…*
 - *Supprimer…* demande toujours confirmation
@@ -287,6 +288,7 @@ Ce sont les raccourcis par défaut. Chacun peut être changé dans *Réglages �
 | ⌃⌘N | Note de bas de page |
 | ⌘N, ⇧⌘N, ⌥⇧⌘N | Nouvelle scène (avec un livre ouvert), nouveau chapitre, nouvelle partie |
 | ⌥⌘↩ | Couper la scène ici |
+| ⌥⌘⇧↩ | Diviser la scène en sous-sections au curseur |
 | ⌥⌘↑, ⌥⌘↓ | Monter, descendre la section |
 
 **IA**

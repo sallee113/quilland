@@ -26,13 +26,33 @@ final class TreeOutlineView: NSOutlineView {
 final class StructureTreeController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTextFieldDelegate, NSMenuDelegate {
     final class Item {
         let node: BookStructure.Node
+        /// A row for a subsection of a scene (the part of its text between two markers): not a section of the files, so its node is made here.
+        let subsection: Subsection?
         let children: [Item]
-        init(_ node: BookStructure.Node) {
+        init(_ node: BookStructure.Node, subsections: (String) -> [Subsection]) {
             self.node = node
-            children = node.children.map(Item.init)
+            subsection = nil
+            children = node.kind == .scene ? subsections(node.id).map { Item(subsection: $0) } : node.children.map { Item($0, subsections: subsections) }
+        }
+        init(subsection s: Subsection) {
+            // (The part of a scene before its first marker has no id of its own: its row is told apart from the scene's.)
+            node = BookStructure.Node(id: s.isMarked ? s.id : s.scene + "#start", kind: .subsection, title: s.shownTitle, status: nil, base: "", children: [])
+            subsection = s
+            children = []
         }
         var id: String { node.id }
+        /// A part or a chapter: the rows that open and close.
+        var isContainer: Bool { node.kind == .part || node.kind == .chapter }
     }
+
+    /// The subsections of a scene, for the rows under it (the owner of the book knows them).
+    var subsectionsOf: (String) -> [Subsection] = { _ in [] }
+    /// A subsection was chosen: its scene, and the subsection's id.
+    var onSelectSubsection: ((String, String) -> Void)?
+    /// A subsection was given a title (empty: the first words stand for it again): the scene, the subsection, the title.
+    var onRenameSubsection: ((String, String, String) -> Void)?
+    /// Join with the Previous Subsection, from the context menu: the scene and the subsection.
+    var onJoinSubsection: ((String, String) -> Void)?
 
     private let outline = Hover.rows(TreeOutlineView())
     private let scroll = NSScrollView()
@@ -161,7 +181,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     }
 
     /// Is any part or chapter open?
-    private var anyOpen: Bool { byID.values.contains { $0.node.kind != .scene && outline.isItemExpanded($0) } }
+    private var anyOpen: Bool { byID.values.contains { $0.isContainer && outline.isItemExpanded($0) } }
 
     private func updateFoldButton() {
         let open = anyOpen
@@ -207,14 +227,14 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         let keep = id ?? selectedID
         let open = Set(byID.values.filter { outline.isItemExpanded($0) }.map(\.id))
         reloading = true
-        roots = structure.roots.map(Item.init)
+        roots = structure.roots.map { Item($0, subsections: subsectionsOf) }
         byID = [:]
         func index(_ item: Item) { byID[item.id] = item; item.children.forEach(index) }
         roots.forEach(index)
         outline.reloadData()
         let firstTime = !hasLoaded || expandAll
         hasLoaded = true
-        for item in byID.values where item.node.kind != .scene && (firstTime || open.contains(item.id)) { outline.expandItem(item) }
+        for item in byID.values where (item.isContainer && firstTime) || open.contains(item.id) { outline.expandItem(item) }
         reloading = false
         updateFoldButton()
         if let keep { select(keep, notify: false) }
@@ -223,7 +243,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     // MARK: Where it was left (kept for the book)
 
     /// What was left shut in the tree, and how far it is scrolled.
-    var memory: ViewMemory { ViewMemory(scroll: Double(outline.scrolledBy), closed: byID.values.filter { $0.node.kind != .scene && !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted()) }
+    var memory: ViewMemory { ViewMemory(scroll: Double(outline.scrolledBy), closed: byID.values.filter { $0.isContainer && !$0.children.isEmpty && !outline.isItemExpanded($0) }.map(\.id).sorted()) }
 
     /// Shuts again what was shut when the tree was left (it is made with everything open), keeps the chosen section in view, and scrolls to where it was.
     func restore(_ m: ViewMemory?) {
@@ -263,9 +283,12 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { (item as? Item)?.children.count ?? roots.count }
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any { (item as? Item)?.children[index] ?? roots[index] }
-    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { !((item as? Item)?.children.isEmpty ?? true) || (item as? Item)?.node.kind != .scene }
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { !((item as? Item)?.children.isEmpty ?? true) || (item as? Item)?.isContainer == true }
 
-    private func total(_ item: Item) -> Int { item.node.kind == .scene ? characters(item.id) : item.children.reduce(0) { $0 + total($1) } }
+    private func total(_ item: Item) -> Int {
+        if let s = item.subsection { return s.characters }
+        return item.node.kind == .scene ? characters(item.id) : item.children.reduce(0) { $0 + total($1) }
+    }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         guard let item = item as? Item else { return nil }
@@ -279,8 +302,8 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     func outlineViewSelectionDidChange(_ notification: Notification) {
         guard !reloading else { return }
         if isOutline { onSelectNode?(selectedIDs); return }
-        guard let id = selectedID, let item = byID[id], item.node.kind == .scene else { return }
-        onSelectScene?(id)
+        guard let id = selectedID, let item = byID[id] else { return }
+        if item.node.kind == .scene { onSelectScene?(id) } else if let s = item.subsection { onSelectSubsection?(s.scene, s.id) }
     }
 
     /// The chosen rows, in book order.
@@ -294,7 +317,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     // MARK: Dragging (the Outline)
 
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard isOutline, let item = item as? Item else { return nil }
+        guard isOutline, let item = item as? Item, item.subsection == nil else { return nil }
         let board = NSPasteboardItem()
         board.setString(item.id, forType: Self.dragType)
         return board
@@ -344,6 +367,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         case .scene: guard target?.node.kind == .chapter else { return nil }
         case .chapter: guard target == nil || target?.node.kind == .part else { return nil }
         case .part: guard target == nil else { return nil }
+        case .subsection: return nil   // (a subsection cannot be moved: it stays in its scene's text)
         }
         // Not into itself.
         if let t = target, ids.contains(t.id) { return nil }
@@ -369,7 +393,8 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     func beginRename() {
         let row = outline.selectedRow
         guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? TreeCell else { return }
-        if let id = selectedID, let item = byID[id] { cell.title.stringValue = item.node.title }
+        // (A subsection's title field shows what was typed: empty when the first words stand for it.)
+        if let id = selectedID, let item = byID[id] { cell.title.stringValue = item.subsection?.title ?? item.node.title }
         cell.title.isEditable = true
         view.window?.makeFirstResponder(cell.title)
         cell.title.currentEditor()?.selectAll(nil)
@@ -380,6 +405,12 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
         field.isEditable = false
         let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let cancelled = (obj.userInfo?["NSTextMovement"] as? Int) == NSTextMovement.cancel.rawValue
+        if let s = item.subsection, s.isMarked {
+            field.stringValue = s.shownTitle
+            if !cancelled, text != s.title { onRenameSubsection?(s.scene, s.id, text) }
+            focus()
+            return
+        }
         if cancelled || text.isEmpty || text == item.node.title {
             field.stringValue = item.node.title
         } else {
@@ -391,7 +422,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     // MARK: Keys and clicks
 
     @objc private func clicked() {
-        guard choosesOnClick, let id = selectedID, byID[id]?.node.kind == .scene else { return }
+        guard choosesOnClick, let id = selectedID, let kind = byID[id]?.node.kind, kind == .scene || kind == .subsection else { return }
         onEnterText?()
     }
 
@@ -414,7 +445,7 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     }
 
     @objc private func doubleClicked() {
-        guard let id = selectedID, byID[id]?.node.kind == .scene else { return }
+        guard let id = selectedID, let kind = byID[id]?.node.kind, kind == .scene || kind == .subsection else { return }
         onEnterText?()
     }
 
@@ -450,6 +481,16 @@ final class StructureTreeController: NSViewController, NSOutlineViewDataSource, 
     func buildMenu(into menu: NSMenu) {
         let ids = isOutline ? selectedIDs : [selectedID].compactMap { $0 }
         guard let id = ids.first, let item = byID[id] else { return }
+        if let s = item.subsection {
+            // A subsection: its title, and taking its boundary away. The other commands are about sections of the files.
+            let rename = ClosureMenuItem(title: L("Rename")) { [weak self] in self?.beginRename() }
+            rename.isEnabled = s.isMarked && ids.count == 1
+            menu.addItem(rename)
+            let join = ClosureMenuItem(title: L("Join with the Previous Subsection")) { [weak self] in self?.onJoinSubsection?(s.scene, s.id) }
+            join.isEnabled = s.index > 0 && ids.count == 1
+            menu.addItem(join)
+            return
+        }
         let kinds = Set(ids.compactMap { byID[$0]?.node.kind })
         let single = ids.count == 1
         let oneOnly = L("Choose one section for this.")
@@ -549,7 +590,8 @@ final class TreeCell: NSTableCellView {
 
     func configure(node: BookStructure.Node, count n: Int, note: Bool = false) {
         title.stringValue = note ? node.title + "  ✎" : node.title
-        title.font = node.kind == .scene ? .systemFont(ofSize: 13) : .systemFont(ofSize: 13, weight: node.kind == .part ? .bold : .semibold)
+        title.font = node.kind == .subsection ? .systemFont(ofSize: 12) : (node.kind == .scene ? .systemFont(ofSize: 13) : .systemFont(ofSize: 13, weight: node.kind == .part ? .bold : .semibold))
+        title.textColor = node.kind == .subsection ? .secondaryLabelColor : .labelColor
         count.stringValue = NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal)
         dot.isHidden = node.kind != .scene
         dot.layer?.backgroundColor = SceneHeaderView.color(for: node.status).cgColor

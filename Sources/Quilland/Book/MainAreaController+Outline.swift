@@ -33,13 +33,18 @@ extension MainAreaController {
     func sectionCharacters(_ id: String) -> Int { scenes(under: id).reduce(0) { $0 + (session.document($1.id)?.counts.characters ?? 0) } }
 
     func sectionInfo(_ id: String) -> SectionInfo? {
+        if let sub = subsection(id) {
+            let place = session.structure.scenes.first { $0.id == sub.scene }?.fullPath ?? ""
+            return SectionInfo(id: id, kind: .subsection, title: sub.title, path: place, status: nil, characters: sub.characters, target: nil, synopsis: "", note: "", sceneStatuses: [], sceneCount: 0,
+                               characterNames: [], scene: sub.scene, derivedTitle: sub.derivedTitle)
+        }
         guard let node = findNode(id) else { return nil }
         let entry = session.structure.scenes.first { $0.id == id }
         let path: String
         switch node.kind {
         case .scene: path = entry?.place ?? ""
         case .chapter: path = session.structure.scenes.first { $0.chapterID == id }?.partTitle ?? ""
-        case .part: path = ""
+        case .part, .subsection: path = ""
         }
         let record = BookEditor(structure: session.structure).record(id)
         let list = scenes(under: id)

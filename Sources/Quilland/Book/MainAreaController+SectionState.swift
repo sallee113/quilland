@@ -15,6 +15,8 @@ extension MainAreaController {
         var canMoveTo = false
         var canGroup = false
         var canSplit = false
+        var canDivide = false
+        var canJoinSubsection = false
         var status: String?
     }
 
@@ -62,6 +64,8 @@ extension MainAreaController {
         if mode != .outline, mode != .plan, mode != .characters, mode != .world, mode != .events, mode != .research, mode != .reminders,
            let area = controllers.first(where: { $0.currentSceneID != nil }), let id = area.currentSceneID, let doc = session.document(id), let tv = area.currentSheet?.textView {
             state.canSplit = Self.splitCut(in: doc.storage.string as NSString, caret: tv.selectedRange().location) != nil
+            state.canDivide = subsectionCut(in: id, caret: tv.selectedRange().location) != nil
+            state.canJoinSubsection = (subsection(inScene: id, at: tv.selectedRange().location)?.index ?? 0) > 0
         }
         return state
     }

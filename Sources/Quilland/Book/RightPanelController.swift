@@ -67,6 +67,14 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
     private let writeButton = NSButton(title: L("Write with AI"), target: nil, action: nil)
     let note = NSTextView()
     let narratorButton = NarratorButton()
+    /// The subsection the cursor is in (when the scene is divided): its title and its narrator.
+    let subsectionTitle = NSTextField()
+    let subsectionNarrator = NarratorButton()
+    private let subsectionRow = NSStackView()
+    private(set) var shownSubsection: Subsection?
+    /// The subsection the cursor is in now (the owner of the book knows the text).
+    var currentSubsection: () -> Subsection? = { nil }
+    var onRenameSubsection: ((String, String, String) -> Void)?
     private var dirty: Set<String> = []
     private var saveTimer: Timer?
 
@@ -200,7 +208,13 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         let synopsisRow = NSStackView(views: [label(L("Synopsis")), writeButton])
         synopsisRow.spacing = 10
         let narratorRow = NSStackView(views: [label(L("Narrator")), narratorButton]); narratorRow.spacing = 8
-        stack([titleLabel, pathLabel, infoLabel, narratorRow, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places in this scene")), placesLabel], in: sectionView)
+        subsectionTitle.controlSize = .small; subsectionTitle.font = .systemFont(ofSize: 12)
+        subsectionTitle.setAccessibilityLabel(L("Subsection")); subsectionTitle.delegate = self
+        subsectionTitle.translatesAutoresizingMaskIntoConstraints = false
+        subsectionTitle.widthAnchor.constraint(equalToConstant: 150).isActive = true
+        subsectionRow.setViews([label(L("Subsection")), subsectionTitle, subsectionNarrator], in: .leading)
+        subsectionRow.spacing = 8; subsectionRow.isHidden = true
+        stack([titleLabel, pathLabel, infoLabel, narratorRow, subsectionRow, synopsisRow, boxed(synopsis, height: 120), label(L("Note")), boxed(note, height: 90), label(L("Characters in this scene")), inSceneLabel, label(L("Places in this scene")), placesLabel], in: sectionView)
     }
 
     @objc private func writePressed() { onWriteSynopsis?() }
@@ -344,6 +358,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             found = SceneMembers.characters(inScene: id, text: sceneText(id), store: characterStore)
             narratorButton.connect(to: characterStore) { [weak self] in NotificationCenter.default.post(name: .bookDataChanged, object: nil); self?.onChange?() }
             narratorButton.show(scene: id)
+            updateSubsectionRow()
             let names = characterStore.characters.filter { found.contains($0.id ?? "") }.compactMap(\.name)
             inSceneLabel.stringValue = names.isEmpty ? L("None found") : names.joined(separator: ", ")
             placesLabel.stringValue = placesFound(in: id)
@@ -353,11 +368,25 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
             setText(synopsis, ""); setText(note, "")
             synopsis.isEditable = false; note.isEditable = false
             narratorButton.show(scene: nil)
+            shownSubsection = nil; subsectionRow.isHidden = true
         }
         reloadCharacters()
         if shownTab == .world { worldTab.refresh(scene: shownScene) }
         if shownTab == .events { eventsTab.refresh(scene: shownScene) }
         if shownTab == .research { researchTab.refresh(scene: shownScene) }
+    }
+
+    /// The subsection the cursor is in, when the scene shown is divided: its title field (the first words stand in when none is typed) and its narrator.
+    func updateSubsectionRow() {
+        guard isViewLoaded else { return }
+        let sub = currentSubsection().flatMap { $0.scene == shownScene && $0.isMarked ? $0 : nil }
+        shownSubsection = sub
+        subsectionRow.isHidden = sub == nil
+        guard let sub else { return }
+        if subsectionTitle.currentEditor() == nil { subsectionTitle.stringValue = sub.title }
+        subsectionTitle.placeholderString = sub.derivedTitle
+        subsectionNarrator.connect(to: characterStore) { [weak self] in NotificationCenter.default.post(name: .bookDataChanged, object: nil); self?.onChange?() }
+        subsectionNarrator.show(scene: sub.id)
     }
 
     /// The worlds, places and things whose names are in the scene's text (found in any case form, with or without a capital).
@@ -461,7 +490,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         sceneLinkAction = nil
         if let scene = shownScene, let id = selectedCharacter, let c = characterStore.character(id) {
             let byName = SceneMembers.named(entries: characterStore.entries, in: sceneText(scene)).contains(id)
-            if !byName { sceneLinkAction = (c.links[scene] != nil || c.povScenes.contains(scene)) ? .remove : .add }
+            if !byName { sceneLinkAction = (SceneLinks.has(c.links, scene: scene) || c.povScenes.contains { SceneLinks.scene(of: $0) == scene }) ? .remove : .add }
         }
         sceneLinkButton.isHidden = sceneLinkAction == nil
         sceneLinkButton.title = sceneLinkAction == .remove ? L("Remove from This Scene") : L("Add to This Scene")
@@ -474,7 +503,7 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
         guard let scene = shownScene, let id = selectedCharacter else { return }
         switch sceneLinkAction {
         case .add?: try? characterStore.update(id) { var l = $0.links; if l[scene] == nil { l[scene] = "" }; $0.links = l }
-        case .remove?: try? characterStore.update(id) { var l = $0.links; l.removeValue(forKey: scene); $0.links = l; $0.povScenes = $0.povScenes.filter { $0 != scene } }
+        case .remove?: try? characterStore.update(id) { var l = $0.links; l = l.filter { SceneLinks.scene(of: $0.key) != scene }; $0.links = l; $0.povScenes = $0.povScenes.filter { SceneLinks.scene(of: $0) != scene } }
         case nil: return
         }
         refresh()
@@ -529,7 +558,13 @@ final class RightPanelController: NSViewController, NSTextViewDelegate, NSTableV
 
     @objc private func mainChanged() { saveCharacter() }
 
-    func controlTextDidEndEditing(_ obj: Notification) { saveCharacter() }
+    func controlTextDidEndEditing(_ obj: Notification) {
+        if (obj.object as? NSTextField) === subsectionTitle {
+            if let sub = shownSubsection { let text = subsectionTitle.stringValue.trimmingCharacters(in: .whitespacesAndNewlines); if text != sub.title { onRenameSubsection?(sub.scene, sub.id, text) } }
+            return
+        }
+        saveCharacter()
+    }
 
     /// Writes the card to the character's file, then lists the characters again.
     func saveCharacter() {

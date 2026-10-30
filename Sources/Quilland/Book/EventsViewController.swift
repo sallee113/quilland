@@ -570,7 +570,7 @@ final class EventsViewController: NSViewController, NSTableViewDataSource, NSTab
         var rows: [EventConnection] = []
         let sceneTitles = Dictionary(uniqueKeysWithValues: scenes().map { ($0.id, $0.title) })
         // (The default event, "Book starts", holds relationships only.)
-        for scene in sceneOrder where e.links[scene] != nil && !e.start {
+        for scene in sceneOrder where e.links[scene] != nil && !e.start {   // (the scenes, and the subsections after them)
             rows.append(EventConnection(kind: .scene, refID: scene, name: sceneTitles[scene] ?? "", text: e.links[scene] ?? "", missing: false))
         }
         for (key, text) in e.links.sorted(by: { $0.key < $1.key }) where sceneTitles[key] == nil && !e.start {
